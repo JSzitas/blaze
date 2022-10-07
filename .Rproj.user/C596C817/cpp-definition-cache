@@ -1,0 +1,379 @@
+[
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/boxcox.h",
+        "file_last_write": 1665138998.0,
+        "definitions": [
+            {
+                "usr": "c:@FT@>1#Tsmall_max#t0.0#S0_#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "small_max(T, T)",
+                "file": "/home/jsco/Desktop/fasttbats/src/boxcox.h",
+                "line": 6,
+                "column": 25
+            },
+            {
+                "usr": "c:@FT@>1#Tlambda_coef#&>@N@std@ST>2#T#T@vector2t0.0>@N@std@ST>1#T@allocator1S2_#S2_#I#S2_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "lambda_coef(std::vector<NumKind> &, NumKind, int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/boxcox.h",
+                "line": 13,
+                "column": 44
+            },
+            {
+                "usr": "c:@ST>1#T@box_cox_obj_wrap",
+                "kind": 2,
+                "parent_name": "",
+                "name": "box_cox_obj_wrap<T>",
+                "file": "/home/jsco/Desktop/fasttbats/src/boxcox.h",
+                "line": 67,
+                "column": 30
+            },
+            {
+                "usr": "c:@ST>1#T@box_cox_obj_wrap@F@operator()#t0.0#",
+                "kind": 7,
+                "parent_name": "box_cox_obj_wrap<T>",
+                "name": "operator(T)",
+                "file": "/home/jsco/Desktop/fasttbats/src/boxcox.h",
+                "line": 69,
+                "column": 5
+            }
+        ]
+    },
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/code.cpp",
+        "file_last_write": 1664920288.0,
+        "definitions": []
+    },
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/debug.cpp",
+        "file_last_write": 1665140101.0,
+        "definitions": [
+            {
+                "usr": "c:@F@some_fun#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#d#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "some_fun(std::vector<double> &, double, int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/debug.cpp",
+                "line": 8,
+                "column": 8
+            },
+            {
+                "usr": "c:@F@particle_solver_bc#$@N@std@S@vector>#d#$@N@std@S@allocator>#d#d#d#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "particle_solver_bc(std::vector<double>, double, double, int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/debug.cpp",
+                "line": 16,
+                "column": 8
+            },
+            {
+                "usr": "c:@F@debug_all_same#d#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "debug_all_same(double, double)",
+                "file": "/home/jsco/Desktop/fasttbats/src/debug.cpp",
+                "line": 30,
+                "column": 6
+            }
+        ]
+    },
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+        "file_last_write": 1665008329.0,
+        "definitions": [
+            {
+                "usr": "c:@F@bitwise_rotate#l#I#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "bitwise_rotate(uint64_t, int, int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 7,
+                "column": 10
+            },
+            {
+                "usr": "c:@S@halton",
+                "kind": 3,
+                "parent_name": "",
+                "name": "halton",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 11,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@halton@F@yield#",
+                "kind": 7,
+                "parent_name": "halton",
+                "name": "yield",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 19,
+                "column": 9
+            },
+            {
+                "usr": "c:@S@halton@F@set#f#",
+                "kind": 7,
+                "parent_name": "halton",
+                "name": "set(float)",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 34,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@halton@F@reset#",
+                "kind": 7,
+                "parent_name": "halton",
+                "name": "reset",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 41,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@recurrent",
+                "kind": 3,
+                "parent_name": "",
+                "name": "recurrent",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 53,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@recurrent@F@yield#",
+                "kind": 7,
+                "parent_name": "recurrent",
+                "name": "yield",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 66,
+                "column": 10
+            },
+            {
+                "usr": "c:@S@recurrent@F@reset#",
+                "kind": 7,
+                "parent_name": "recurrent",
+                "name": "reset",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 72,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@splitmix",
+                "kind": 3,
+                "parent_name": "",
+                "name": "splitmix",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 88,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@splitmix@F@yield#",
+                "kind": 7,
+                "parent_name": "splitmix",
+                "name": "yield",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 92,
+                "column": 9
+            },
+            {
+                "usr": "c:@S@splitmix@F@yield_init#",
+                "kind": 7,
+                "parent_name": "splitmix",
+                "name": "yield_init",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 98,
+                "column": 7
+            },
+            {
+                "usr": "c:@S@splitmix@F@set#l#",
+                "kind": 7,
+                "parent_name": "splitmix",
+                "name": "set(uint64_t)",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 104,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@xoshiro",
+                "kind": 3,
+                "parent_name": "",
+                "name": "xoshiro",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 111,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@xoshiro@F@yield#",
+                "kind": 7,
+                "parent_name": "xoshiro",
+                "name": "yield",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 120,
+                "column": 10
+            },
+            {
+                "usr": "c:@S@xoshiro@F@reset#",
+                "kind": 7,
+                "parent_name": "xoshiro",
+                "name": "reset",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 134,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@xoshiro@F@set#l#l#l#l#",
+                "kind": 7,
+                "parent_name": "xoshiro",
+                "name": "set(uint64_t, uint64_t, uint64_t, uint64_t)",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 142,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@xoshiro@F@rol64#l#I#",
+                "kind": 7,
+                "parent_name": "xoshiro",
+                "name": "rol64(uint64_t, int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 152,
+                "column": 14
+            },
+            {
+                "usr": "c:@S@xorshift",
+                "kind": 3,
+                "parent_name": "",
+                "name": "xorshift",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 159,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@xorshift@F@yield#",
+                "kind": 7,
+                "parent_name": "xorshift",
+                "name": "yield",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 165,
+                "column": 10
+            },
+            {
+                "usr": "c:@S@xorshift@F@reset#",
+                "kind": 7,
+                "parent_name": "xorshift",
+                "name": "reset",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 175,
+                "column": 8
+            },
+            {
+                "usr": "c:@S@xorshift@F@set#l#l#",
+                "kind": 7,
+                "parent_name": "xorshift",
+                "name": "set(uint64_t, uint64_t)",
+                "file": "/home/jsco/Desktop/fasttbats/src/rng.h",
+                "line": 180,
+                "column": 8
+            }
+        ]
+    },
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/solvers.h",
+        "file_last_write": 1665139604.0,
+        "definitions": [
+            {
+                "usr": "c:@FT@>2#T#Tsecant#&1t0.0#&t0.1#S2_#S2_#S3_#S3_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "secant(const ObjectiveFun &, T &, T &, T &, T)",
+                "file": "/home/jsco/Desktop/fasttbats/src/solvers.h",
+                "line": 9,
+                "column": 45
+            },
+            {
+                "usr": "c:@FT@>1#Tbetween#&t0.0#S0_#S0_#b#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "between(T &, T &, T &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/solvers.h",
+                "line": 23,
+                "column": 28
+            },
+            {
+                "usr": "c:@FT@>1#Tnudge#&>@N@std@ST>2#T#T@vector2t0.0>@N@std@ST>1#T@allocator1S2_#&1S1_#v#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "nudge(std::vector<T> &, const std::vector<T> &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/solvers.h",
+                "line": 30,
+                "column": 28
+            },
+            {
+                "usr": "c:@FT@>2#T#Tparticle_drainer#&t0.0#&>@N@std@ST>2#T#T@vector2t0.1>@N@std@ST>1#T@allocator1S4_#S4_#S4_#I#S4_#I#S4_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "particle_drainer(ObjectiveFun &, std::vector<NumType> &, NumType, NumType, int, NumType, int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/solvers.h",
+                "line": 51,
+                "column": 44
+            }
+        ]
+    },
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
+        "file_last_write": 1665140258.0,
+        "definitions": [
+            {
+                "usr": "c:@FT@>1#Tabs#t0.0#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "abs(T)",
+                "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
+                "line": 4,
+                "column": 25
+            },
+            {
+                "usr": "c:@FT@>1#Tis_same#&t0.0#S0_#S1_#b#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "is_same(T &, T &, T)",
+                "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
+                "line": 15,
+                "column": 28
+            },
+            {
+                "usr": "c:@FT@>2#T#Tall_const#&t0.0#t0.1#b#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "all_const(T &, U)",
+                "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
+                "line": 19,
+                "column": 37
+            },
+            {
+                "usr": "c:@FT@>2#T#Trunif#&t0.0#S0_#&t0.1#S1_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "runif(T &, T &, Generator &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
+                "line": 28,
+                "column": 42
+            },
+            {
+                "usr": "c:@FT@>2#T#Tmap#&t0.0#&t0.1#S1_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "map(T &, F &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
+                "line": 33,
+                "column": 31
+            },
+            {
+                "usr": "c:@FT@>1#Tmean#&>@N@std@ST>2#T#T@vector2t0.0>@N@std@ST>1#T@allocator1S2_#S2_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "mean(std::vector<T> &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
+                "line": 42,
+                "column": 25
+            }
+        ]
+    }
+]
