@@ -3,6 +3,7 @@ using namespace Rcpp;
 
 #include "boxcox.h"
 #include "solvers.h"
+#include "utils.h"
 
 // [[Rcpp::export]]
 double some_fun( std::vector<double> &x,
@@ -26,13 +27,14 @@ double particle_solver_bc( std::vector<double> x,
   return particle_drainer( f_wrapper, x, lower, upper, n_particles);
 }
 
-// [[Rcpp::export]]
-void debug_all_same( double x, double y) {//std::vector<double> x) {
-  // auto val = all_const(x, 0.0001);
-
-  auto val = is_same( x,y );
-
-  std::cout << "Are all same? " << val << std::endl;
-}
+// void debug_all_same( std::vector<double> x) {
+//   auto val = all_const(x, 0.0001);
+//
+//   // std::cout << "Abs: " << abs(x) << std::endl;
+//
+//   // auto val = is_same( x,y );
+//
+//   std::cout << "Are all same? " << val << std::endl;
+// }
 
 

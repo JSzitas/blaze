@@ -8,12 +8,8 @@ template <typename T> T abs( T x) {
   return x;
 }
 
-// template <typename T> T abs_diff( T &a, T &b ) {
-//   return ((T)abs(a - b));
-// }
-
 template <typename T> bool is_same( T &a, T &b, T tol = 0.000001 ) {
-  return ((T)abs(a - b)) < tol;
+  return abs(a - b) < tol;
 }
 
 template <class T, typename U> bool all_const( T &a, U tol ) {

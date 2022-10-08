@@ -65,25 +65,10 @@ template <class ObjectiveFun,
     while(iter <= max_iter) {
       // get particle scores
       scores = map(particles, f);
-      // for( auto &particle:scores ) {
-      //   std::cout << particle << " ";
-      // }
-      // std::cout << " " << std::endl;
-
-      for( auto &particle:particles ) {
-        std::cout << particle << " ";
-      }
-      std::cout << " - pre nudge. " << std::endl;
-
       // update particles by "nudging" them towards the best particle
       // this works by reference - hence particles get updated
       nudge( particles, scores);
-      for( auto &particle:particles ) {
-        std::cout << particle << " ";
-      }
-      std::cout << " - post nudge." << std::endl;
       if( all_const( particles, tol ) ) {
-        std::cout << "Are all same." << std::endl;
         break;
       }
       iter++;
