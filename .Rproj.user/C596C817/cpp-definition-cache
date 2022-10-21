@@ -1,5 +1,10 @@
 [
     {
+        "file": "/home/jsco/Desktop/fasttbats/src/arima.cpp",
+        "file_last_write": 1666215859.0,
+        "definitions": []
+    },
+    {
         "file": "/home/jsco/Desktop/fasttbats/src/boxcox.h",
         "file_last_write": 1665138998.0,
         "definitions": [
@@ -42,13 +47,8 @@
         ]
     },
     {
-        "file": "/home/jsco/Desktop/fasttbats/src/code.cpp",
-        "file_last_write": 1664920288.0,
-        "definitions": []
-    },
-    {
         "file": "/home/jsco/Desktop/fasttbats/src/debug.cpp",
-        "file_last_write": 1665140101.0,
+        "file_last_write": 1666310737.0,
         "definitions": [
             {
                 "usr": "c:@F@some_fun#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#d#I#",
@@ -56,7 +56,7 @@
                 "parent_name": "",
                 "name": "some_fun(std::vector<double> &, double, int)",
                 "file": "/home/jsco/Desktop/fasttbats/src/debug.cpp",
-                "line": 8,
+                "line": 13,
                 "column": 8
             },
             {
@@ -65,17 +65,269 @@
                 "parent_name": "",
                 "name": "particle_solver_bc(std::vector<double>, double, double, int)",
                 "file": "/home/jsco/Desktop/fasttbats/src/debug.cpp",
-                "line": 16,
+                "line": 21,
                 "column": 8
             },
             {
-                "usr": "c:@F@debug_all_same#d#d#",
+                "usr": "c:@F@test_polyroot_abs#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#",
                 "kind": 6,
                 "parent_name": "",
-                "name": "debug_all_same(double, double)",
+                "name": "test_polyroot_abs(std::vector<double> &)",
                 "file": "/home/jsco/Desktop/fasttbats/src/debug.cpp",
+                "line": 78,
+                "column": 21
+            }
+        ]
+    },
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+        "file_last_write": 1665356594.0,
+        "definitions": [
+            {
+                "usr": "c:@N@small_lm@FT@>1#Tinner_product#&1>@N@std@ST>2#T#T@vector2t0.0>@N@std@ST>1#T@allocator1S2_#S0_#S2_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "inner_product(const std::vector<T> &, const std::vector<T> &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 6,
+                "column": 25
+            },
+            {
+                "usr": "c:@N@small_lm@ST>1#T@Matrix",
+                "kind": 2,
+                "parent_name": "",
+                "name": "Matrix<T>",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 15,
+                "column": 30
+            },
+            {
+                "usr": "c:@N@small_lm@ST>1#T@Matrix@F@col#I#",
+                "kind": 7,
+                "parent_name": "Matrix<T>",
+                "name": "col(int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 22,
+                "column": 18
+            },
+            {
+                "usr": "c:@N@small_lm@ST>1#T@Matrix@F@row#I#",
+                "kind": 7,
+                "parent_name": "Matrix<T>",
+                "name": "row(int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
                 "line": 30,
+                "column": 18
+            },
+            {
+                "usr": "c:@N@small_lm@ST>1#T@Matrix@F@elem#I#",
+                "kind": 7,
+                "parent_name": "Matrix<T>",
+                "name": "elem(int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 40,
+                "column": 5
+            },
+            {
+                "usr": "c:@N@small_lm@ST>1#T@Matrix@F@t#",
+                "kind": 7,
+                "parent_name": "Matrix<T>",
+                "name": "t",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 43,
+                "column": 8
+            },
+            {
+                "usr": "c:@N@small_lm@ST>1#T@Matrix@F@nrow#",
+                "kind": 7,
+                "parent_name": "Matrix<T>",
+                "name": "nrow",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 47,
+                "column": 7
+            },
+            {
+                "usr": "c:@N@small_lm@ST>1#T@Matrix@F@ncol#",
+                "kind": 7,
+                "parent_name": "Matrix<T>",
+                "name": "ncol",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 48,
+                "column": 7
+            },
+            {
+                "usr": "c:@N@small_lm@ST>1#T@Matrix@F@size#",
+                "kind": 7,
+                "parent_name": "Matrix<T>",
+                "name": "size",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 49,
+                "column": 7
+            },
+            {
+                "usr": "c:@N@small_lm@FT@>1#Toperator*#>@N@small_lm@ST>1#T@Matrix1t0.0#S0_#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "operator*(Matrix<T>, Matrix<T>)",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 57,
+                "column": 33
+            },
+            {
+                "usr": "c:@N@small_lm@FT@>1#Tcholesky#>@N@small_lm@ST>1#T@Matrix1t0.0#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "cholesky(Matrix<T>)",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 73,
+                "column": 33
+            },
+            {
+                "usr": "c:@N@small_lm@FT@>1#Tlm#&>@N@std@ST>2#T#T@vector2t0.0>@N@std@ST>1#T@allocator1S2_#&>@N@small_lm@ST>1#T@Matrix1S2_#S1_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "lm(std::vector<T> &, Matrix<T> &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/lm.h",
+                "line": 117,
+                "column": 38
+            }
+        ]
+    },
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/new_arima.cpp",
+        "file_last_write": 1666310838.0,
+        "definitions": [
+            {
+                "usr": "c:@F@parameter_transform#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "parameter_transform(std::vector<double> &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/new_arima.cpp",
+                "line": 8,
+                "column": 21
+            },
+            {
+                "usr": "c:@F@inv_parameter_transform#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "inv_parameter_transform(std::vector<double> &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/new_arima.cpp",
+                "line": 39,
+                "column": 21
+            },
+            {
+                "usr": "c:@F@ts_conv#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "ts_conv(std::vector<double> &, std::vector<double> &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/new_arima.cpp",
+                "line": 73,
+                "column": 21
+            },
+            {
+                "usr": "c:@F@ar_check#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "ar_check(std::vector<double> &, double)",
+                "file": "/home/jsco/Desktop/fasttbats/src/new_arima.cpp",
+                "line": 103,
                 "column": 6
+            }
+        ]
+    },
+    {
+        "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+        "file_last_write": 1666310609.0,
+        "definitions": [
+            {
+                "usr": "c:@F@rpoly#*d#I#S0_#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "rpoly(double *, int, double *, double *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 47,
+                "column": 5
+            },
+            {
+                "usr": "c:@F@fxshfr#I#*I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "fxshfr(int, int *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 267,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@quadit#*d#S0_#*I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "quadit(double *, double *, int *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 380,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@realit#d#*I#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "realit(double, int *, int *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 462,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@calcsc#*I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "calcsc(int *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 550,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@nextk#*I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "nextk(int *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 585,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@newest#I#*d#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "newest(int, double *, double *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 623,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@quadsd#I#*d#S0_#S0_#S0_#S0_#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "quadsd(int, double *, double *, double *, double *, double *, double *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 663,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@quad#d#d#d#*d#S0_#S0_#S0_#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "quad(double, double, double, double *, double *, double *, double *)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 685,
+                "column": 6
+            },
+            {
+                "usr": "c:@F@polyroot#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "polyroot(std::vector<double> &)",
+                "file": "/home/jsco/Desktop/fasttbats/src/poly.h",
+                "line": 740,
+                "column": 35
             }
         ]
     },
@@ -276,7 +528,7 @@
     },
     {
         "file": "/home/jsco/Desktop/fasttbats/src/solvers.h",
-        "file_last_write": 1665139604.0,
+        "file_last_write": 1665262591.0,
         "definitions": [
             {
                 "usr": "c:@FT@>2#T#Tsecant#&1t0.0#&t0.1#S2_#S2_#S3_#S3_#",
@@ -317,8 +569,23 @@
         ]
     },
     {
+        "file": "/home/jsco/Desktop/fasttbats/src/tseries_arma.cpp",
+        "file_last_write": 1665845361.0,
+        "definitions": [
+            {
+                "usr": "c:@F@tseries_arma#&$@N@std@S@vector>#d#$@N@std@S@allocator>#d#S0_#S0_#$@N@std@S@vector>#I#$@N@std@S@allocator>#I#S3_#I#I#I#I#I#",
+                "kind": 6,
+                "parent_name": "",
+                "name": "tseries_arma(std::vector<double> &, std::vector<double> &, std::vector<double> &, std::vector<int>, std::vector<int>, int, int, int, int, int)",
+                "file": "/home/jsco/Desktop/fasttbats/src/tseries_arma.cpp",
+                "line": 15,
+                "column": 6
+            }
+        ]
+    },
+    {
         "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
-        "file_last_write": 1665140258.0,
+        "file_last_write": 1665262591.0,
         "definitions": [
             {
                 "usr": "c:@FT@>1#Tabs#t0.0#S0_#",
@@ -335,7 +602,7 @@
                 "parent_name": "",
                 "name": "is_same(T &, T &, T)",
                 "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
-                "line": 15,
+                "line": 11,
                 "column": 28
             },
             {
@@ -344,7 +611,7 @@
                 "parent_name": "",
                 "name": "all_const(T &, U)",
                 "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
-                "line": 19,
+                "line": 15,
                 "column": 37
             },
             {
@@ -353,7 +620,7 @@
                 "parent_name": "",
                 "name": "runif(T &, T &, Generator &)",
                 "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
-                "line": 28,
+                "line": 24,
                 "column": 42
             },
             {
@@ -362,7 +629,7 @@
                 "parent_name": "",
                 "name": "map(T &, F &)",
                 "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
-                "line": 33,
+                "line": 29,
                 "column": 31
             },
             {
@@ -371,7 +638,7 @@
                 "parent_name": "",
                 "name": "mean(std::vector<T> &)",
                 "file": "/home/jsco/Desktop/fasttbats/src/utils.h",
-                "line": 42,
+                "line": 38,
                 "column": 25
             }
         ]

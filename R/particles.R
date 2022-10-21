@@ -32,7 +32,7 @@ swarm_drainer <- function( fun, lower, upper, n_particles = 100, tol = 0.001, ma
 good_fun <- function( x ){ -x^7-2.3*x^6-x^5-3*x^4+12/17*x^3-1/9*x^2+1/9*x * sign( x^3 ) }
 
 # animate particles
-swarm_drainer( good_fun, -20, 20, n_particles = 100, tol = 0.0001, max_iter = 250 ) -> rs
+swarm_drainer( lambda_coef_var, -20, 20, n_particles = 100, tol = 0.0001, max_iter = 250 ) -> rs
 
 df <- rs[["parts"]]
 df <- as.data.frame(na.omit(df))
