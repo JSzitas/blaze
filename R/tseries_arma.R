@@ -28,11 +28,20 @@ maInvert <- function(ma) {
 
 
 
-arima <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
-                                                              0L, 0L), period = NA), xreg = NULL, include.mean = TRUE,
-          transform.pars = TRUE, fixed = NULL, init = NULL, method = c("CSS-ML",
-                                                                       "ML", "CSS"), n.cond, SSinit = c("Gardner1980", "Rossignol2011"),
-          optim.method = "BFGS", optim.control = list(), kappa = 1e+06)
+arima <- function (x,
+                   order = c(0L, 0L, 0L),
+                   seasonal = list(order = c(0L, 0L, 0L), period = NA),
+                   xreg = NULL,
+                   include.mean = TRUE,
+                   transform.pars = TRUE,
+                   fixed = NULL,
+                   init = NULL,
+                   method = c("CSS-ML", "ML", "CSS"),
+                   n.cond,
+                   SSinit = c("Gardner1980", "Rossignol2011"),
+                   optim.method = "BFGS",
+                   optim.control = list(),
+                   kappa = 1e+06)
 {
   "%+%" <- function(a, b) .Call(C_TSconv, a, b)
   SSinit <- match.arg(SSinit)
