@@ -51,7 +51,6 @@ private:
   std::vector<T> X;
   int n_col;
   int n_row;
-  int size;
 };
 
 template <typename T> Matrix<T> operator *( Matrix<T> X, Matrix<T> Y ) {

@@ -43,5 +43,13 @@ template <typename T> T mean( std::vector<T> & x ) {
   return result/(T)x.size();
 }
 
+template <class T> void print_vector( T& a ) {
+  for(int i=0; i < (a.size()-1); i++) {
+    std::cout << a[i] << ", ";
+  }
+  std::cout << a[(a.size()-1)] << std::endl;
+}
+
+
 
 #endif

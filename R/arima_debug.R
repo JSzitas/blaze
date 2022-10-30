@@ -1,49 +1,10 @@
-arimaSS <- function(y, mod) {
-  .Call(C_ARIMA_Like, y, mod, 0L, TRUE)
-}
-
-arCheck <- function(ar) {
-  p <- max(which(c(1, -ar) != 0)) - 1
-  if (!p)
-    return(TRUE)
-  all(Mod(polyroot(c(1, -ar[1L:p]))) > 1)
-}
-maInvert <- function(ma) {
-  q <- length(ma)
-  q0 <- max(which(c(1, ma) != 0)) - 1L
-  if (!q0)
-    return(ma)
-  roots <- polyroot(c(1, ma[1L:q0]))
-  ind <- Mod(roots) < 1
-  if (all(!ind))
-    return(ma)
-  if (q0 == 1)
-    return(c(1/ma[1L], rep.int(0, q - q0)))
-  roots[ind] <- 1/roots[ind]
-  x <- 1
-  for (r in roots) x <- c(x, 0) - c(0, x)/r
-  c(Re(x[-1L]), rep.int(0, q - q0))
-}
-
-
-
-
-arima <- function (x,
-                   order = c(0L, 0L, 0L),
-                   seasonal = list(order = c(0L, 0L, 0L), period = NA),
-                   xreg = NULL,
-                   include.mean = TRUE,
-                   transform.pars = TRUE,
-                   fixed = NULL,
-                   init = NULL,
-                   method = c("CSS-ML", "ML", "CSS"),
-                   n.cond,
-                   SSinit = c("Gardner1980", "Rossignol2011"),
-                   optim.method = "BFGS",
-                   optim.control = list(),
-                   kappa = 1e+06)
+arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
+                                                                        0L, 0L), period = NA), xreg = NULL, include.mean = TRUE,
+                    transform.pars = TRUE, fixed = NULL, init = NULL, method = c("CSS-ML",
+                                                                                 "ML", "CSS"), n.cond, SSinit = c("Gardner1980", "Rossignol2011"),
+                    optim.method = "BFGS", optim.control = list(), kappa = 1e+06)
 {
-  "%+%" <- function(a, b) .Call(C_TSconv, a, b)
+  "%+%" <- function(a, b) .Call(stats:::C_TSconv, a, b)
   SSinit <- match.arg(SSinit)
   SS.G <- SSinit == "Gardner1980"
   upARIMA <- function(mod, phi, theta) {
@@ -56,36 +17,62 @@ arima <- function (x,
       mod$T[1L:p, 1L] <- phi
     if (r > 1L)
       mod$Pn[1L:r, 1L:r] <- if (SS.G)
-        .Call(C_getQ0, phi, theta)
-    else .Call(C_getQ0bis, phi, theta, tol = 0)
+        .Call(stats:::C_getQ0, phi, theta)
+    else .Call(stats:::C_getQ0bis, phi, theta, tol = 0)
     else mod$Pn[1L, 1L] <- if (p > 0)
       1/(1 - phi^2)
     else 1
     mod$a[] <- 0
     mod
   }
+  arimaSS <- function(y, mod) {
+    .Call(stats:::C_ARIMA_Like, y, mod, 0L, TRUE)
+  }
   armafn <- function(p, trans) {
     par <- coef
     par[mask] <- p
-    trarma <- .Call(C_ARIMA_transPars, par, arma, trans)
+    debug_arima_trans_pars <<- list(par, arma, trans)
+    trarma <- .Call(stats:::C_ARIMA_transPars, par, arma, trans)
     if (is.null(Z <- tryCatch(upARIMA(mod, trarma[[1L]],
                                       trarma[[2L]]), error = function(e) NULL)))
       return(.Machine$double.xmax)
     if (ncxreg > 0)
       x <- x - xreg %*% par[narma + (1L:ncxreg)]
-    res <- .Call(C_ARIMA_Like, x, Z, 0L, FALSE)
+    res <- .Call(stats:::C_ARIMA_Like, x, Z, 0L, FALSE)
     s2 <- res[1L]/res[3L]
     0.5 * (log(s2) + res[2L]/res[3L])
   }
   armaCSS <- function(p) {
     par <- as.double(fixed)
     par[mask] <- p
-    trarma <- .Call(C_ARIMA_transPars, par, arma, FALSE)
+    trarma <- .Call(stats:::C_ARIMA_transPars, par, arma, FALSE)
     if (ncxreg > 0)
       x <- x - xreg %*% par[narma + (1L:ncxreg)]
-    res <- .Call(C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
+    res <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
                  as.integer(ncond), FALSE)
     0.5 * log(res)
+  }
+  arCheck <- function(ar) {
+    p <- max(which(c(1, -ar) != 0)) - 1
+    if (!p)
+      return(TRUE)
+    all(Mod(polyroot(c(1, -ar[1L:p]))) > 1)
+  }
+  maInvert <- function(ma) {
+    q <- length(ma)
+    q0 <- max(which(c(1, ma) != 0)) - 1L
+    if (!q0)
+      return(ma)
+    roots <- polyroot(c(1, ma[1L:q0]))
+    ind <- Mod(roots) < 1
+    if (all(!ind))
+      return(ma)
+    if (q0 == 1)
+      return(c(1/ma[1L], rep.int(0, q - q0)))
+    roots[ind] <- 1/roots[ind]
+    x <- 1
+    for (r in roots) x <- c(x, 0) - c(0, x)/r
+    c(Re(x[-1L]), rep.int(0, q - q0))
   }
   series <- deparse1(substitute(x))
   if (NCOL(x) > 1L)
@@ -226,7 +213,7 @@ arima <- function (x,
         if (!arCheck(init[sum(arma[1L:2L]) + 1L:arma[3L]]))
           stop("non-stationary seasonal AR part")
       if (transform.pars)
-        init <- .Call(C_ARIMA_Invtrans, as.double(init),
+        init <- .Call(stats:::C_ARIMA_Invtrans, as.double(init),
                       arma)
     }
   }
@@ -243,13 +230,13 @@ arima <- function (x,
       warning(gettextf("possible convergence problem: optim gave code = %d",
                        res$convergence), domain = NA)
     coef[mask] <- res$par
-    trarma <- .Call(C_ARIMA_transPars, coef, arma, FALSE)
+    trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma, FALSE)
     mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
                      SSinit)
     if (ncxreg > 0)
       x <- x - xreg %*% coef[narma + (1L:ncxreg)]
     arimaSS(x, mod)
-    val <- .Call(C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
+    val <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
                  as.integer(ncond), TRUE)
     sigma2 <- val[[1L]]
     var <- if (no.optim)
@@ -273,7 +260,7 @@ arima <- function (x,
       ncond <- 0L
     }
     if (transform.pars) {
-      init <- .Call(C_ARIMA_Invtrans, init, arma)
+      init <- .Call(stats:::C_ARIMA_Invtrans, init, arma)
       if (arma[2L] > 0) {
         ind <- arma[1L] + 1L:arma[2L]
         init[ind] <- maInvert(init[ind])
@@ -283,7 +270,7 @@ arima <- function (x,
         init[ind] <- maInvert(init[ind])
       }
     }
-    trarma <- .Call(C_ARIMA_transPars, init, arma, transform.pars)
+    trarma <- .Call(stats:::C_ARIMA_transPars, init, arma, transform.pars)
     mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
                      SSinit)
     res <- if (no.optim)
@@ -314,15 +301,15 @@ arima <- function (x,
         res$convergence <- oldcode
         coef[mask] <- res$par
       }
-      A <- .Call(C_ARIMA_Gradtrans, as.double(coef), arma)
+      A <- .Call(stats:::C_ARIMA_Gradtrans, as.double(coef), arma)
       A <- A[mask, mask]
       var <- crossprod(A, solve(res$hessian * n.used, A))
-      coef <- .Call(C_ARIMA_undoPars, coef, arma)
+      coef <- .Call(stats:::C_ARIMA_undoPars, coef, arma)
     }
     else var <- if (no.optim)
       numeric()
     else solve(res$hessian * n.used)
-    trarma <- .Call(C_ARIMA_transPars, coef, arma, FALSE)
+    trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma, FALSE)
     mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
                      SSinit)
     val <- if (ncxreg > 0L)

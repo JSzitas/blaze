@@ -214,7 +214,6 @@ std::vector<std::complex<double>> invert_ma_coef_from_roots( std::vector<std::co
   std::vector<std::complex<double>> result(roots.size()+1);
   // set first new coef == 1
   result[0] = 1;
-
   std::vector<std::complex<double>> temp( roots.size()+1);
   for( int i = 0; i < roots.size(); i++ ){
     // take the root
@@ -226,52 +225,143 @@ std::vector<std::complex<double>> invert_ma_coef_from_roots( std::vector<std::co
   return result;
 }
 
-// SEXP ARIMA_transPars(SEXP sin, SEXP sarma, SEXP strans)
-// {
-//   int *arma = INTEGER(sarma), trans = asLogical(strans);
-//   int mp = arma[0], mq = arma[1], msp = arma[2], msq = arma[3],
-//                                                            ns = arma[4], i, j, p = mp + ns * msp, q = mq + ns * msq, v;
-//   double *in = REAL(sin), *params = REAL(sin), *phi, *theta;
-//   SEXP res, sPhi, sTheta;
-//
-//   PROTECT(res = allocVector(VECSXP, 2));
-//   SET_VECTOR_ELT(res, 0, sPhi = allocVector(REALSXP, p));
-//   SET_VECTOR_ELT(res, 1, sTheta = allocVector(REALSXP, q));
-//   phi = REAL(sPhi);
-//   theta = REAL(sTheta);
-//   if (trans) {
-//     int n = mp + mq + msp + msq;
-//
-//     params = (double *) R_alloc(n, sizeof(double));
-//     for (i = 0; i < n; i++) params[i] = in[i];
-//     if (mp > 0) partrans(mp, in, params);
-//     v = mp + mq;
-//     if (msp > 0) partrans(msp, in + v, params + v);
-//   }
-//   if (ns > 0) {
-//     /* expand out seasonal ARMA models */
-//     for (i = 0; i < mp; i++) phi[i] = params[i];
-//     for (i = 0; i < mq; i++) theta[i] = params[i + mp];
-//     for (i = mp; i < p; i++) phi[i] = 0.0;
-//     for (i = mq; i < q; i++) theta[i] = 0.0;
-//     for (j = 0; j < msp; j++) {
-//       phi[(j + 1) * ns - 1] += params[j + mp + mq];
-//       for (i = 0; i < mp; i++)
-//         phi[(j + 1) * ns + i] -= params[i] * params[j + mp + mq];
-//     }
-//     for (j = 0; j < msq; j++) {
-//       theta[(j + 1) * ns - 1] += params[j + mp + mq + msp];
-//       for (i = 0; i < mq; i++)
-//         theta[(j + 1) * ns + i] += params[i + mp] *
-//           params[j + mp + mq + msp];
-//     }
-//   } else {
-//     for (i = 0; i < mp; i++) phi[i] = params[i];
-//     for (i = 0; i < mq; i++) theta[i] = params[i + mp];
-//   }
-//   UNPROTECT(1);
-//   return res;
-// }
+// [[Rcpp::export]]
+std::vector<double> arima_transform_parameters( std::vector<double> coef,
+                                                std::vector<int> arma,
+                                                bool transform = true)
+{
+  // the coefficients are all 'packed in' inside coef - so we have
+  // different types of coefficients. this tells us basically how many
+  // of each type there are
+  int mp = arma[0], mq = arma[1], msp = arma[2], msq = arma[3], ns = arma[4];
+  int p = mp + ns * msp;
+  int q = mq + ns * msq;
+
+  std::vector<double> phi(p);
+  std::vector<double> theta(q);
+  int n = mp + mq + msp + msq;
+  std::vector<double> params(n);
+  int i, j, v;
+  for (i = 0; i < coef.size(); i++) {
+    params[i] = coef[i];
+  }
+
+  if (transform) {
+    std::vector<double> temp(mp);
+    if (mp > 0) {
+      for(i = 0; i < mp; i++) {
+        temp[i] = params[i];
+      }
+      temp = parameter_transform(temp);
+      for(i = 0; i < temp.size(); i++) {
+        params[i] = temp[i];
+      }
+    }
+    v = mp + mq;
+    if (msp > 0) {
+      // this is a transformation over a view
+      // ie parameters v and higher
+      // create a copy
+      temp.resize(msp);
+      // move values to a temporary
+      for( i = v; i < msp; i++ ) {
+        temp[i-v] = coef[i];
+      }
+      // overwrite
+      temp = parameter_transform(temp);
+      // write back to parameters
+      for( i = v; i < msp; i++ ) {
+        params[i] = temp[i-v];
+      }
+    }
+  }
+  if (ns > 0) {
+    /* expand out seasonal ARMA models */
+    for (i = 0; i < mp; i++) {
+      phi[i] = params[i];
+    }
+    for (i = 0; i < mq; i++) {
+      theta[i] = params[i + mp];
+    }
+    for (i = mp; i < p; i++) {
+      phi[i] = 0.0;
+    }
+    for (i = mq; i < q; i++) {
+      theta[i] = 0.0;
+    }
+    for (j = 0; j < msp; j++) {
+      phi[(j + 1) * ns - 1] += params[j + mp + mq];
+      for (i = 0; i < mp; i++) {
+        phi[(j + 1) * ns + i] -= params[i] * params[j + mp + mq];
+      }
+    }
+    for (j = 0; j < msq; j++) {
+      theta[(j + 1) * ns - 1] += params[j + mp + mq + msp];
+      for (i = 0; i < mq; i++) {
+        theta[(j + 1) * ns + i] += params[i + mp] *
+          params[j + mp + mq + msp];
+      }
+    }
+  } else {
+    for(i = 0; i < mp; i++) {
+      phi[i] = params[i];
+    }
+    for(i = 0; i < mq; i++) {
+      theta[i] = params[i + mp];
+    }
+  }
+  // the output is a 2 element list
+  std::vector<double> result(phi.size()+theta.size());
+  for( i = 0; i < p; i++) {
+    result[i] = phi[i];
+  }
+  for( i = p; i < phi.size() + theta.size(); i++) {
+    result[i] = theta[i-p];
+  }
+  return result;
+}
+
+//TODO: test
+// [[Rcpp::export]]
+std::vector<double> arima_inverse_transform_parameters( std::vector<double> coef,
+                                                        std::vector<int> &arma ) {
+
+  // arma contains the arma structure - 3 leading numbers,
+  // number of p parameters (arma[0])
+  // number of q parameters (arma[1])
+  // number of seasonal p parameters (arma[2])
+  // for a function this small, it makes little sense to copy over
+  // std::vector<double> result(coef.size());
+  // for( int i = 0; i < coef.size(); i++) {
+  //   result[i] = coef[i];
+  // }
+  std::vector<double> temp(arma[0]);
+  if (arma[0] > 0) {
+    for( int i = 0; i < arma[0]; i++ ) {
+      temp[i] = coef[i];
+    }
+    temp = parameter_transform(temp);
+    for( int i = 0; i < arma[0]; i++ ) {
+      coef[i] = temp[i];
+    }
+  }
+
+  if( arma[2] > 0 ) {
+    temp.resize(arma[2]);
+    for( int i = (arma[0] + arma[1]); i <coef.size(); i++ ) {
+      temp[i] = coef[i];
+    }
+    temp = parameter_transform(temp);
+    for( int i = (arma[0] + arma[1]); i < coef.size(); i++ ) {
+      coef[i] = temp[i];
+    }
+  }
+  return coef;
+}
+
+
+
+
 
 // SEXP ARIMA_Invtrans(SEXP in, SEXP sarma)
 // {
@@ -286,8 +376,9 @@ std::vector<std::complex<double>> invert_ma_coef_from_roots( std::vector<std::co
 //   if (msp > 0) invpartrans(msp, raw + v, new + v);
 //   return y;
 // }
-//
-// #define eps 1e-3
+
+
+
 // SEXP ARIMA_Gradtrans(SEXP in, SEXP sarma)
 // {
 //   int *arma = INTEGER(sarma), mp = arma[0], mq = arma[1], msp = arma[2],
