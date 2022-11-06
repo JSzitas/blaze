@@ -3,28 +3,29 @@ using namespace Rcpp;
 #include "utils.h"
 #include <Eigen/Dense>
 
-
 // map 2 vectors to Eigen matrices and call solve
-// std::vector<double> solve_mat_vec( std::vector<double> &mat,
-//                                    std::vector<double> &vec ) {
-//   const int n = vec.size();
-//   double *mat_ptr = &mat[n*n];
-//   double *vec_ptr = &vec_ptr[n];
-//   Eigen::Map<Eigen::MatrixXd> new_mat(map_ptr, n, n);
-//   Eigen::Map<Eigen::VectorXd> new_vec(vec);
-// }
+std::vector<double> solve_mat_vec( std::vector<double> &mat,
+                                   std::vector<double> &vec ) {
+  const int n = vec.size();
+  Eigen::MatrixXd new_mat = Eigen::Map<Eigen::MatrixXd>(mat.data(), n, n);
+  Eigen::VectorXd new_vec = Eigen::Map<Eigen::VectorXd>(vec.data(), n , 1);
 
+  Eigen::VectorXd res = new_mat.completeOrthogonalDecomposition().solve(new_vec);
 
-/*
- * Reimplementation of the Matwey V. Kornilov's implementation of algorithm by
+  std::vector<double> result(res.data(), res.data() + res.rows() * res.cols());
+  return result;
+}
+
+/* A mild reimplementation of the Matwey V. Kornilov's implementation of algorithm by
  * Dr. Raphael Rossignol, See https://bugs.r-project.org/show_bug.cgi?id=14682
  * for details (of algorithm).
  * Avoids R specific data structures (i.e. SEXPs and related types) in favor
- * of standard C++
+ * of standard C++, uses Eigen (rather than a call to the solver used by R),
+ * to solve a system of linear equations, where the Eigen solver might be faster
+ * (ie completeOrthogonalDecomposition **should** be a better approach than the regular solver)
  */
 std::vector<double> get_Q0_rossignol(std::vector<double> & phi_coef,
-                                     std::vector<double> & theta_coef,
-                                     double tol)
+                                     std::vector<double> & theta_coef)
 {
   const int p = phi_coef.size(), q = theta_coef.size();
   int i,j, r = max(p, q + 1);
@@ -78,18 +79,8 @@ std::vector<double> get_Q0_rossignol(std::vector<double> & phi_coef,
     for (i = 1; i < r2; ++i) {
       g[i] = 0.;
     }
-    /* rU = solve(Gam, g)  -> solve.default() -> .Internal(La_solve, .,)
-     * --> fiddling with R-objects -> C and then F77_CALL(.) of dgesv, dlange, dgecon
-     * FIXME: call these directly here, possibly even use 'info' instead of error(.)
-     * e.g., in case of exact singularity.
-     * ^ The above was a call for help in the original code to replace a
-     * convoluted call to solve.default with something saner. I will try
-     * to comply using Eigen, and calling Eigen's solvers directly.
-     */
-
-    SEXP callS = PROTECT(lang4(install("solve.default"), gam, g, tol)),
-    su = PROTECT(eval(callS, R_BaseEnv));
-    double *u = REAL(su);
+    // Solve the system of linear equations - using Eigen
+    std::vector<double> u = solve_mat_vec(gam, g);
     /* SX = A SU A^T */
     /* A[i,j]  = theta[j-i] */
     /* SU[i,j] = u[abs(i-j)] */

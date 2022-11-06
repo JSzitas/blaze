@@ -1,3 +1,10 @@
+/* This is taken, with many thanks, from http://www.crbond.com/roots.html,
+ * I am leaving in the original notice and copyright,
+ * And I only made two minor changes to this file - the renaming of
+ * the file from rpoly.cpp to poly.h, and the addition of a more modern wrapper
+ * function, which functions much like R's polyroot.
+ */
+
 /*      rpoly.cpp -- Jenkins-Traub real polynomial root finder.
  *
  *      (C) 2000, C. Bond.  All rights reserved.
@@ -752,17 +759,11 @@ std::vector<std::complex<double>> polyroot( std::vector<double> &x ) {
   }
   // call poly
   auto res = rpoly(coef_vector, size, real_part, complex_part);
-
   // create vector of complex elements from real and complex part
   std::vector<std::complex<double>> result;
   for( int i = 1; i < size; i++ ) {
     result.push_back( std::complex<double>( real_part[i], complex_part[i] ) );
   }
-
-  // for( auto&val:result) {
-  //   std::cout << "Real part: " << std::real(val) << std::endl;
-  //   std::cout << "Imaginary part: " << std::imag(val) << std::endl;
-  // }
   // remember to clean up what you allocated
   delete [] real_part;
   delete [] complex_part;
@@ -770,19 +771,3 @@ std::vector<std::complex<double>> polyroot( std::vector<double> &x ) {
 
   return result;
 }
-
-// std::vector<double> mod( std::vector<std::complex<double>> &x) {
-//   std::vector<double> result(x.size());
-//
-//   for( auto&val:x) {
-//     std::cout << "Real part: " << std::real(val) << std::endl;
-//     std::cout << "Imaginary part: " << std::imag(val) << std::endl;
-//   }
-//
-//   for( int i = 0; i < x.size(); i++ ) {
-//     result[i] = pow( std::real(x[i]), 2) + pow(std::imag(x[i]), 2);
-//   }
-//   return result;
-// }
-
-
