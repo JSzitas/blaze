@@ -26,7 +26,7 @@ enum optim_method {
 arima_res arima( std::vector<double> x,
                  // possibly use Eigen here
                  std::vector<std::vector<double>> xreg,
-                 // no idea what this fixed is - its null in original
+                 // fixed parameters (if any)
                  std::vector<int> fixed,
                  // init is null originally
                  bool init,

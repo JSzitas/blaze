@@ -1,8 +1,11 @@
-arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
-                                                                        0L, 0L), period = NA), xreg = NULL, include.mean = TRUE,
-                    transform.pars = TRUE, fixed = NULL, init = NULL, method = c("CSS-ML",
-                                                                                 "ML", "CSS"), n.cond, SSinit = c("Gardner1980", "Rossignol2011"),
-                    optim.method = "BFGS", optim.control = list(), kappa = 1e+06)
+arima_lasso <- function (x, order = c(0L, 0L, 0L),
+                         lambda = 0.5,
+
+                         seasonal = list(order = c(0L,
+                                                   0L, 0L), period = NA), xreg = NULL, include.mean = TRUE,
+                         transform.pars = TRUE, fixed = NULL, init = NULL, method = c("CSS-ML",
+                                                                                      "ML", "CSS"), n.cond, SSinit = c("Gardner1980", "Rossignol2011"),
+                         optim.method = "BFGS", optim.control = list(), kappa = 1e+06)
 {
   "%+%" <- function(a, b) .Call(stats:::C_TSconv, a, b)
   SSinit <- match.arg(SSinit)
@@ -26,7 +29,6 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     mod
   }
   arimaSS <- function(y, mod) {
-    ## next call changes Z components a, P, Pn so beware!
     .Call(stats:::C_ARIMA_Like, y, mod, 0L, TRUE)
   }
   armafn <- function(p, trans) {
@@ -40,7 +42,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
       x <- x - xreg %*% par[narma + (1L:ncxreg)]
     res <- .Call(stats:::C_ARIMA_Like, x, Z, 0L, FALSE)
     s2 <- res[1L]/res[3L]
-    0.5 * (log(s2) + res[2L]/res[3L])
+    0.5 * (log(s2) + res[2L]/res[3L]) + lambda * sum(abs(unlist(Z[1:3])))
   }
   armaCSS <- function(p) {
     par <- as.double(fixed)
@@ -235,11 +237,11 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
                      SSinit)
     if (ncxreg > 0)
       x <- x - xreg %*% coef[narma + (1L:ncxreg)]
-    # arimaSS(x, mod)
+    arimaSS(x, mod)
     val <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
                  as.integer(ncond), TRUE)
-    # debug_arima <<- list(val, args = list( x, arma, trarma[[1L]], trarma[[2L]],
-    #                                        as.integer(ncond), TRUE ))
+    debug_arima <<- list(val, args = list( x, arma, trarma[[1L]], trarma[[2L]],
+                                           as.integer(ncond), TRUE ))
     sigma2 <- val[[1L]]
     var <- if (no.optim)
       numeric()
@@ -317,7 +319,6 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     val <- if (ncxreg > 0L)
       arimaSS(x - xreg %*% coef[narma + (1L:ncxreg)], mod)
     else arimaSS(x, mod)
-    debug_arima <<- list(val, x, mod)
     sigma2 <- val[[1L]][1L]/n.used
   }
   value <- 2 * n.used * res$value + n.used + n.used * log(2 *
@@ -357,55 +358,3 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
                  code = res$convergence, n.cond = ncond, nobs = n.used,
                  model = mod), class = "Arima")
 }
-
-predict.Arima <- function (object, n.ahead = 1L, newxreg = NULL, se.fit = TRUE,
-          ...)
-{
-  myNCOL <- function(x) if (is.null(x))
-    0
-  else NCOL(x)
-  rsd <- object$residuals
-  xr <- object$call$xreg
-  xreg <- if (!is.null(xr))
-    eval.parent(xr)
-  else NULL
-  ncxreg <- myNCOL(xreg)
-  if (myNCOL(newxreg) != ncxreg)
-    stop("'xreg' and 'newxreg' have different numbers of columns")
-  xtsp <- tsp(rsd)
-  n <- length(rsd)
-  arma <- object$arma
-  coefs <- object$coef
-  narma <- sum(arma[1L:4L])
-  if (length(coefs) > narma) {
-    if (names(coefs)[narma + 1L] == "intercept") {
-      newxreg <- cbind(intercept = rep(1, n.ahead), newxreg)
-      ncxreg <- ncxreg + 1L
-    }
-    xm <- if (narma == 0)
-      drop(as.matrix(newxreg) %*% coefs)
-    else drop(as.matrix(newxreg) %*% coefs[-(1L:narma)])
-  }
-  else xm <- 0
-  if (arma[2L] > 0L) {
-    ma <- coefs[arma[1L] + 1L:arma[2L]]
-    if (any(Mod(polyroot(c(1, ma))) < 1))
-      warning("MA part of model is not invertible")
-  }
-  if (arma[4L] > 0L) {
-    ma <- coefs[sum(arma[1L:3L]) + 1L:arma[4L]]
-    if (any(Mod(polyroot(c(1, ma))) < 1))
-      warning("seasonal MA part of model is not invertible")
-  }
-  z <- KalmanForecast(n.ahead, object$model)
-  pred <- ts(z[[1L]] + xm, start = xtsp[2L] + deltat(rsd),
-             frequency = xtsp[3L])
-  if (se.fit) {
-    se <- ts(sqrt(z[[2L]] * object$sigma2), start = xtsp[2L] +
-               deltat(rsd), frequency = xtsp[3L])
-    list(pred = pred, se = se)
-  }
-  else pred
-}
-
-
