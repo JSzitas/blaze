@@ -1,6 +1,121 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
+struct forecast_result {
+  forecast_result(int h) {
+    this->forecast = std::vector<double>(h);
+    this->se = std::vector<double>(h);
+  }
+  void add(int i, double forecast, double se) {
+    this->forecast[i] = forecast;
+    this->se[i] = se;
+  }
+  std::vector<double> forecast;
+  std::vector<double> se;
+};
+
+/* Forecasts based on state space representation of ARIMA via
+ * the kalman filter.
+ */
+forecast_result kalman_forecast( int n_ahead,
+                                 std::vector<double> & Z,
+                                 std::vector<double> & a,
+                                 std::vector<double> & P,
+                                 std::vector<double> & T,
+                                 std::vector<double> & V,
+                                 double h,
+                                 bool update = false ){
+  // KalmanFore(SEXP nahead, SEXP mod, SEXP update)
+  // {
+    // mod = PROTECT(duplicate(mod));
+    // SEXP sZ = getListElement(mod, "Z"), sa = getListElement(mod, "a"),
+      // sP = getListElement(mod, "P"), sT = getListElement(mod, "T"),
+      // sV = getListElement(mod, "V"), sh = getListElement(mod, "h");
+
+    // if (TYPEOF(sZ) != REALSXP ||
+    //     TYPEOF(sa) != REALSXP || TYPEOF(sP) != REALSXP ||
+    //     TYPEOF(sT) != REALSXP || TYPEOF(sV) != REALSXP)
+    //   error(_("invalid argument type"));
+
+    // int  n = asInteger(nahead), p = LENGTH(sa);
+    // double *Z = REAL(sZ), *a = REAL(sa), *P = REAL(sP), *T = REAL(sT),
+    //   *V = REAL(sV), h = asReal(sh);
+    // double *mm, *anew, *Pnew;
+
+    // anew = (double *) R_alloc(p, sizeof(double));
+    // Pnew = (double *) R_alloc(p * p, sizeof(double));
+    // mm = (double *) R_alloc(p * p, sizeof(double));
+
+    int p = a.size();
+    std::vector<double> anew(p);
+    std::vector<double> Pnew(p*p);
+    std::vector<double> mm(p*p);
+
+    // SEXP res, forecasts, se;
+    // PROTECT(res = allocVector(VECSXP, 2));
+    // SET_VECTOR_ELT(res, 0, forecasts = allocVector(REALSXP, n));
+    // SET_VECTOR_ELT(res, 1, se = allocVector(REALSXP, n));
+    // {
+      // SEXP nm = PROTECT(allocVector(STRSXP, 2));
+      // SET_STRING_ELT(nm, 0, mkChar("pred"));
+      // SET_STRING_ELT(nm, 1, mkChar("var"));
+      // setAttrib(res, R_NamesSymbol, nm);
+      // UNPROTECT(1);
+    // }
+
+    forecast_result res(n_ahead);
+
+    double fc, tmp;
+    for (int l = 0; l < n_ahead; l++) {
+      fc = 0.0;
+      for (int i = 0; i < p; i++) {
+        tmp = 0.0;
+        for (int k = 0; k < p; k++) {
+          tmp += T[i + p * k] * a[k];
+        }
+        anew[i] = tmp;
+        fc += tmp * Z[i];
+      }
+      for (int i = 0; i < p; i++) {
+        a[i] = anew[i];
+      }
+      // forecasts[l] = fc;
+
+      for (int i = 0; i < p; i++) {
+        for (int j = 0; j < p; j++) {
+          tmp = 0.0;
+          for (int k = 0; k < p; k++) {
+            tmp += T[i + p * k] * P[k + p * j];
+          }
+          mm[i + p * j] = tmp;
+        }
+      }
+      for (int i = 0; i < p; i++) {
+        for (int j = 0; j < p; j++) {
+          tmp = V[i + p * j];
+          for (int k = 0; k < p; k++) {
+            tmp += mm[i + p * k] * T[j + p * k];
+          }
+          Pnew[i + p * j] = tmp;
+        }
+        tmp = h;
+      }
+      for (int i = 0; i < p; i++) {
+        for (int j = 0; j < p; j++) {
+          P[i + j * p] = Pnew[i + j * p];
+          tmp += Z[i] * Z[j] * P[i + j * p];
+        }
+        // se[l] = tmp;
+        res.add(l, fc, tmp );
+      }
+    }
+    // forecast_result res(n_ahead);
+    // if(asLogical(update)) setAttrib(res, install("mod"), mod);
+    // UNPROTECT(2);
+    return res;
+}
+
+
 // SEXP
 //   KalmanLike(SEXP sy, SEXP mod, SEXP sUP, SEXP op, SEXP update)
 //   {
@@ -297,78 +412,5 @@ using namespace Rcpp;
 //             }
 //       }
 //       UNPROTECT(4);
-//     return res;
-//   }
-
-
-// SEXP
-//   KalmanFore(SEXP nahead, SEXP mod, SEXP update)
-//   {
-//     mod = PROTECT(duplicate(mod));
-//     SEXP sZ = getListElement(mod, "Z"), sa = getListElement(mod, "a"),
-//       sP = getListElement(mod, "P"), sT = getListElement(mod, "T"),
-//       sV = getListElement(mod, "V"), sh = getListElement(mod, "h");
-//
-//     if (TYPEOF(sZ) != REALSXP ||
-//         TYPEOF(sa) != REALSXP || TYPEOF(sP) != REALSXP ||
-//         TYPEOF(sT) != REALSXP || TYPEOF(sV) != REALSXP)
-//       error(_("invalid argument type"));
-//
-//     int  n = asInteger(nahead), p = LENGTH(sa);
-//     double *Z = REAL(sZ), *a = REAL(sa), *P = REAL(sP), *T = REAL(sT),
-//       *V = REAL(sV), h = asReal(sh);
-//     double *mm, *anew, *Pnew;
-//
-//     anew = (double *) R_alloc(p, sizeof(double));
-//     Pnew = (double *) R_alloc(p * p, sizeof(double));
-//     mm = (double *) R_alloc(p * p, sizeof(double));
-//     SEXP res, forecasts, se;
-//     PROTECT(res = allocVector(VECSXP, 2));
-//     SET_VECTOR_ELT(res, 0, forecasts = allocVector(REALSXP, n));
-//     SET_VECTOR_ELT(res, 1, se = allocVector(REALSXP, n));
-//     {
-//       SEXP nm = PROTECT(allocVector(STRSXP, 2));
-//       SET_STRING_ELT(nm, 0, mkChar("pred"));
-//       SET_STRING_ELT(nm, 1, mkChar("var"));
-//       setAttrib(res, R_NamesSymbol, nm);
-//       UNPROTECT(1);
-//     }
-//     for (int l = 0; l < n; l++) {
-//       double fc = 0.0;
-//       for (int i = 0; i < p; i++) {
-//         double tmp = 0.0;
-//         for (int k = 0; k < p; k++)
-//           tmp += T[i + p * k] * a[k];
-//         anew[i] = tmp;
-//         fc += tmp * Z[i];
-//       }
-//       for (int i = 0; i < p; i++)
-//         a[i] = anew[i];
-//       REAL(forecasts)[l] = fc;
-//
-//       for (int i = 0; i < p; i++)
-//         for (int j = 0; j < p; j++) {
-//           double tmp = 0.0;
-//           for (int k = 0; k < p; k++)
-//             tmp += T[i + p * k] * P[k + p * j];
-//           mm[i + p * j] = tmp;
-//         }
-//         for (int i = 0; i < p; i++)
-//           for (int j = 0; j < p; j++) {
-//             double tmp = V[i + p * j];
-//             for (int k = 0; k < p; k++)
-//               tmp += mm[i + p * k] * T[j + p * k];
-//             Pnew[i + p * j] = tmp;
-//           }
-//           double tmp = h;
-//       for (int i = 0; i < p; i++)
-//         for (int j = 0; j < p; j++) {
-//           P[i + j * p] = Pnew[i + j * p];
-//           tmp += Z[i] * Z[j] * P[i + j * p];
-//         }
-//         REAL(se)[l] = tmp;
-//     }
-//     if(asLogical(update)) setAttrib(res, install("mod"), mod);
-//     UNPROTECT(2);
 //     return res;
 //   }

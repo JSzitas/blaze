@@ -506,371 +506,251 @@ std::vector<double> arima_css_resid( std::vector<double> & y,
       ssq += tmp * tmp;
     }
   }
-
   return resid;
 }
 
 // potentially use something that represents the model??
+// pass a reference to residuals - we will work on them
+// directly
+// std::vector<double> & residuals,
+// we will likewise modify these items
+// these are the structural model matrices
+// [[Rcpp::export]]
+std::vector<double> arima_likelihood( std::vector<double> & y,
+                                      std::vector<double> & phi,
+                                      std::vector<double> & theta,
+                                      std::vector<double> & delta,
+                                      std::vector<double> & a,
+                                      std::vector<double> & P,
+                                      std::vector<double> & Pn ) {
+  // define integers needed for further processing - these are mostly used
+  // for indexing and offsetting
+  int n = y.size(), rd = a.size(), p = phi.size(),
+    q = theta.size(), d = delta.size(), r = rd - d,
+    nu = 0;
 
-SEXP
-  arima_likelihood( std::vector<double> & y,
-                    std::vector<double> & phi,
-                    std::vector<double> & theta,
-                    std::vector<double> & delta,
-                    std::vector<double> &
+  // define data structures needed for computation intermediaries
+  std::vector<double> anew(rd);
+  std::vector<double> M(rd);
+  std::vector<double> Pnew = Pn;
+  // this is only needed if we have any deltas
+  std::vector<double> mm(0);
+  if(d > 0) {
+    mm.resize(rd*rd);
+  }
 
-             SEXP mod, SEXP sUP, SEXP giveResid)
-  {
-    SEXP sPhi = getListElement(mod, "phi"),
-      sTheta = getListElement(mod, "theta"),
-      sDelta = getListElement(mod, "Delta"),
-      sa = getListElement(mod, "a"),
-      sP = getListElement(mod, "P"),
-      sPn = getListElement(mod, "Pn");
-
-    // if (TYPEOF(sPhi) != REALSXP || TYPEOF(sTheta) != REALSXP ||
-    //     TYPEOF(sDelta) != REALSXP || TYPEOF(sa) != REALSXP ||
-    //     TYPEOF(sP) != REALSXP || TYPEOF(sPn) != REALSXP)
-    //   error(_("invalid argument type"));
-
-    SEXP res, nres, sResid = R_NilValue;
-    int n = LENGTH(sy), rd = LENGTH(sa), p = LENGTH(sPhi),
-      q = LENGTH(sTheta), d = LENGTH(sDelta), r = rd - d;
-    double *y = REAL(sy), *a = REAL(sa), *P = REAL(sP), *Pnew = REAL(sPn);
-    double *phi = REAL(sPhi), *theta = REAL(sTheta), *delta = REAL(sDelta);
-    double sumlog = 0.0, ssq = 0, *anew, *mm = NULL, *M;
-    int nu = 0;
-    // Rboolean useResid = asLogical(giveResid);
-    double *rsResid = NULL /* -Wall */;
-
-    // anew = (double *) R_alloc(rd, sizeof(double));
-    // M = (double *) R_alloc(rd, sizeof(double));
-    // if (d > 0) mm = (double *) R_alloc(rd * rd, sizeof(double));
-
-    // if (useResid) {
-      // PROTECT(sResid = allocVector(REALSXP, n));
-      // rsResid = REAL(sResid);
-    // }
-    double tmp = 0.0, vi = 0.0, resid = 0.0, gain = 0.0;
-    for (int l = 0; l < n; l++) {
+  double tmp, vi, resid, gain, sumlog = 0, ssq = 0;
+  for (int l = 0; l < n; l++) {
+    for (int i = 0; i < r; i++) {
+      tmp = (i < r - 1) ? a[i + 1] : 0.0;
+      if (i < p) {
+        tmp += phi[i] * a[0];
+      }
+      anew[i] = tmp;
+    }
+    if (d > 0) {
+      for (int i = r + 1; i < rd; i++) {
+        anew[i] = a[i - 1];
+      }
+      tmp = a[0];
+      for (int i = 0; i < d; i++) {
+        tmp += delta[i] * a[r + i];
+      }
+      anew[r] = tmp;
+    }
+    // only if we are past the first observation
+    if (l > 0) {
+      // if we have any thetas
+      if (d == 0) {
+        for (int i = 0; i < r; i++) {
+          vi = 0.0;
+          // presumably leading coefficient
+          if (i == 0) {
+            vi = 1.0;
+          } else if (i - 1 < q) {
+            vi = theta[i - 1];
+          }
+          for (int j = 0; j < r; j++) {
+            tmp = 0.0;
+            if (j == 0) {
+              tmp = vi;
+            } else if(j - 1 < q) {
+              tmp = vi * theta[j - 1];
+            }
+            if (i < p && j < p) {
+              tmp += phi[i] * phi[j] * P[0];
+            }
+            if (i < r - 1 && j < r - 1) {
+              tmp += P[i + 1 + r * (j + 1)];
+            }
+            if (i < p && j < r - 1) {
+              tmp += phi[i] * P[j + 1];
+            }
+            if (j < p && i < r - 1) {
+              tmp += phi[j] * P[i + 1];
+            }
+            // update new P matrix with appropriate entry
+            Pnew[i + r * j] = tmp;
+          }
+        }
+    } else {
+      /* mm = TP */
       for (int i = 0; i < r; i++) {
-        tmp = (i < r - 1) ? a[i + 1] : 0.0;
-        if (i < p) {
-          tmp += phi[i] * a[0];
-        }
-        anew[i] = tmp;
-      }
-      if (d > 0) {
-        for (int i = r + 1; i < rd; i++) {
-          anew[i] = a[i - 1];
-        }
-        tmp = a[0];
-        for (int i = 0; i < d; i++) {
-          tmp += delta[i] * a[r + i];
-        }
-        anew[r] = tmp;
-      }
-      if (l > asInteger(sUP)) {
-        if (d == 0) {
-          for (int i = 0; i < r; i++) {
-            vi = 0.0;
-            if (i == 0) {
-              vi = 1.0;
-            } else if (i - 1 < q) {
-              vi = theta[i - 1];
-            }
-            for (int j = 0; j < r; j++) {
-              tmp = 0.0;
-              if (j == 0) {
-                tmp = vi;
-              } else if(j - 1 < q) {
-                tmp = vi * theta[j - 1];
-              }
-              if (i < p && j < p) {
-                tmp += phi[i] * phi[j] * P[0];
-              }
-              if (i < r - 1 && j < r - 1) {
-                tmp += P[i + 1 + r * (j + 1)];
-              }
-              if (i < p && j < r - 1) {
-                tmp += phi[i] * P[j + 1];
-              }
-              if (j < p && i < r - 1) {
-                tmp += phi[j] * P[i + 1];
-              }
-              Pnew[i + r * j] = tmp;
-            }
+        for (int j = 0; j < rd; j++) {
+          tmp = 0.0;
+          if (i < p) {
+            tmp += phi[i] * P[rd * j];
           }
-        } else {
-          /* mm = TP */
-          for (int i = 0; i < r; i++)
-            for (int j = 0; j < rd; j++) {
-              tmp = 0.0;
-              if (i < p) {
-                tmp += phi[i] * P[rd * j];
-              }
-              if (i < r - 1) {
-                tmp += P[i + 1 + rd * j];
-              }
-              mm[i + rd * j] = tmp;
-            }
-            for (int j = 0; j < rd; j++) {
-              tmp = P[rd * j];
-              for (int k = 0; k < d; k++) {
-                tmp += delta[k] * P[r + k + rd * j];
-              }
-              mm[r + rd * j] = tmp;
-            }
-            for (int i = 1; i < d; i++) {
-              for (int j = 0; j < rd; j++) {
-                mm[r + i + rd * j] = P[r + i - 1 + rd * j];
-              }
-            }
-          /* Pnew = mmT' */
-          for (int i = 0; i < r; i++)
-            for (int j = 0; j < rd; j++) {
-              tmp = 0.0;
-              if (i < p) {
-                tmp += phi[i] * mm[j];
-              }
-              if (i < r - 1) {
-                tmp += mm[rd * (i + 1) + j];
-              }
-              Pnew[j + rd * i] = tmp;
-            }
-            for (int j = 0; j < rd; j++) {
-              tmp = mm[j];
-              for (int k = 0; k < d; k++) {
-                tmp += delta[k] * mm[rd * (r + k) + j];
-              }
-              Pnew[rd * r + j] = tmp;
-            }
-            for (int i = 1; i < d; i++) {
-              for (int j = 0; j < rd; j++) {
-                Pnew[rd * (r + i) + j] = mm[rd * (r + i - 1) + j];
-              }
-            }
-          /* Pnew <- Pnew + (1 theta) %o% (1 theta) */
-          for (int i = 0; i <= q; i++) {
-            vi = (i == 0) ? 1. : theta[i - 1];
-            for (int j = 0; j <= q; j++) {
-              Pnew[i + rd * j] += vi * ((j == 0) ? 1. : theta[j - 1]);
-            }
+          if (i < r - 1) {
+            tmp += P[i + 1 + rd * j];
           }
+          mm[i + rd * j] = tmp;
         }
       }
-      if (!isnan(y[l])) {
-        resid = y[l] - anew[0];
-        for (int i = 0; i < d; i++) {
-          resid -= delta[i] * anew[r + i];
+      for (int j = 0; j < rd; j++) {
+        tmp = P[rd * j];
+        for (int k = 0; k < d; k++) {
+          tmp += delta[k] * P[r + k + rd * j];
         }
-        for (int i = 0; i < rd; i++) {
-          tmp = Pnew[i];
-          for (int j = 0; j < d; j++) {
-            tmp += Pnew[i + (r + j) * rd] * delta[j];
+        mm[r + rd * j] = tmp;
+      }
+      for (int i = 1; i < d; i++) {
+        for (int j = 0; j < rd; j++) {
+          mm[r + i + rd * j] = P[r + i - 1 + rd * j];
+        }
+      }
+      /* Pnew = mmT' */
+      for (int i = 0; i < r; i++) {
+        for (int j = 0; j < rd; j++) {
+          tmp = 0.0;
+          if (i < p) {
+            tmp += phi[i] * mm[j];
           }
-          M[i] = tmp;
+          if (i < r - 1) {
+            tmp += mm[rd * (i + 1) + j];
+          }
+          Pnew[j + rd * i] = tmp;
         }
-
-        gain = M[0];
-        for (int j = 0; j < d; j++) {
-          gain += delta[j] * M[r + j];
+      }
+      for (int j = 0; j < rd; j++) {
+        tmp = mm[j];
+        for (int k = 0; k < d; k++) {
+          tmp += delta[k] * mm[rd * (r + k) + j];
         }
-        if(gain < 1e4) {
-          nu++;
-          ssq += resid * resid / gain;
-          sumlog += log(gain);
+        Pnew[rd * r + j] = tmp;
+      }
+      for (int i = 1; i < d; i++) {
+        for (int j = 0; j < rd; j++) {
+          Pnew[rd * (r + i) + j] = mm[rd * (r + i - 1) + j];
         }
-        // if (useResid) rsResid[l] = resid / sqrt(gain);
-        for (int i = 0; i < rd; i++) {
-          a[i] = anew[i] + M[i] * resid / gain;
-        }
-        for (int i = 0; i < rd; i++) {
-          for (int j = 0; j < rd; j++) {
-            P[i + j * rd] = Pnew[i + j * rd] - M[i] * M[j] / gain;
+      }
+      /* Pnew <- Pnew + (1 theta) %o% (1 theta) */
+      for (int i = 0; i <= q; i++) {
+        vi = (i == 0) ? 1. : theta[i - 1];
+        for (int j = 0; j <= q; j++) {
+          Pnew[i + rd * j] += vi * ((j == 0) ? 1. : theta[j - 1]);
           }
         }
-      } else {
-        for (int i = 0; i < rd; i++) {
-          a[i] = anew[i];
-        }
-        for (int i = 0; i < rd * rd; i++) {
-          P[i] = Pnew[i];
-        }
-        // if (useResid) rsResid[l] = NA_REAL;
       }
     }
-  std::vector<double> res()
-    // if (useResid) {
-      // PROTECT(res = allocVector(VECSXP, 3));
-      // SET_VECTOR_ELT(res, 0, nres = allocVector(REALSXP, 3));
-      // REAL(nres)[0] = ssq;
-      // REAL(nres)[1] = sumlog;
-      // REAL(nres)[2] = (double) nu;
-      // SET_VECTOR_ELT(res, 1, sResid);
-      // UNPROTECT(2);
-      // return res;
-    // } else {
-      // nres = allocVector(REALSXP, 3);
-      // REAL(nres)[0] = ssq;
-      // REAL(nres)[1] = sumlog;
-      // REAL(nres)[2] = (double) nu;
-      // return nres;
-    // }
+    if (!isnan(y[l])) {
+      resid = y[l] - anew[0];
+      for (int i = 0; i < d; i++) {
+        resid -= delta[i] * anew[r + i];
+      }
+      for (int i = 0; i < rd; i++) {
+        tmp = Pnew[i];
+        for (int j = 0; j < d; j++) {
+          tmp += Pnew[i + (r + j) * rd] * delta[j];
+        }
+        M[i] = tmp;
+      }
+      gain = M[0];
+      for (int j = 0; j < d; j++) {
+        gain += delta[j] * M[r + j];
+      }
+      // if gain is reasonable, update nu, residual sum of squares and
+      // sum of log gain
+      if(gain < 1e4) {
+        nu++;
+        ssq += resid * resid / gain;
+        sumlog += log(gain);
+      }
+      // you would normally update the residuals here
+      // also, you get to update a, and P - this should change them by
+      // reference (so that you do not have to return them)
+      for (int i = 0; i < rd; i++) {
+        a[i] = anew[i] + M[i] * resid / gain;
+      }
+      for (int i = 0; i < rd; i++) {
+        for (int j = 0; j < rd; j++) {
+          P[i + j * rd] = Pnew[i + j * rd] - M[i] * M[j] / gain;
+        }
+      }
+    } else {
+      for (int i = 0; i < rd; i++) {
+        a[i] = anew[i];
+      }
+      for (int i = 0; i < rd * rd; i++) {
+        P[i] = Pnew[i];
+      }
+      // if you were updating residuals, here you would put in an 'NA' or NaN
+    }
+  }
+  // finally, return
+  std::vector<double> res{ssq, sumlog, (double) nu};
+  return res;
 }
 
-
-// SEXP
-//   ARIMA_Like(SEXP sy, SEXP mod, SEXP sUP, SEXP giveResid)
+/* originally an R function - this creates the arima model in state space representation
+ * from some values of phi, theta and delta
+ */
+// makeARIMA
+//   function (phi, theta, Delta, kappa = 1e+06, SSinit = c("Gardner1980",
+//                                                          "Rossignol2011"), tol = .Machine$double.eps)
 //   {
-//     SEXP sPhi = getListElement(mod, "phi"),
-//       sTheta = getListElement(mod, "theta"),
-//       sDelta = getListElement(mod, "Delta"),
-//       sa = getListElement(mod, "a"),
-//       sP = getListElement(mod, "P"),
-//       sPn = getListElement(mod, "Pn");
-//
-//     if (TYPEOF(sPhi) != REALSXP || TYPEOF(sTheta) != REALSXP ||
-//         TYPEOF(sDelta) != REALSXP || TYPEOF(sa) != REALSXP ||
-//         TYPEOF(sP) != REALSXP || TYPEOF(sPn) != REALSXP)
-//       error(_("invalid argument type"));
-//
-//     SEXP res, nres, sResid = R_NilValue;
-//     int n = LENGTH(sy), rd = LENGTH(sa), p = LENGTH(sPhi),
-//       q = LENGTH(sTheta), d = LENGTH(sDelta), r = rd - d;
-//     double *y = REAL(sy), *a = REAL(sa), *P = REAL(sP), *Pnew = REAL(sPn);
-//     double *phi = REAL(sPhi), *theta = REAL(sTheta), *delta = REAL(sDelta);
-//     double sumlog = 0.0, ssq = 0, *anew, *mm = NULL, *M;
-//     int nu = 0;
-//     Rboolean useResid = asLogical(giveResid);
-//     double *rsResid = NULL /* -Wall */;
-//
-//     anew = (double *) R_alloc(rd, sizeof(double));
-//     M = (double *) R_alloc(rd, sizeof(double));
-//     if (d > 0) mm = (double *) R_alloc(rd * rd, sizeof(double));
-//
-//     if (useResid) {
-//       PROTECT(sResid = allocVector(REALSXP, n));
-//       rsResid = REAL(sResid);
-//     }
-//
-//     for (int l = 0; l < n; l++) {
-//       for (int i = 0; i < r; i++) {
-//         double tmp = (i < r - 1) ? a[i + 1] : 0.0;
-//         if (i < p) tmp += phi[i] * a[0];
-//         anew[i] = tmp;
-//       }
-//       if (d > 0) {
-//         for (int i = r + 1; i < rd; i++) anew[i] = a[i - 1];
-//         double tmp = a[0];
-//         for (int i = 0; i < d; i++) tmp += delta[i] * a[r + i];
-//         anew[r] = tmp;
-//       }
-//       if (l > asInteger(sUP)) {
-//         if (d == 0) {
-//           for (int i = 0; i < r; i++) {
-//             double vi = 0.0;
-//             if (i == 0) vi = 1.0; else if (i - 1 < q) vi = theta[i - 1];
-//             for (int j = 0; j < r; j++) {
-//               double tmp = 0.0;
-//               if (j == 0) tmp = vi; else if (j - 1 < q) tmp = vi * theta[j - 1];
-//               if (i < p && j < p) tmp += phi[i] * phi[j] * P[0];
-//               if (i < r - 1 && j < r - 1) tmp += P[i + 1 + r * (j + 1)];
-//               if (i < p && j < r - 1) tmp += phi[i] * P[j + 1];
-//               if (j < p && i < r - 1) tmp += phi[j] * P[i + 1];
-//               Pnew[i + r * j] = tmp;
+//     if (anyNA(phi))
+//       warning(gettextf("NAs in '%s'", "phi"), domain = NA)
+//       if (anyNA(theta))
+//         warning(gettextf("NAs in '%s'", "theta"), domain = NA)
+//         p <- length(phi)
+//         q <- length(theta)
+//         r <- max(p, q + 1L)
+//         d <- length(Delta)
+//         rd <- r + d
+//         Z <- c(1, rep.int(0, r - 1L), Delta)
+//         T <- matrix(0, rd, rd)
+//         if (p > 0)
+//           T[1L:p, 1L] <- phi
+//           if (r > 1L) {
+//             ind <- 2:r
+//             T[cbind(ind - 1L, ind)] <- 1
+//           }
+//           if (d > 0L) {
+//             T[r + 1L, ] <- Z
+//             if (d > 1L) {
+//               ind <- r + 2:d
+//               T[cbind(ind, ind - 1)] <- 1
 //             }
 //           }
-//         } else {
-//           /* mm = TP */
-//           for (int i = 0; i < r; i++)
-//             for (int j = 0; j < rd; j++) {
-//               double tmp = 0.0;
-//               if (i < p) tmp += phi[i] * P[rd * j];
-//               if (i < r - 1) tmp += P[i + 1 + rd * j];
-//               mm[i + rd * j] = tmp;
-//             }
-//             for (int j = 0; j < rd; j++) {
-//               double tmp = P[rd * j];
-//               for (int k = 0; k < d; k++)
-//                 tmp += delta[k] * P[r + k + rd * j];
-//               mm[r + rd * j] = tmp;
-//             }
-//             for (int i = 1; i < d; i++)
-//               for (int j = 0; j < rd; j++)
-//                 mm[r + i + rd * j] = P[r + i - 1 + rd * j];
-//
-//           /* Pnew = mmT' */
-//           for (int i = 0; i < r; i++)
-//             for (int j = 0; j < rd; j++) {
-//               double tmp = 0.0;
-//               if (i < p) tmp += phi[i] * mm[j];
-//               if (i < r - 1) tmp += mm[rd * (i + 1) + j];
-//               Pnew[j + rd * i] = tmp;
-//             }
-//             for (int j = 0; j < rd; j++) {
-//               double tmp = mm[j];
-//               for (int k = 0; k < d; k++)
-//                 tmp += delta[k] * mm[rd * (r + k) + j];
-//               Pnew[rd * r + j] = tmp;
-//             }
-//             for (int i = 1; i < d; i++)
-//               for (int j = 0; j < rd; j++)
-//                 Pnew[rd * (r + i) + j] = mm[rd * (r + i - 1) + j];
-//           /* Pnew <- Pnew + (1 theta) %o% (1 theta) */
-//           for (int i = 0; i <= q; i++) {
-//             double vi = (i == 0) ? 1. : theta[i - 1];
-//             for (int j = 0; j <= q; j++)
-//               Pnew[i + rd * j] += vi * ((j == 0) ? 1. : theta[j - 1]);
-//           }
-//         }
-//       }
-//       if (!ISNAN(y[l])) {
-//         double resid = y[l] - anew[0];
-//         for (int i = 0; i < d; i++)
-//           resid -= delta[i] * anew[r + i];
-//
-//         for (int i = 0; i < rd; i++) {
-//           double tmp = Pnew[i];
-//           for (int j = 0; j < d; j++)
-//             tmp += Pnew[i + (r + j) * rd] * delta[j];
-//           M[i] = tmp;
-//         }
-//
-//         double gain = M[0];
-//         for (int j = 0; j < d; j++) gain += delta[j] * M[r + j];
-//         if(gain < 1e4) {
-//           nu++;
-//           ssq += resid * resid / gain;
-//           sumlog += log(gain);
-//         }
-//         if (useResid) rsResid[l] = resid / sqrt(gain);
-//         for (int i = 0; i < rd; i++)
-//           a[i] = anew[i] + M[i] * resid / gain;
-//         for (int i = 0; i < rd; i++)
-//           for (int j = 0; j < rd; j++)
-//             P[i + j * rd] = Pnew[i + j * rd] - M[i] * M[j] / gain;
-//       } else {
-//         for (int i = 0; i < rd; i++) a[i] = anew[i];
-//         for (int i = 0; i < rd * rd; i++) P[i] = Pnew[i];
-//         if (useResid) rsResid[l] = NA_REAL;
-//       }
-//     }
-//
-//     if (useResid) {
-//       PROTECT(res = allocVector(VECSXP, 3));
-//       SET_VECTOR_ELT(res, 0, nres = allocVector(REALSXP, 3));
-//       REAL(nres)[0] = ssq;
-//       REAL(nres)[1] = sumlog;
-//       REAL(nres)[2] = (double) nu;
-//       SET_VECTOR_ELT(res, 1, sResid);
-//       UNPROTECT(2);
-//       return res;
-//     } else {
-//       nres = allocVector(REALSXP, 3);
-//       REAL(nres)[0] = ssq;
-//       REAL(nres)[1] = sumlog;
-//       REAL(nres)[2] = (double) nu;
-//       return nres;
-//     }
+//           if (q < r - 1L)
+//             theta <- c(theta, rep.int(0, r - 1L - q))
+//             R <- c(1, theta, rep.int(0, d))
+//             V <- R %o% R
+//             h <- 0
+//           a <- rep(0, rd)
+//             Pn <- P <- matrix(0, rd, rd)
+//             if (r > 1L)
+//               Pn[1L:r, 1L:r] <- switch(match.arg(SSinit), Gardner1980 = .Call(C_getQ0,
+//                                                  phi, theta), Rossignol2011 = .Call(C_getQ0bis, phi,
+//                                                  theta, tol), stop("invalid 'SSinit'"))
+//               else Pn[1L, 1L] <- if (p > 0)
+//                 1/(1 - phi^2)
+//                 else 1
+//                 if (d > 0L)
+//                   Pn[cbind(r + 1L:d, r + 1L:d)] <- kappa
+//                   list(phi = phi, theta = theta, Delta = Delta, Z = Z, a = a,
+//                        P = P, T = T, V = V, h = h, Pn = Pn)
 //   }
+
+

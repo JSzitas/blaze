@@ -147,3 +147,169 @@ std::vector<double> get_Q0_rossignol(std::vector<double> & phi_coef,
   }
   return P;
 }
+
+
+/* based on code from AS154 */
+// static void
+//   inclu2(size_t np, double *xnext, double *xrow, double ynext,
+//          double *d, double *rbar, double *thetab)
+//   {
+//     double cbar, sbar, di, xi, xk, rbthis, dpi;
+//     size_t i, k, ithisr;
+//
+//     /*   This subroutine updates d, rbar, thetab by the inclusion
+//      of xnext and ynext. */
+//
+//     for (i = 0; i < np; i++) xrow[i] = xnext[i];
+//
+//     for (ithisr = 0, i = 0; i < np; i++) {
+//       if (xrow[i] != 0.0) {
+//         xi = xrow[i];
+//         di = d[i];
+//         dpi = di + xi * xi;
+//         d[i] = dpi;
+//         cbar = di / dpi;
+//         sbar = xi / dpi;
+//         for (k = i + 1; k < np; k++) {
+//           xk = xrow[k];
+//           rbthis = rbar[ithisr];
+//           xrow[k] = xk - xi * rbthis;
+//           rbar[ithisr++] = cbar * rbthis + sbar * xk;
+//         }
+//         xk = ynext;
+//         ynext = xk - xi * thetab[i];
+//         thetab[i] = cbar * thetab[i] + sbar * xk;
+//         if (di == 0.0) return;
+//       } else
+//         ithisr = ithisr + np - i - 1;
+//     }
+//   }
+//
+//
+// SEXP getQ0(SEXP sPhi, SEXP sTheta)
+// {
+//   SEXP res;
+//   int  p = LENGTH(sPhi), q = LENGTH(sTheta);
+//   double *phi = REAL(sPhi), *theta = REAL(sTheta);
+//
+//   /* thetab[np], xnext[np], xrow[np].  rbar[rbar] */
+//   /* NB: nrbar could overflow */
+//   int r = max(p, q + 1);
+//   size_t np = r * (r + 1) / 2, nrbar = np * (np - 1) / 2, npr, npr1;
+//   size_t indi, indj, indn, i, j, ithisr, ind, ind1, ind2, im, jm;
+//
+//
+//   /* This is the limit using an int index.  We could use
+//    size_t and get more on a 64-bit system,
+//    but there seems no practical need. */
+//   if(r > 350) error(_("maximum supported lag is 350"));
+//   double *xnext, *xrow, *rbar, *thetab, *V;
+//   xnext = (double *) R_alloc(np, sizeof(double));
+//   xrow = (double *) R_alloc(np, sizeof(double));
+//   rbar = (double *) R_alloc(nrbar, sizeof(double));
+//   thetab = (double *) R_alloc(np, sizeof(double));
+//   V = (double *) R_alloc(np, sizeof(double));
+//   for (ind = 0, j = 0; j < r; j++) {
+//     double vj = 0.0;
+//     if (j == 0) vj = 1.0; else if (j - 1 < q) vj = theta[j - 1];
+//     for (i = j; i < r; i++) {
+//       double vi = 0.0;
+//       if (i == 0) vi = 1.0; else if (i - 1 < q) vi = theta[i - 1];
+//       V[ind++] = vi * vj;
+//     }
+//   }
+//
+//   PROTECT(res = allocMatrix(REALSXP, r, r));
+//   double *P = REAL(res);
+//
+//   if (r == 1) {
+//     if (p == 0) P[0] = 1.0; // PR#16419
+//     else P[0] = 1.0 / (1.0 - phi[0] * phi[0]);
+//     UNPROTECT(1);
+//     return res;
+//   }
+//   if (p > 0) {
+//     /*      The set of equations s * vec(P0) = vec(v) is solved for
+//      vec(P0).  s is generated row by row in the array xnext.  The
+//      order of elements in P is changed, so as to bring more leading
+//      zeros into the rows of s. */
+//
+//     for (i = 0; i < nrbar; i++) rbar[i] = 0.0;
+//     for (i = 0; i < np; i++) {
+//       P[i] = 0.0;
+//       thetab[i] = 0.0;
+//       xnext[i] = 0.0;
+//     }
+//     ind = 0;
+//     ind1 = -1;
+//     npr = np - r;
+//     npr1 = npr + 1;
+//     indj = npr;
+//     ind2 = npr - 1;
+//     for (j = 0; j < r; j++) {
+//       double phij = (j < p) ? phi[j] : 0.0;
+//       xnext[indj++] = 0.0;
+//       indi = npr1 + j;
+//       for (i = j; i < r; i++) {
+//         double ynext = V[ind++];
+//         double phii = (i < p) ? phi[i] : 0.0;
+//         if (j != r - 1) {
+//           xnext[indj] = -phii;
+//           if (i != r - 1) {
+//             xnext[indi] -= phij;
+//             xnext[++ind1] = -1.0;
+//           }
+//         }
+//         xnext[npr] = -phii * phij;
+//         if (++ind2 >= np) ind2 = 0;
+//         xnext[ind2] += 1.0;
+//         inclu2(np, xnext, xrow, ynext, P, rbar, thetab);
+//         xnext[ind2] = 0.0;
+//         if (i != r - 1) {
+//           xnext[indi++] = 0.0;
+//           xnext[ind1] = 0.0;
+//         }
+//       }
+//     }
+//
+//     ithisr = nrbar - 1;
+//     im = np - 1;
+//     for (i = 0; i < np; i++) {
+//       double bi = thetab[im];
+//       for (jm = np - 1, j = 0; j < i; j++)
+//         bi -= rbar[ithisr--] * P[jm--];
+//       P[im--] = bi;
+//     }
+//
+//     /*        now re-order p. */
+//
+//     ind = npr;
+//     for (i = 0; i < r; i++) xnext[i] = P[ind++];
+//     ind = np - 1;
+//     ind1 = npr - 1;
+//     for (i = 0; i < npr; i++) P[ind--] = P[ind1--];
+//     for (i = 0; i < r; i++) P[i] = xnext[i];
+//   } else {
+//
+//     /* P0 is obtained by backsubstitution for a moving average process. */
+//
+//     indn = np;
+//     ind = np;
+//     for (i = 0; i < r; i++)
+//       for (j = 0; j <= i; j++) {
+//         --ind;
+//         P[ind] = V[ind];
+//         if (j != 0) P[ind] += P[--indn];
+//       }
+//   }
+//   /* now unpack to a full matrix */
+//   for (i = r - 1, ind = np; i > 0; i--)
+//     for (j = r - 1; j >= i; j--)
+//       P[r * i + j] = P[--ind];
+//   for (i = 0; i < r - 1; i++)
+//     for (j = i + 1; j < r; j++)
+//       P[i + r * j] = P[j + r * i];
+//   UNPROTECT(1);
+//   return res;
+// }
+
