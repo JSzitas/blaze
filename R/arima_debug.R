@@ -22,6 +22,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     else mod$Pn[1L, 1L] <- if (p > 0)
       1/(1 - phi^2)
     else 1
+    debug_arima <<- list(mod$Pn[1L:r, 1L:r], list(phi = phi, theta = theta))
     mod$a[] <- 0
     mod
   }
@@ -235,11 +236,8 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
                      SSinit)
     if (ncxreg > 0)
       x <- x - xreg %*% coef[narma + (1L:ncxreg)]
-    # arimaSS(x, mod)
     val <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
                  as.integer(ncond), TRUE)
-    # debug_arima <<- list(val, args = list( x, arma, trarma[[1L]], trarma[[2L]],
-    #                                        as.integer(ncond), TRUE ))
     sigma2 <- val[[1L]]
     var <- if (no.optim)
       numeric()
@@ -317,7 +315,6 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     val <- if (ncxreg > 0L)
       arimaSS(x - xreg %*% coef[narma + (1L:ncxreg)], mod)
     else arimaSS(x, mod)
-    debug_arima <<- list(val, x, mod)
     sigma2 <- val[[1L]][1L]/n.used
   }
   value <- 2 * n.used * res$value + n.used + n.used * log(2 *
