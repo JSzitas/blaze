@@ -18,7 +18,6 @@ template <typename U=double> class Arima {
   std::vector<int> order;
 };
 
-
 // Kalman filtering model structure
 template <typename U=double> struct structural_model {
   structural_model<U>( std::vector<U> phi,
@@ -48,6 +47,14 @@ template <typename U=double> struct structural_model {
   phi(std::move(phi)), theta(std::move(theta)), delta(std::move(delta)),
   Z(std::move(Z)), a(std::move(a)), P(std::move(P)),
   T(std::move(T)), V(std::move(V)), h(std::move(h)), Pn(std::move(Pn)){};
+  // void set_phi( std::vector<U> & phi ) {
+  //   this->phi = std::move(phi);
+  // }
+  // void set_thet( std::vector<U> & delta ) {
+  //   this->delta = std::move(delta);
+  // }
+
+
 // private:
   std::vector<U> phi;
   std::vector<U> theta;
@@ -65,6 +72,55 @@ enum SSinit {
   Gardner = 1,
   Rossignol = 2
 };
+
+template<typename U=double> void update_arima(structural_model<U> &model,
+                                              std::vector<U> &phi,
+                                              std::vector<U> &theta,
+                                              SSinit state_init = Gardner) {
+  int p = phi.size(), q = theta.size(), r = max(p, q+1), rd = model.Z.size();
+  model.phi = std::move(phi);
+  model.theta = std::move(theta);
+
+  if(p > 0) {
+    for(int i=0; i < p; i++) {
+      model.T[i] = phi[i];
+    }
+  }
+
+  if (r > 1) {
+    // for storing initialization results
+    std::vector<U> temp(r*r);
+    switch(state_init) {
+    case Gardner:
+      temp = std::move(get_Q0(phi, theta));
+      break;
+    case Rossignol:
+      temp = std::move(get_Q0_rossignol(phi, theta));
+      break;
+    };
+    int mat_p = 0;
+    /* update a block of first r rows and columns i.e. if we have a 5x5 Pn matrix,
+     * and r == 3, then we update the highlighted parts:
+     *   (input)           (updated)
+     *   x x x x x   =>    y y y|x x
+     *   x x x x x   =>    y y y|x x
+     *   x x x x x   =>    y y y|x x
+     *                     _____
+     *   x x x x x   =>    x x x x x
+     *   x x x x x   =>    x x x x x
+     */
+    for(int j=0; j < r; j++) {
+      for(int i=0; i < r;i++) {
+        model.Pn[(j*rd)+i] = std::move(temp[mat_p]);
+        mat_p++;
+      }
+    }
+  } else {
+    model.Pn[0] = (p > 0) *(1/(1-pow(phi[0],2))) + (p == 0);
+  }
+  // set a to all zero:
+  std::fill(model.a.begin(), model.a.end(), 0);
+}
 
 
 /* originally an R function - this creates the arima model in state space representation
