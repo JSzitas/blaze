@@ -50,6 +50,20 @@ template <class T> void print_vector( T& a ) {
   std::cout << a[(a.size()-1)] << std::endl;
 }
 
+template <class T> void print_vec_as_sqr_mat( T& a ) {
+
+  int nrow = sqrt(a.size());
+  int ncol = nrow;
+
+  for(int i=0; i < nrow; i++) {
+    for(int j=0; j < ncol; j++) {
+      std::cout << a[i+(ncol * j)] << ", ";
+    }
+    std::cout << "|" << std::endl;
+  }
+}
+
+
 template <typename T> T max(T&a, T&b) {
   return a < b ? b : a;
 }

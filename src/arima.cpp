@@ -102,8 +102,7 @@ bool ar_check( std::vector<double> & ar_coef, double tol = 0.0000001 ) {
     coef[i] = -ar_coef[i-1];
   }
   auto res = polyroot(coef);
-  // try to reuse a bit of memory :)
-  // coef.resize(res.size());
+  // check coefficients
   for( int i = 0; i < res.size(); i++ ) {
     if( abs(res[i]) <= 1 ) {
       // the all(Mod(x) > 1) part
@@ -118,15 +117,21 @@ bool ar_check( std::vector<double> & ar_coef, double tol = 0.0000001 ) {
 }
 
 std::complex<double> operator /( double left, std::complex<double> right ) {
-  // perform the operation (ac+bd)/(c2 + d2) + (bc-ad)/(c2 + d2)i.
-  // left = a+bi
+  /* perform /(double,complex), or div(double,complex), ie
+   * div(complex, complex) where the first element has complex part == 0
+   * complex division is given by formula:
+   * (ac+bd)/(c2 + d2) + (bc-ad)/(c2 + d2)i.
+   * which for first operand double takes b = 0
+   */
   const double &a = left;
   const double &c = std::real(right);
   const double &d = std::imag(right);
-  // the formula simplifies to (ac)/(c^2 + d^2) + (-ad)/(c^2 + d^2)i
+  /* Thus the formula simplifies to:
+   * (ac)/(c^2 + d^2) + (-ad)/(c^2 + d^2)i
+   */
   std::complex<double> res(
       // real part
-      (left * c)/(pow(c,2) + pow(d,2)),
+      (a*c)/(pow(c,2) + pow(d,2)),
       // complex part
       (-a*d)/(pow(c,2) + pow(d,2))
       );
@@ -225,6 +230,7 @@ std::vector<std::complex<double>> invert_ma_coef_from_roots( std::vector<std::co
   return result;
 }
 
+// this should probably be void f() and write the result back to coef
 std::vector<double> arima_transform_parameters( std::vector<double> coef,
                                                 std::vector<int> arma,
                                                 bool transform = true)

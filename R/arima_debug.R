@@ -22,7 +22,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     else mod$Pn[1L, 1L] <- if (p > 0)
       1/(1 - phi^2)
     else 1
-    debug_arima <<- list(mod$Pn[1L:r, 1L:r], list(phi = phi, theta = theta))
+    # debug_arima <<- list(mod$Pn[1L:r, 1L:r], list(phi = phi, theta = theta))
     mod$a[] <- 0
     mod
   }
