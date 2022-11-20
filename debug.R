@@ -35,17 +35,6 @@ seasonal_order_diff <- 2
 #   return(-a[-1L])
 # }
 
-make_delta_r <- function( n_diff, seas_period, n_seas_diff ) {
-  Delta <- 1
-  for (i in seq_len(n_diff)) {
-    Delta <- ts_conv(Delta, c(1, -1))
-  }
-  for (i in seq_len(n_seas_diff)) {
-    Delta <- ts_conv(Delta, c(1, rep.int(0, seas_period - 1), -1))
-  }
-  return(-Delta[-1L])
-}
-
 
 
 # Delta <- 1
