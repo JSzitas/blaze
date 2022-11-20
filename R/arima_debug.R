@@ -116,6 +116,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
   for (i in seq_len(seasonal$order[2L])) Delta <- Delta %+%
     c(1, rep.int(0, seasonal$period - 1), -1)
   Delta <- -Delta[-1L]
+  debug_arima <<- Delta
   nd <- order[2L] + seasonal$order[2L]
   n.used <- sum(!is.na(x)) - length(Delta)
   if (is.null(xreg)) {

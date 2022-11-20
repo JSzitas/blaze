@@ -63,7 +63,6 @@ template <class T> void print_vec_as_sqr_mat( T& a ) {
   }
 }
 
-
 template <typename T> T max(T&a, T&b) {
   return a < b ? b : a;
 }
@@ -79,5 +78,11 @@ template <typename T> T min(T&a, T&b) {
 template <typename T> T min(T a, T b) {
   return a > b ? b : a;
 }
+
+template <typename T> void pop_front(std::vector<T>& vec)
+{
+  vec.erase(vec.begin());
+}
+
 
 #endif

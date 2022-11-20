@@ -1,9 +1,11 @@
+#ifndef INITIALIZERS
+#define INITIALIZERS
+
 #include <RcppEigen.h>
 #include "Eigen/Dense"
 #include "utils.h"
 
 // [[Rcpp::depends(RcppEigen)]]
-
 
 // map 2 vectors to Eigen matrices and call solve
 std::vector<double> solve_mat_vec( std::vector<double> &mat,
@@ -332,3 +334,6 @@ std::vector<double> get_Q0( std::vector<double> & phi_coef,
   }
   return P;
 }
+
+#endif
+
