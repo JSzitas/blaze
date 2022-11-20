@@ -25,7 +25,7 @@ template <typename U=double> class Arima {
     this->intercept = intercept;
     this->transform_parameters = transform_parameters;
     this->ss_init = ss_init;
-    this->kappa = kappa;
+    // this->kappa = kappa;
 
     this->arma_structure = std::vector<int>{ order[0], order[2], seas_order[0],
                                              seas_order[2], seasonal_period,
@@ -147,7 +147,7 @@ template <typename U=double> class Arima {
   SSinit ss_init;
   // Optimizer optimizer_method = BFGS,
   // OptimizerArgs opt_args,
-  U kappa;
+  // U kappa;
 };
 
 #endif

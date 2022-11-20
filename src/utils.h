@@ -84,5 +84,13 @@ template <typename T> void pop_front(std::vector<T>& vec)
   vec.erase(vec.begin());
 }
 
+template <class T> T diff( T&a ) {
+  T result( a.size()-1 );
+
+  for( int i = 1; i < a.size(); i++ ) {
+    result[i-1] = a[i] - a[i-1];
+  }
+  return result;}
+
 
 #endif

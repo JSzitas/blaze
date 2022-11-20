@@ -3,7 +3,7 @@ using namespace Rcpp;
 // using namespace RcppEigen;
 
 // #include "arima.h"
-// #include "utils.h"
+#include "utils.h"
 #include "xreg.h"
 
 // #include <RcppEigen.h>
@@ -27,9 +27,13 @@ std::vector<double> lm_cpp( std::vector<double> &y,
   }
 
   auto res = xreg_coef( y, xreg_, use_intercept);
-  return res;
+  return res.coef;
 }
 
+// [[Rcpp::export]]
+std::vector<double> diff_( std::vector<double> & a ) {
+  return diff(a);
+}
 
 
 
