@@ -36,34 +36,29 @@ std::vector<double> parameter_transform( std::vector<double> & coef ) {
 
 // invert the parameter transformation
 std::vector<double> inv_parameter_transform( std::vector<double> & phi ) {
-// static void invpartrans(int p, double *phi, double *new)
-  // int j, k;
+
   auto p = phi.size();
-  // double a;//, work[100];
   std::vector<double> new_pars(p);
   std::vector<double> work(p);
-  // if(p > 100) error(_("can only transform 100 pars in arima0"));
-  int j, k;
-  for(j = 0; j < p; j++){
+  for(int j = 0; j < p; j++){
     // assigning work[j] = might be redundant - it gets reassigned anyways and
     // only holds intermediaries, but does not do anything for the result
     new_pars[j] = phi[j];
   }
   /* Run the Durbin-Levinson recursions backwards
    to find the PACF phi_{j.} from the autoregression coefficients */
-  for(j = p - 1; j > 0; j--) {
+  for(int j = p - 1; j > 0; j--) {
     // this allocation is redundant, we can just take reference to new_pars[j]
     // a = new_pars[j];
-    for(k = 0; k < j; k++) {
+    for(int k = 0; k < j; k++) {
       work[k]  = (new_pars[k] + new_pars[j] * new_pars[j - k - 1]) / (1 - new_pars[j] * new_pars[j]);
     }
-    for(k = 0; k < j; k++) {
-      // this is a bit ugly - perhaps we can just std::move the whole thing afterwards?
+    for(int k = 0; k < j; k++) {
       new_pars[k] = work[k];
     }
   }
   // revert the tanh transform from earlier
-  for(j = 0;j < p; j++) {
+  for(int j = 0; j < p; j++) {
     new_pars[j] = atanh(new_pars[j]);
   }
   return new_pars;
@@ -219,7 +214,7 @@ std::vector<std::complex<double>> invert_ma_coef_from_roots( std::vector<std::co
   return result;
 }
 
-// this should probably be void f() and write the result back to coef
+// this should probably be void f() and modify phi and theta in place using structural_model
 std::vector<double> arima_transform_parameters( std::vector<double> coef,
                                                 std::vector<int> arma,
                                                 bool transform = true)
@@ -504,7 +499,7 @@ std::vector<double> arima_css_resid( std::vector<double> & y,
   return resid;
 }
 
-// potentially use something that represents the model??
+// this should use structural model
 // pass a reference to residuals - we will work on them
 // directly
 // std::vector<double> & residuals,
@@ -696,54 +691,4 @@ std::vector<double> arima_likelihood( std::vector<double> & y,
   std::vector<double> res{ssq, sumlog, (double) nu};
   return res;
 }
-
-// [[Rcpp::export]]
-std::vector<double> make_delta( int n_diff,
-                                int seas_period = 1,
-                                int n_seas_diff = 0 ) {
-  int diff_size = n_diff+1;
-  std::vector<double> a(diff_size + (n_seas_diff * seas_period));
-  a[0] = 1;
-  std::vector<double> temp(diff_size + (n_seas_diff * seas_period));
-  for( int k = 0; k < n_diff; k++) {
-    for (int i = 0; i <= k ; i++) {
-      // the array extend is always 2, hence we can always just do these two operations
-      // first this is temp[i+0] += a[i] * 1;
-      temp[i] += a[i]; // * 1
-      // and this is the other operation
-      // a[i] * -1 == -= a[i];
-      temp[i+1] -= a[i];
-    }
-    // move all of the elements of temp to a - but temp has constant size,
-    // so we can just use k+2
-    for( int i = 0; i < k+2; i++ ) {
-      a[i] = std::move(temp[i]);
-    }
-    std::fill(temp.begin(), temp.end(), 0);
-  }
-  // seasonal differences:
-  for( int k = 0; k < n_seas_diff; k++) {
-    for (int i = 0; i < diff_size + (k*seas_period); i++) {
-      /* we know that this only operates on the first and last element of
-       * the vector - it adds a[i] * 1 to the first element and adds
-       * a[i] * -1 to the last - which is effectively adding and subtracting
-       * a[i] at various points, i.e.
-       * temp[i+0] += a[i] * 1; */
-      temp[i] += a[i];
-      // and temp[i+seas_period] += a[i] * -1;
-      temp[i + seas_period] -= a[i];
-      }
-    for( int i = 0; i < temp.size(); i++ ) {
-      a[i] = std::move(temp[i]);
-    }
-    std::fill(temp.begin(), temp.end(), 0);
-  }
-  // remove leading coefficient and flip signs
-  pop_front(a);
-  for( unsigned long long i = 0; i < a.size(); i++ ) {
-    a[i] = -a[i];
-  }
-  return a;
-}
-
 
