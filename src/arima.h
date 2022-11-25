@@ -4,17 +4,18 @@
 #include "initializers.h"
 #include "utils.h"
 #include "structural_model.h"
+#include "xreg.h"
 
-
-// enum Optimizer{
-//   BFGS = 1
-// };
+// defines the arima structure
+struct arima_kind{
+   arima_kind( int p, int d, int q, int P, int D, int Q, int s_period ) :
+    p(p), d(d), q(q), P(P), D(D), Q(Q), s_period(s_period){}
+  int p, d, q, P, D, Q, s_period;
+};
 
 template <typename U=double> class Arima {
   Arima<U>(std::vector<U> & y,
-           std::vector<int> & order,
-           std::vector<int> & seas_order,
-           int seasonal_period,
+           arima_kind kind,
            std::vector<std::vector<U>> xreg = {{}},
            bool intercept = true,
            bool transform_parameters = true,
@@ -25,14 +26,13 @@ template <typename U=double> class Arima {
     this->intercept = intercept;
     this->transform_parameters = transform_parameters;
     this->ss_init = ss_init;
-    // this->kappa = kappa;
-
-    this->arma_structure = std::vector<int>{ order[0], order[2], seas_order[0],
-                                             seas_order[2], seasonal_period,
-                                             order[1], seas_order[1]};
-    for(int i=0; i < 4; i++) {
-      this->n_arma_coef += this->arma_structure[i];
-    }
+    this->kind = kind;
+    // this->arma_structure = std::vector<int>{ order[0], order[2], seas_order[0],
+    //                                          seas_order[2], seasonal_period,
+    //                                          order[1], seas_order[1]};
+    // for(int i=0; i < 4; i++) {
+    //   this->n_arma_coef += this->arma_structure[i];
+    // }
 
                   // seasonal$period <- frequency(x)
                   // arma <- as.integer(c(order[-2L], seasonal$order[-2L], seasonal$period,
@@ -131,23 +131,39 @@ template <typename U=double> class Arima {
 
 
   };
-  void fit(){};
-  void predict(){};
+  void fit(){
+    // this should just proceed with fitting, not do things which can be done in
+    // the constructor
 
+
+  };
+  forecast_result<U> predict(int h = 10, std::vector<std::vector<U>> newxreg = {{}}){
+     // validate xreg length
+     if( newxreg.size() != this->xreg.size() ) {
+       return forecast_result<U>(0) ;
+     }
+     auto res = kalman_forecast(h, this-> structural_arma_model);
+     auto xreg_adjusted = std::vector<U>(h);
+     if( this->reg_coef.size() > 0 ) {
+       // get the result of xreg regression
+       xreg_adjusted = predict(this->reg_coef, newxreg);
+     }
+
+     res.forecast = xreg_adjusted + res.forecast;
+     for( int i = 0; i < res.se.size(); i++ ) {
+       res.se[i] = res.se[i] * sigma2;
+     }
+    return res;
+  };
   std::vector<U> y;
-  std::vector<int> arma_structure;
-  int n_arma_coef;
-  // std::vector<int> order;
-  // std::vector<int> seas_order;
-  // int seasonal_period;
-  // std::vector<int> & fixed,
+  arima_kind kind;
+  std::vector<U> residuals;
   std::vector<std::vector<U>> xreg;
+  lm_coef<U> reg_coef;
   bool intercept;
   bool transform_parameters;
   SSinit ss_init;
-  // Optimizer optimizer_method = BFGS,
-  // OptimizerArgs opt_args,
-  // U kappa;
+  U sigma2;
 };
 
 #endif
