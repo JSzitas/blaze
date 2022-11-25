@@ -1,11 +1,9 @@
 #ifndef XREG_SOLVER
 #define XREG_SOLVER
 
-#include <RcppEigen.h>
+#include "eigen.hpp"
 #include "Eigen/Dense"
 #include "utils.h"
-
-// [[Rcpp::depends(RcppEigen)]]
 
 template <typename U=double> struct lm_coef {
   // move coefficients when creating, copy intercept
@@ -32,7 +30,8 @@ template <typename U=double> lm_coef<U> xreg_coef(
   }
   Eigen::Matrix<U, Eigen::Dynamic, 1> new_vec = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(y.data(), n , 1);
 
-  Eigen::Matrix<U, Eigen::Dynamic, 1> res = new_mat.completeOrthogonalDecomposition().solve(new_vec);
+  auto decomp = new_mat.completeOrthogonalDecomposition();
+  Eigen::Matrix<U, Eigen::Dynamic, 1> res = decomp.solve(new_vec);
   std::vector<double> result(res.data(), res.data() + res.rows() * res.cols());
   // put intercept at the start if it is used
   if( use_intercept ) {
@@ -69,9 +68,5 @@ template <typename U=double>std::vector<U> predict( lm_coef<U> coef,
   std::vector<double> res(result.data(), result.data() + result.rows() );
   return res;
 }
-
-
-
-
 
 #endif

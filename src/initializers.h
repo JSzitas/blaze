@@ -1,22 +1,25 @@
 #ifndef INITIALIZERS
 #define INITIALIZERS
 
-#include <RcppEigen.h>
+#include "eigen.hpp"
 #include "Eigen/Dense"
 #include "utils.h"
 
-// [[Rcpp::depends(RcppEigen)]]
-
 // map 2 vectors to Eigen matrices and call solve
-std::vector<double> solve_mat_vec( std::vector<double> &mat,
-                                   std::vector<double> &vec ) {
+template <typename U = double> std::vector<U> solve_mat_vec(
+  std::vector<U> &mat,
+  std::vector<U> &vec ) {
   const int n = vec.size();
-  Eigen::MatrixXd new_mat = Eigen::Map<Eigen::MatrixXd>(mat.data(), n, n);
-  Eigen::VectorXd new_vec = Eigen::Map<Eigen::VectorXd>(vec.data(), n , 1);
 
-  Eigen::VectorXd res = new_mat.completeOrthogonalDecomposition().solve(new_vec);
+  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat = Eigen::Map<
+    Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>
+  >(mat.data(), n, n);
+  Eigen::Matrix<U, Eigen::Dynamic, 1> new_vec = Eigen::Map<
+    Eigen::Matrix<U, Eigen::Dynamic, 1>
+  >(vec.data(), n, 1);
+  Eigen::Matrix<U, Eigen::Dynamic, 1> res = new_mat.completeOrthogonalDecomposition().solve(new_vec);
 
-  std::vector<double> result(res.data(), res.data() + res.rows() * res.cols());
+  std::vector<U> result(res.data(), res.data() + res.rows() * res.cols());
   return result;
 }
 
