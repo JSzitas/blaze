@@ -1,16 +1,8 @@
 #include <Rcpp.h>
 using namespace Rcpp;
-// using namespace RcppEigen;
 
-// #include "arima.h"
 #include "utils.h"
 #include "xreg.h"
-
-// #include <RcppEigen.h>
-// #include <Eigen/Dense>
-// #include <Eigen/Map>
-
-// [[Rcpp::depends(RcppEigen)]]
 
 // [[Rcpp::export]]
 std::vector<double> lm_cpp( std::vector<double> &y,
