@@ -193,6 +193,8 @@ arima4 <- function (x,
     init0 <- c(init0, coef(fit))
     ses <- summary(fit)$coefficients[, 2L]
     parscale <- c(parscale, 10 * ses)
+    print(summary(fit))
+    print(summary(fit)$coefficients[, 2L])
   }
   # check missing values and override fitting method if necessary
   if (method == "CSS-ML") {
