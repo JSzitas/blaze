@@ -108,4 +108,13 @@ template <class U> std::vector<std::vector<U>> diff(
   return result;
 }
 
+// defining this as void and modifying the first element is probably
+// pretty sensible, seeing how this operator works
+template <typename U=double> void operator-=(std::vector<U> &a,
+                                             std::vector<U> &b) {
+  for( int i = 0; i < a.size(); i++ ) {
+    a[i] -= b[i];
+  }
+}
+
 #endif
