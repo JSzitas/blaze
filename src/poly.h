@@ -1,3 +1,6 @@
+#ifndef POLYNOMIAL_SOLVE
+#define POLYNOMIAL_SOLVE
+
 /* This is taken, with many thanks, from http://www.crbond.com/roots.html,
  * I am leaving in the original notice and copyright,
  * And I only made two minor changes to this file - the renaming of
@@ -771,3 +774,5 @@ std::vector<std::complex<double>> polyroot( std::vector<double> &x ) {
 
   return result;
 }
+
+#endif
