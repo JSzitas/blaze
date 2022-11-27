@@ -173,7 +173,6 @@ arima3 <- function (x,
   if (ncxreg) {
     cn <- colnames(xreg)
     orig.xreg <- (ncxreg == 1L) || any(!mask[narma + 1L:ncxreg])
-    # return(list(orig.xreg, mask, mask[narma + 1:ncxreg]))
     if (!orig.xreg) {
       S <- svd(na.omit(xreg))
       xreg <- xreg %*% S$v

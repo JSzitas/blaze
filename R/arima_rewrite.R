@@ -165,13 +165,13 @@ arima4 <- function (x,
   }
   if (ncxreg) {
     cn <- colnames(xreg)
-    orig.xreg <- (ncxreg == 1L) || any(!mask[narma + 1L:ncxreg])
+    # orig.xreg <- (ncxreg == 1L) || any(!mask[narma + 1L:ncxreg])
     # return( list( (ncxreg == 1L), any(!mask[narma + 1L:ncxreg]), mask, narma, ncxreg ) )
-    if (!orig.xreg) {
-      print(!orig.xreg)
-      S <- svd(na.omit(xreg))
-      xreg <- xreg %*% S$v
-    }
+    # if (!orig.xreg) {
+    #   print(!orig.xreg)
+    #   S <- svd(na.omit(xreg))
+    #   xreg <- xreg %*% S$v
+    # }
     dx <- x
     dxreg <- xreg
     if (order[2L] > 0L) {
@@ -302,16 +302,16 @@ arima4 <- function (x,
   }
   value <- 2 * n.used * res$value + n.used + n.used * log(2 * pi)
   aic <- ifelse(method != "CSS", value + 2 * sum(mask) + 2, NA)
-  if (ncxreg > 0L) {
-    if (!orig.xreg) {
-      ind <- narma + 1L:ncxreg
-      coef[ind] <- S$v %*% coef[ind]
-      A <- diag(narma + ncxreg)
-      A[ind, ind] <- S$v
-      A <- A[mask, mask]
-      var <- A %*% var %*% t(A)
-    }
-  }
+  # if (ncxreg > 0L) {
+  #   if (!orig.xreg) {
+  #     ind <- narma + 1L:ncxreg
+  #     coef[ind] <- S$v %*% coef[ind]
+  #     A <- diag(narma + ncxreg)
+  #     A[ind, ind] <- S$v
+  #     A <- A[mask, mask]
+  #     var <- A %*% var %*% t(A)
+  #   }
+  # }
   resid <- val[[2L]]
   structure(list(coef = coef, sigma2 = sigma2, var.coef = var,
                  mask = mask, loglik = -0.5 * value, aic = aic, arma = arma,
