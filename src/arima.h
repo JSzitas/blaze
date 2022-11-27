@@ -49,28 +49,37 @@ template <typename U=double> class Arima {
     // this should just proceed with fitting, not do things which can be done in
     // the constructor
 
+    // take a copy so we do not modify the underlying data - maybe we
+    // change this later
+    std::vector<U> y_fit = this->y;
     // fit xreg
     if( this->xreg.size() > 0 ) {
-      std::vector<U> x_d;
+      std::vector<U> y_d;
       std::vector<std::vector<U>> xreg_d;
       // if we have any differences
       if( this->kind.d() > 0 ) {
-        x_d = diff(this->y,this->kind.d());
-        xreg_d = diff(this->xreg, this->kind.d());
+        y_d = diff(this->y, 1, this->kind.d());
+        xreg_d = diff(this->xreg, 1, this->kind.d());
       }
+      // seasonal differences
       if( this->kind.period() > 1 && this->kind.D() > 0  ) {
-
+        y_d = diff(this->y, this->kind.period(), this->kind.D());
+        xreg_d = diff(this->xreg, this->kind.period(), this->kind.D());
       }
-      //     if (seasonal$period > 1L && seasonal$order[2L] > 0) {
-      //       dx <- diff(dx, seasonal$period, seasonal$order[2L])
-      //       dxreg <- diff(dxreg, seasonal$period, seasonal$order[2L])
-      //     }
-      //     fit <- if (length(dx) > ncol(dxreg))
-      //       lm(dx ~ dxreg - 1, na.action = na.omit)
-      //       else list(rank = 0L)
-      //         if (fit$rank == 0L) {
-      //           fit <- lm(x ~ xreg - 1, na.action = na.omit)
-      //         }
+      lm_coef<U> reg_coef(xreg_d.size(), this->intercept);
+      // fit coefficients and adjust y for fitted coefficients -
+      // the original R code does this repeatedly, but it can be done only once
+      // - the fitted effects from external regressors are never refitted
+      if( this->y_d <= xreg_d.size() ) {
+        reg_coef = xreg_coef(this->y, this->xreg, this->intercept);
+        y_fit -= predict(reg_coef, xreg);
+      }
+      else {
+        reg_coef = xreg_coef(y_d, xreg_d);
+        y_fit -= predict(reg_coef, xreg);
+      }
+      this->reg_coef = reg_coef;
+
       //         isna <- is.na(x) | apply(xreg, 1L, anyNA)
       //           n.used <- sum(!isna) - length(Delta)
       //           init0 <- c(init0, coef(fit))
