@@ -1,9 +1,9 @@
 #ifndef XREG_SOLVER
 #define XREG_SOLVER
 
-#include "eigen.hpp"
+#include "third_party/eigen.h"
 #include "Eigen/Dense"
-#include "utils.h"
+#include "utils/utils.h"
 
 template <typename U=double> struct lm_coef {
   lm_coef<U>(){

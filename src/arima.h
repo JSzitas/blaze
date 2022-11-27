@@ -2,7 +2,7 @@
 #define ARIMA_WRAPPER
 
 #include "initializers.h"
-#include "utils.h"
+#include "utils/utils.h"
 #include "structural_model.h"
 #include "xreg.h"
 

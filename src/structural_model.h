@@ -2,7 +2,7 @@
 #define STRUCT_MODEL
 
 #include "vector"
-#include "utils.h"
+#include "../utils/utils.h"
 
 enum SSinit {
   Gardner = 1,

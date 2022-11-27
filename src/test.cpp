@@ -1,9 +1,8 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 
-#include "utils.h"
+#include "utils/utils.h"
 #include "xreg.h"
-
 #include "arima_utils.h"
 
 // [[Rcpp::export]]

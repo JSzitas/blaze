@@ -1,9 +1,9 @@
 #ifndef INITIALIZERS
 #define INITIALIZERS
 
-#include "eigen.hpp"
+#include "third_party/eigen.h"
 #include "Eigen/Dense"
-#include "utils.h"
+#include "utils/utils.h"
 
 // map 2 vectors to Eigen matrices and call solve
 template <typename U = double> std::vector<U> solve_mat_vec(
