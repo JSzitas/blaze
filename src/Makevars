@@ -1,0 +1,4 @@
+## Use c++17
+CXX_STD = CXX17
+
+PKG_CXXFLAGS = -I. -Isrc -DR_BUILD

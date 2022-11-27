@@ -1,8 +1,8 @@
 #include <Rcpp.h>
 using namespace Rcpp;
 #include "cmath"
-#include "utils.h"
-#include "poly.h"
+#include "utils/utils.h"
+#include "utils/poly.h"
 // included mainly for isnan()
 #include <math.h>
 

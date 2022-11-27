@@ -1,5 +1,5 @@
 ## usethis namespace: start
-#' @useDynLib fasttbats, .registration = TRUE
+#' @useDynLib blazearima, .registration = TRUE
 ## usethis namespace: end
 NULL
 

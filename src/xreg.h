@@ -2,7 +2,6 @@
 #define XREG_SOLVER
 
 #include "third_party/eigen.h"
-#include "Eigen/Dense"
 #include "utils/utils.h"
 
 template <typename U=double> struct lm_coef {

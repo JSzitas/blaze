@@ -2,7 +2,6 @@
 #define INITIALIZERS
 
 #include "third_party/eigen.h"
-#include "Eigen/Dense"
 #include "utils/utils.h"
 
 // map 2 vectors to Eigen matrices and call solve
