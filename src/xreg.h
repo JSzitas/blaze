@@ -10,6 +10,9 @@ template <typename U=double> struct lm_coef {
   lm_coef<U>( std::vector<U> coef, bool intercept ) :
     coef(std::move(coef)),
     intercept(intercept) {};
+  int size() {
+    return this->coef.size();
+  }
   std::vector<U> coef;
   bool intercept = false;
 };
@@ -46,11 +49,11 @@ template <typename U=double> lm_coef<U> xreg_coef(
   return final;
 }
 
-template <typename U=double>std::vector<U> predict( lm_coef<U> coef,
-                                                    std::vector<U> & new_xreg ) {
+template <typename U=double> std::vector<U> predict( lm_coef<U> coef,
+                                                     std::vector<U> & new_xreg ) {
 
-  int n_cols = coef.coef.size();
-  int n = new_xreg/n_cols - coef.intercept;
+  int n_cols = coef.size();
+  int n = new_xreg/(n_cols - coef.intercept);
   Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat;
 
   if( coef.intercept ){

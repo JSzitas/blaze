@@ -79,18 +79,33 @@ template <typename T> T min(T a, T b) {
   return a > b ? b : a;
 }
 
-template <typename T> void pop_front(std::vector<T>& vec)
+template <typename T> void pop_front(std::vector<T>& x)
 {
-  vec.erase(vec.begin());
+  x.erase(x.begin());
 }
 
-template <class T> T diff( T&a ) {
-  T result( a.size()-1 );
-
-  for( int i = 1; i < a.size(); i++ ) {
-    result[i-1] = a[i] - a[i-1];
+template <class T> T diff( T&a, int lag = 1, int d = 1 ) {
+  int p = a.size();
+  T result = a;
+  for( int j=0; j < d; j++ ) {
+    for( int i = lag; i < p-j; i++ ) {
+      result[i-lag] = result[i] - result[i-lag];
+    }
   }
-  return result;}
+  result.resize(p - (d*lag));
+  return result;
+}
 
+template <class U> std::vector<std::vector<U>> diff(
+    std::vector<std::vector<U>> &a,
+    int lag = 1,
+    int d = 1
+  ) {
+  std::vector<std::vector<U>> result( a.size() );
+  for(int i=0; i < a.size(); i++) {
+    result[i] = diff( a[i], lag, d );
+  }
+  return result;
+}
 
 #endif
