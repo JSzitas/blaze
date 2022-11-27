@@ -1,5 +1,6 @@
-#include <Rcpp.h>
-using namespace Rcpp;
+#ifndef ARIMA_UTILS
+#define ARIMA_UTILS
+
 #include "cmath"
 #include "utils.h"
 #include "poly.h"
@@ -65,7 +66,6 @@ void parameter_transform2( std::vector<double> & coef ) {
   }
 }
 
-
 // invert the parameter transformation
 std::vector<double> inv_parameter_transform( std::vector<double> & phi ) {
 
@@ -95,6 +95,38 @@ std::vector<double> inv_parameter_transform( std::vector<double> & phi ) {
   }
   return new_pars;
 }
+
+void inv_parameter_transform2( std::vector<double> & phi ) {
+
+  auto p = phi.size();
+  std::vector<double> temp(p*2);
+  // std::vector<double> new_pars(p);
+  // std::vector<double> work(p);
+  for(int j = 0; j < p; j++){
+    // assigning work[j] = might be redundant - it gets reassigned anyways and
+    // only holds intermediaries, but does not do anything for the result
+    temp[j] = phi[j];
+  }
+  /* Run the Durbin-Levinson recursions backwards
+   to find the PACF phi_{j.} from the autoregression coefficients */
+  for(int j = p - 1; j > 0; j--) {
+    // this allocation is redundant, we can just take reference to new_pars[j]
+    // a = new_pars[j];
+    for(int k = 0; k < j; k++) {
+      temp[p+k]  = (temp[k] + temp[j] * temp[j - k - 1]) / (1 - temp[j] * temp[j]);
+    }
+    for(int k = 0; k < j; k++) {
+      temp[k] = temp[p+k];
+    }
+  }
+  // revert the tanh transform from earlier
+  for(int j = 0; j < p; j++) {
+    phi[j] = atanh(temp[j]);
+  }
+  // return new_pars;
+}
+
+
 
 bool ar_check( std::vector<double> & ar_coef, double tol = 0.0000001 ) {
   // check if all inverse coefficients are zero - in that case we return
@@ -150,7 +182,7 @@ std::complex<double> operator /( double left, std::complex<double> right ) {
       (a*c)/(pow(c,2) + pow(d,2)),
       // complex part
       (-a*d)/(pow(c,2) + pow(d,2))
-      );
+  );
   return res;
 }
 
@@ -240,7 +272,7 @@ std::vector<std::complex<double>> invert_ma_coef_from_roots( std::vector<std::co
     // take the root
     temp = result;
     for( int k = 1; k <= i+1; k++){
-        result[k] = temp[k] - (temp[k-1]/roots[i]);
+      result[k] = temp[k] - (temp[k-1]/roots[i]);
     }
   }
   return result;
@@ -537,7 +569,6 @@ std::vector<double> arima_css_resid( std::vector<double> & y,
 // std::vector<double> & residuals,
 // we will likewise modify these items
 // these are the structural model matrices
-// [[Rcpp::export]]
 std::vector<double> arima_likelihood( std::vector<double> & y,
                                       std::vector<double> & phi,
                                       std::vector<double> & theta,
@@ -560,7 +591,6 @@ std::vector<double> arima_likelihood( std::vector<double> & y,
   if(d > 0) {
     mm.resize(rd*rd);
   }
-
   double tmp, vi, resid, gain, sumlog = 0, ssq = 0;
   for (int l = 0; l < n; l++) {
     for (int i = 0; i < r; i++) {
@@ -615,62 +645,62 @@ std::vector<double> arima_likelihood( std::vector<double> & y,
             Pnew[i + r * j] = tmp;
           }
         }
-    } else {
-      /* mm = TP */
-      for (int i = 0; i < r; i++) {
-        for (int j = 0; j < rd; j++) {
-          tmp = 0.0;
-          if (i < p) {
-            tmp += phi[i] * P[rd * j];
+      } else {
+        /* mm = TP */
+        for (int i = 0; i < r; i++) {
+          for (int j = 0; j < rd; j++) {
+            tmp = 0.0;
+            if (i < p) {
+              tmp += phi[i] * P[rd * j];
+            }
+            if (i < r - 1) {
+              tmp += P[i + 1 + rd * j];
+            }
+            mm[i + rd * j] = tmp;
           }
-          if (i < r - 1) {
-            tmp += P[i + 1 + rd * j];
-          }
-          mm[i + rd * j] = tmp;
         }
-      }
-      for (int j = 0; j < rd; j++) {
-        tmp = P[rd * j];
-        for (int k = 0; k < d; k++) {
-          tmp += delta[k] * P[r + k + rd * j];
-        }
-        mm[r + rd * j] = tmp;
-      }
-      for (int i = 1; i < d; i++) {
         for (int j = 0; j < rd; j++) {
-          mm[r + i + rd * j] = P[r + i - 1 + rd * j];
-        }
-      }
-      /* Pnew = mmT' */
-      for (int i = 0; i < r; i++) {
-        for (int j = 0; j < rd; j++) {
-          tmp = 0.0;
-          if (i < p) {
-            tmp += phi[i] * mm[j];
+          tmp = P[rd * j];
+          for (int k = 0; k < d; k++) {
+            tmp += delta[k] * P[r + k + rd * j];
           }
-          if (i < r - 1) {
-            tmp += mm[rd * (i + 1) + j];
+          mm[r + rd * j] = tmp;
+        }
+        for (int i = 1; i < d; i++) {
+          for (int j = 0; j < rd; j++) {
+            mm[r + i + rd * j] = P[r + i - 1 + rd * j];
           }
-          Pnew[j + rd * i] = tmp;
         }
-      }
-      for (int j = 0; j < rd; j++) {
-        tmp = mm[j];
-        for (int k = 0; k < d; k++) {
-          tmp += delta[k] * mm[rd * (r + k) + j];
+        /* Pnew = mmT' */
+        for (int i = 0; i < r; i++) {
+          for (int j = 0; j < rd; j++) {
+            tmp = 0.0;
+            if (i < p) {
+              tmp += phi[i] * mm[j];
+            }
+            if (i < r - 1) {
+              tmp += mm[rd * (i + 1) + j];
+            }
+            Pnew[j + rd * i] = tmp;
+          }
         }
-        Pnew[rd * r + j] = tmp;
-      }
-      for (int i = 1; i < d; i++) {
         for (int j = 0; j < rd; j++) {
-          Pnew[rd * (r + i) + j] = mm[rd * (r + i - 1) + j];
+          tmp = mm[j];
+          for (int k = 0; k < d; k++) {
+            tmp += delta[k] * mm[rd * (r + k) + j];
+          }
+          Pnew[rd * r + j] = tmp;
         }
-      }
-      /* Pnew <- Pnew + (1 theta) %o% (1 theta) */
-      for (int i = 0; i <= q; i++) {
-        vi = (i == 0) ? 1. : theta[i - 1];
-        for (int j = 0; j <= q; j++) {
-          Pnew[i + rd * j] += vi * ((j == 0) ? 1. : theta[j - 1]);
+        for (int i = 1; i < d; i++) {
+          for (int j = 0; j < rd; j++) {
+            Pnew[rd * (r + i) + j] = mm[rd * (r + i - 1) + j];
+          }
+        }
+        /* Pnew <- Pnew + (1 theta) %o% (1 theta) */
+        for (int i = 0; i <= q; i++) {
+          vi = (i == 0) ? 1. : theta[i - 1];
+          for (int j = 0; j <= q; j++) {
+            Pnew[i + rd * j] += vi * ((j == 0) ? 1. : theta[j - 1]);
           }
         }
       }
@@ -724,3 +754,4 @@ std::vector<double> arima_likelihood( std::vector<double> & y,
   return res;
 }
 
+#endif
