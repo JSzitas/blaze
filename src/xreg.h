@@ -7,26 +7,23 @@
 template <typename U=double> struct lm_coef {
   lm_coef<U>(){
     this->coef = std::vector<U>(0);
-    this->covar= std::vector<U>(0);
+    // this->covar= std::vector<U>(0);
     this->intercept = false;
   };
   lm_coef<U>(int xreg_ncol, bool intercept){
     this->coef = std::vector<U>(xreg_ncol + intercept);
-    this->covar= std::vector<U>(xreg_ncol + intercept);
+    // this->covar= std::vector<U>(xreg_ncol + intercept);
     this->intercept = intercept;
   };
   // move coefficients when creating, copy intercept
   lm_coef<U>( std::vector<U> coef,
-              std::vector<U> covar,
               bool intercept ) :
     coef(std::move(coef)),
-    covar(std::move(covar)),
     intercept(intercept) {};
   int size() {
     return this->coef.size();
   }
   std::vector<U> coef;
-  std::vector<U> covar;
   bool intercept = false;
 };
 
@@ -87,10 +84,10 @@ template <typename U=double> lm_coef<U> xreg_coef(
   }
   // compute standard errors - this is mildly annoying - perhaps it is faster to
   // only invert once and then do the multiplies maybe?
-  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> covar_mat = (new_mat.transpose() * new_mat).inverse();
-  auto covariances = est_variance(new_vec, new_mat, res, covar_mat);
+  // Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> covar_mat = (new_mat.transpose() * new_mat).inverse();
+  // auto covariances = est_variance(new_vec, new_mat, res, covar_mat);
 
-  lm_coef<U> final( result, covariances, use_intercept );
+  lm_coef<U> final( result, use_intercept );
   return final;
 }
 

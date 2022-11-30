@@ -1,6 +1,9 @@
 #ifndef UTILS
 #define UTILS
 
+// included mainly for isnan()
+#include <math.h>
+
 template <typename T> T abs( T x) {
   if( x < 0.0 ) {
     x = x - 2*x;
@@ -116,5 +119,40 @@ template <typename U=double> void operator-=(std::vector<U> &a,
     a[i] -= b[i];
   }
 }
+
+int count_na( std::vector<float> &a ) {
+  int count = 0;
+  for( auto &item:a ) {
+    if( std::isnan(item) ) {
+      count++;
+    }
+  }
+  return count;
+}
+
+std::vector<int> find_na( std::vector<float> &a ) {
+  std::vector<int> result;
+  result.reserve(a.size());
+  for(int i = 0; i < a.size(); i++) {
+    if( std::isnan(a[i]) ) {
+      result.push_back(i);
+    }
+  }
+  return result;
+}
+
+template <typename T> std::vector<T> intersect( std::vector<T> &a,
+                                                std::vector<T> &b) {
+  std::unordered_set<T> comp_set(a.begin(), a.end());
+  std::vector<T> result;
+  result.reserve(min(a.size(), b.size()));
+  for( auto&val:b ) {
+    if( comp_set.count(val) ) {
+      result.push_back(val);
+    }
+  }
+  return result;
+}
+
 
 #endif

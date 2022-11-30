@@ -194,7 +194,7 @@ arima4 <- function (x,
     ses <- summary(fit)$coefficients[, 2L]
     parscale <- c(parscale, 10 * ses)
     print(summary(fit))
-    print(summary(fit)$coefficients[, 2L])
+    # print(summary(fit)$coefficients[, 2L])
   }
   # check missing values and override fitting method if necessary
   if (method == "CSS-ML") {
@@ -315,6 +315,7 @@ arima4 <- function (x,
   #   }
   # }
   resid <- val[[2L]]
+  print(coef)
   structure(list(coef = coef, sigma2 = sigma2, var.coef = var,
                  mask = mask, loglik = -0.5 * value, aic = aic, arma = arma,
                  residuals = resid, call = match.call(),
