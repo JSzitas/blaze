@@ -5,6 +5,9 @@ using namespace Rcpp;
 #include "xreg.h"
 #include "arima_utils.h"
 
+#include "third_party/eigen.h"
+#include "third_party/optim.h"
+
 #include "string"
 
 // [[Rcpp::export]]
