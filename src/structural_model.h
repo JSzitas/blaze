@@ -38,12 +38,6 @@ template <typename U=double> struct structural_model {
     phi(std::move(phi)), theta(std::move(theta)), delta(std::move(delta)),
     Z(std::move(Z)), a(std::move(a)), P(std::move(P)),
     T(std::move(T)), V(std::move(V)), h(std::move(h)), Pn(std::move(Pn)){};
-  // void set_phi( std::vector<U> & phi ) {
-  //   this->phi = std::move(phi);
-  // }
-  // void set_thet( std::vector<U> & delta ) {
-  //   this->delta = std::move(delta);
-  // }
   // private:
   std::vector<U> phi;
   std::vector<U> theta;

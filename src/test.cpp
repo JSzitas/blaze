@@ -10,6 +10,8 @@ using namespace Rcpp;
 
 #include "string"
 
+// [[Rcpp::plugins(cpp17)]]
+
 // [[Rcpp::export]]
 std::vector<double> lm_cpp( std::vector<double> &y,
                             std::vector<std::vector<double>> & xreg,
@@ -35,13 +37,6 @@ std::vector<double> lm_cpp( std::vector<double> &y,
   auto res = xreg_coef( y, xreg_, use_intercept);
   return res.coef;
 }
-
-// [[Rcpp::export]]
-int can_you_string( std::string input ) {
-  std::cout << input << std::endl;
-  return 0;
-}
-
 
 
 // void count_non_na( std::vector<double> y) {

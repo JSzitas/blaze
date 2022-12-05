@@ -4,8 +4,43 @@
 #include "cmath"
 #include "utils/utils.h"
 #include "utils/poly.h"
-// included mainly for isnan()
-#include <math.h>
+
+// defines the arima structure
+struct arima_kind{
+  arima_kind(){};
+  arima_kind( int p, int d, int q, int P, int D, int Q, int s_period ){
+    this->arma_p= p;
+    this->diff_d = d;
+    this->arma_q = q;
+    this->sarma_P = P;
+    this->seas_diff_D = D;
+    this->sarma_Q = Q;
+    this->s_period = s_period;
+  }
+  int p() const {
+    return this->arma_p;
+  }
+  int d() const {
+    return this->diff_d;
+  }
+  int q() const {
+    return this->arma_q;
+  }
+  int P() const {
+    return this->sarma_P;
+  }
+  int D() const {
+    return this->seas_diff_D;
+  }
+  int Q() const {
+    return this->sarma_P;
+  }
+  int period() const {
+    return this->s_period;
+  }
+private:
+  int arma_p, diff_d, arma_q, sarma_P, seas_diff_D, sarma_Q, s_period;
+};
 
 // originally partrans
 std::vector<double> parameter_transform( std::vector<double> & coef ) {
@@ -123,10 +158,7 @@ void inv_parameter_transform2( std::vector<double> & phi ) {
   for(int j = 0; j < p; j++) {
     phi[j] = atanh(temp[j]);
   }
-  // return new_pars;
 }
-
-
 
 bool ar_check( std::vector<double> & ar_coef, double tol = 0.0000001 ) {
   // check if all inverse coefficients are zero - in that case we return
@@ -374,6 +406,104 @@ std::vector<double> arima_transform_parameters( std::vector<double> coef,
   return result;
 }
 
+// this should probably be void f() and modify phi and theta in place using structural_model
+std::vector<double> arima_transform_parameters2( std::vector<double> coef,
+                                                std::vector<int> arma,
+                                                bool transform = true)
+{
+  // the coefficients are all 'packed in' inside coef - so we have
+  // different types of coefficients. this tells us basically how many
+  // of each type there are
+  int mp = arma[0], mq = arma[1], msp = arma[2], msq = arma[3], ns = arma[4];
+  int p = mp + ns * msp;
+  int q = mq + ns * msq;
+
+  std::vector<double> phi(p);
+  std::vector<double> theta(q);
+  int n = mp + mq + msp + msq;
+  std::vector<double> params(n);
+  int i, j, v;
+  for (i = 0; i < coef.size(); i++) {
+    params[i] = coef[i];
+  }
+
+  if (transform) {
+    std::vector<double> temp(mp);
+    if (mp > 0) {
+      for(i = 0; i < mp; i++) {
+        temp[i] = params[i];
+      }
+      temp = parameter_transform(temp);
+      for(i = 0; i < temp.size(); i++) {
+        params[i] = temp[i];
+      }
+    }
+    v = mp + mq;
+    if (msp > 0) {
+      // this is a transformation over a view
+      // ie parameters v and higher
+      // create a copy
+      temp.resize(msp);
+      // move values to a temporary
+      for( i = v; i < msp; i++ ) {
+        temp[i-v] = coef[i];
+      }
+      // overwrite
+      temp = parameter_transform(temp);
+      // write back to parameters
+      for( i = v; i < msp; i++ ) {
+        params[i] = temp[i-v];
+      }
+    }
+  }
+  if (ns > 0) {
+    /* expand out seasonal ARMA models */
+    for (i = 0; i < mp; i++) {
+      phi[i] = params[i];
+    }
+    for (i = 0; i < mq; i++) {
+      theta[i] = params[i + mp];
+    }
+    for (i = mp; i < p; i++) {
+      phi[i] = 0.0;
+    }
+    for (i = mq; i < q; i++) {
+      theta[i] = 0.0;
+    }
+    for (j = 0; j < msp; j++) {
+      phi[(j + 1) * ns - 1] += params[j + mp + mq];
+      for (i = 0; i < mp; i++) {
+        phi[(j + 1) * ns + i] -= params[i] * params[j + mp + mq];
+      }
+    }
+    for (j = 0; j < msq; j++) {
+      theta[(j + 1) * ns - 1] += params[j + mp + mq + msp];
+      for (i = 0; i < mq; i++) {
+        theta[(j + 1) * ns + i] += params[i + mp] *
+          params[j + mp + mq + msp];
+      }
+    }
+  } else {
+    for(i = 0; i < mp; i++) {
+      phi[i] = params[i];
+    }
+    for(i = 0; i < mq; i++) {
+      theta[i] = params[i + mp];
+    }
+  }
+  // the output is a 2 element list
+  std::vector<double> result(phi.size()+theta.size());
+  for( i = 0; i < p; i++) {
+    result[i] = phi[i];
+  }
+  for( i = p; i < phi.size() + theta.size(); i++) {
+    result[i] = theta[i-p];
+  }
+  return result;
+}
+
+
+
 std::vector<double> arima_inverse_transform_parameters( std::vector<double> coef,
                                                         std::vector<int> &arma ) {
 
@@ -452,306 +582,6 @@ std::vector<double> arima_grad_transform( std::vector<double> &coef,
   }
   // result is basically a packed matrix
   return result;
-}
-
-
-/* arma is p, q, sp, sq, ns, d, sd
- * Note that this function is very similar to the one that follows it
- * the main difference is in what they return -
- */
-double arima_css_ssq( std::vector<double> & y,
-                      std::vector<int> & arma,
-                      std::vector<double> & phi,
-                      std::vector<double> & theta,
-                      int n_cond )
-{
-  // SEXP res, sResid = R_NilValue;
-  double ssq = 0.0, tmp = 0.;
-  int n = y.size(), p = phi.size(), q = theta.size();
-  int ns, nu = 0;
-  // Rboolean useResid = asLogical(giveResid);
-  std::vector<double> w(n);
-  // w = (double *) R_alloc(n, sizeof(double));
-  for (int l = 0; l < n; l++) {
-    w[l] = y[l];
-  }
-  // regular differencing, as far as I can tell :)
-  for (int i = 0; i < arma[5]; i++) {
-    for (int l = n - 1; l > 0; l--) {
-      w[l] -= w[l - 1];
-    }
-  }
-  ns = arma[4];
-  // seasonal differencing, as far as I can tell :)
-  for (int i = 0; i < arma[6]; i++) {
-    for (int l = n - 1; l >= ns; l--) {
-      w[l] -= w[l - ns];
-    }
-  }
-  // prepare the residuals
-  std::vector<double> resid(n);
-  for (int l = 0; l < n_cond; l++) {
-    resid[l] = 0;
-  }
-
-  for (int l = n_cond; l < n; l++) {
-    tmp = w[l];
-    for (int j = 0; j < p; j++) {
-      tmp -= phi[j] * w[l - j - 1];
-    }
-    for (int j = 0; j < min(l - n_cond, q); j++) {
-      tmp -= theta[j] * resid[l - j - 1];
-    }
-    resid[l] = tmp;
-    if (!isnan(tmp)) {
-      nu++;
-      ssq += tmp * tmp;
-    }
-  }
-  return ssq/nu;
-}
-
-std::vector<double> arima_css_resid( std::vector<double> & y,
-                                     std::vector<int> & arma,
-                                     std::vector<double> & phi,
-                                     std::vector<double> & theta,
-                                     int n_cond )
-{
-  // SEXP res, sResid = R_NilValue;
-  double ssq = 0.0, tmp = 0.;
-  int n = y.size(), p = phi.size(), q = theta.size();
-  int ns, nu = 0;
-  // Rboolean useResid = asLogical(giveResid);
-  std::vector<double> w(n);
-  // w = (double *) R_alloc(n, sizeof(double));
-  for (int l = 0; l < n; l++) {
-    w[l] = y[l];
-  }
-  // regular differencing, as far as I can tell :)
-  for (int i = 0; i < arma[5]; i++) {
-    for (int l = n - 1; l > 0; l--) {
-      w[l] -= w[l - 1];
-    }
-  }
-  ns = arma[4];
-  // seasonal differencing, as far as I can tell :)
-  for (int i = 0; i < arma[6]; i++) {
-    for (int l = n - 1; l >= ns; l--) {
-      w[l] -= w[l - ns];
-    }
-  }
-  // prepare the residuals
-  std::vector<double> resid(n);
-  for (int l = 0; l < n_cond; l++) {
-    resid[l] = 0;
-  }
-
-  for (int l = n_cond; l < n; l++) {
-    tmp = w[l];
-    for (int j = 0; j < p; j++) {
-      tmp -= phi[j] * w[l - j - 1];
-    }
-    for (int j = 0; j < min(l - n_cond, q); j++) {
-      tmp -= theta[j] * resid[l - j - 1];
-    }
-    resid[l] = tmp;
-    if (!isnan(tmp)) {
-      nu++;
-      ssq += tmp * tmp;
-    }
-  }
-  return resid;
-}
-
-// this should use structural model
-// pass a reference to residuals - we will work on them
-// directly
-// std::vector<double> & residuals,
-// we will likewise modify these items
-// these are the structural model matrices
-std::vector<double> arima_likelihood( std::vector<double> & y,
-                                      std::vector<double> & phi,
-                                      std::vector<double> & theta,
-                                      std::vector<double> & delta,
-                                      std::vector<double> & a,
-                                      std::vector<double> & P,
-                                      std::vector<double> & Pn ) {
-  // define integers needed for further processing - these are mostly used
-  // for indexing and offsetting
-  int n = y.size(), rd = a.size(), p = phi.size(),
-    q = theta.size(), d = delta.size(), r = rd - d,
-    nu = 0;
-
-  // define data structures needed for computation intermediaries
-  std::vector<double> anew(rd);
-  std::vector<double> M(rd);
-  std::vector<double> Pnew = Pn;
-  // this is only needed if we have any deltas
-  std::vector<double> mm(0);
-  if(d > 0) {
-    mm.resize(rd*rd);
-  }
-  double tmp, vi, resid, gain, sumlog = 0, ssq = 0;
-  for (int l = 0; l < n; l++) {
-    for (int i = 0; i < r; i++) {
-      tmp = (i < r - 1) ? a[i + 1] : 0.0;
-      if (i < p) {
-        tmp += phi[i] * a[0];
-      }
-      anew[i] = tmp;
-    }
-    if (d > 0) {
-      for (int i = r + 1; i < rd; i++) {
-        anew[i] = a[i - 1];
-      }
-      tmp = a[0];
-      for (int i = 0; i < d; i++) {
-        tmp += delta[i] * a[r + i];
-      }
-      anew[r] = tmp;
-    }
-    // only if we are past the first observation
-    if (l > 0) {
-      // if we have any thetas
-      if (d == 0) {
-        for (int i = 0; i < r; i++) {
-          vi = 0.0;
-          // presumably leading coefficient
-          if (i == 0) {
-            vi = 1.0;
-          } else if (i - 1 < q) {
-            vi = theta[i - 1];
-          }
-          for (int j = 0; j < r; j++) {
-            tmp = 0.0;
-            if (j == 0) {
-              tmp = vi;
-            } else if(j - 1 < q) {
-              tmp = vi * theta[j - 1];
-            }
-            if (i < p && j < p) {
-              tmp += phi[i] * phi[j] * P[0];
-            }
-            if (i < r - 1 && j < r - 1) {
-              tmp += P[i + 1 + r * (j + 1)];
-            }
-            if (i < p && j < r - 1) {
-              tmp += phi[i] * P[j + 1];
-            }
-            if (j < p && i < r - 1) {
-              tmp += phi[j] * P[i + 1];
-            }
-            // update new P matrix with appropriate entry
-            Pnew[i + r * j] = tmp;
-          }
-        }
-      } else {
-        /* mm = TP */
-        for (int i = 0; i < r; i++) {
-          for (int j = 0; j < rd; j++) {
-            tmp = 0.0;
-            if (i < p) {
-              tmp += phi[i] * P[rd * j];
-            }
-            if (i < r - 1) {
-              tmp += P[i + 1 + rd * j];
-            }
-            mm[i + rd * j] = tmp;
-          }
-        }
-        for (int j = 0; j < rd; j++) {
-          tmp = P[rd * j];
-          for (int k = 0; k < d; k++) {
-            tmp += delta[k] * P[r + k + rd * j];
-          }
-          mm[r + rd * j] = tmp;
-        }
-        for (int i = 1; i < d; i++) {
-          for (int j = 0; j < rd; j++) {
-            mm[r + i + rd * j] = P[r + i - 1 + rd * j];
-          }
-        }
-        /* Pnew = mmT' */
-        for (int i = 0; i < r; i++) {
-          for (int j = 0; j < rd; j++) {
-            tmp = 0.0;
-            if (i < p) {
-              tmp += phi[i] * mm[j];
-            }
-            if (i < r - 1) {
-              tmp += mm[rd * (i + 1) + j];
-            }
-            Pnew[j + rd * i] = tmp;
-          }
-        }
-        for (int j = 0; j < rd; j++) {
-          tmp = mm[j];
-          for (int k = 0; k < d; k++) {
-            tmp += delta[k] * mm[rd * (r + k) + j];
-          }
-          Pnew[rd * r + j] = tmp;
-        }
-        for (int i = 1; i < d; i++) {
-          for (int j = 0; j < rd; j++) {
-            Pnew[rd * (r + i) + j] = mm[rd * (r + i - 1) + j];
-          }
-        }
-        /* Pnew <- Pnew + (1 theta) %o% (1 theta) */
-        for (int i = 0; i <= q; i++) {
-          vi = (i == 0) ? 1. : theta[i - 1];
-          for (int j = 0; j <= q; j++) {
-            Pnew[i + rd * j] += vi * ((j == 0) ? 1. : theta[j - 1]);
-          }
-        }
-      }
-    }
-    if (!isnan(y[l])) {
-      resid = y[l] - anew[0];
-      for (int i = 0; i < d; i++) {
-        resid -= delta[i] * anew[r + i];
-      }
-      for (int i = 0; i < rd; i++) {
-        tmp = Pnew[i];
-        for (int j = 0; j < d; j++) {
-          tmp += Pnew[i + (r + j) * rd] * delta[j];
-        }
-        M[i] = tmp;
-      }
-      gain = M[0];
-      for (int j = 0; j < d; j++) {
-        gain += delta[j] * M[r + j];
-      }
-      // if gain is reasonable, update nu, residual sum of squares and
-      // sum of log gain
-      if(gain < 1e4) {
-        nu++;
-        ssq += resid * resid / gain;
-        sumlog += log(gain);
-      }
-      // you would normally update the residuals here
-      // also, you get to update a, and P - this should change them by
-      // reference (so that you do not have to return them)
-      for (int i = 0; i < rd; i++) {
-        a[i] = anew[i] + M[i] * resid / gain;
-      }
-      for (int i = 0; i < rd; i++) {
-        for (int j = 0; j < rd; j++) {
-          P[i + j * rd] = Pnew[i + j * rd] - M[i] * M[j] / gain;
-        }
-      }
-    } else {
-      for (int i = 0; i < rd; i++) {
-        a[i] = anew[i];
-      }
-      for (int i = 0; i < rd * rd; i++) {
-        P[i] = Pnew[i];
-      }
-      // if you were updating residuals, here you would put in an 'NA' or NaN
-    }
-  }
-  // finally, return
-  std::vector<double> res{ssq, sumlog, (double) nu};
-  return res;
 }
 
 #endif

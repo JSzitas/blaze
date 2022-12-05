@@ -1,7 +1,9 @@
 #ifndef OPTIMLIB_INCLUDE
 #define OPTIMLIB_INCLUDE
 
-#define OPTIM_ENABLE_EIGEN_WRAPPERS
-#include "optim/header_only_version/optim.hpp"
+#include "Eigen/Core"
+#include "cppoptlib/function.h"
+#include "cppoptlib/solver/solver.h"
+#include "cppoptlib/solver/bfgs.h"
 
 #endif

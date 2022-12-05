@@ -5,49 +5,8 @@
 #include "utils/utils.h"
 #include "structural_model.h"
 #include "xreg.h"
-
-// defines the arima structure
-struct arima_kind{
-  arima_kind(){};
-   arima_kind( int p, int d, int q, int P, int D, int Q, int s_period ){
-     this->arma_p= p;
-     this->diff_d = d;
-     this->arma_q = q;
-     this->sarma_P = P;
-     this->seas_diff_D = D;
-     this->sarma_Q = Q;
-     this->s_period = s_period;
-  }
-  int p() const {
-    return this->arma_p;
-  }
-  int d() const {
-    return this->diff_d;
-  }
-  int q() const {
-    return this->arma_q;
-  }
-  int P() const {
-     return this->sarma_P;
-  }
-  int D() const {
-    return this->seas_diff_D;
-  }
-  int Q() const {
-    return this->sarma_P;
-  }
-  int period() const {
-    return this->s_period;
-  }
-private:
-  int arma_p, diff_d, arma_q, sarma_P, seas_diff_D, sarma_Q, s_period;
-};
-
-enum fitting_method{
-  CSS = 1,
-  CSSML = 2,
-  ML = 3
-};
+#include "arima_utils.h"
+#include "arima_solvers.h"
 
 template <typename U=double> class Arima {
 public:
@@ -135,6 +94,11 @@ public:
       return;
     }
     if( method == CSS ) {
+      // is using conditional sum of squares, just directly optimize and
+      // use hessian 'as-is'
+
+
+
       //         res <- optim(init[mask], armaCSS, method = "BFGS",
       //                      hessian = TRUE, control = optim.control)
       //         coef[mask] <- res$par
@@ -219,8 +183,6 @@ public:
     //       value <- 2 * n.used * res$value + n.used + n.used * log(2 * pi)
     //         aic <- ifelse(method != "CSS", value + 2 * sum(mask) + 2, NA)
     //         resid <- val[[2L]]
-
-
   };
   forecast_result<U> predict(int h = 10, std::vector<std::vector<U>> newxreg = {{}}){
      // validate xreg length
