@@ -7,7 +7,9 @@
 
 #include "arima_utils.h"
 #include "structural_model.h"
+#include "xreg.h"
 // include optimizer library
+#include "third_party/eigen.h"
 #include "third_party/optim.h"
 
 enum fitting_method{
@@ -305,40 +307,50 @@ public:
   // initialize with a given arima structure
   ARIMA_CSS_PROBLEM( std::vector<double> &y,
                      arima_kind &kind,
-                     structural_model<double> &model,
-                     int n_cond ) : kind(kind), model(model), n_cond(n_cond) {}
-  double operator()(const Eigen::VectorXd &x) const {
+                     lm_coef<double> & xreg_pars,
+                     std::vector<double> & xreg,
+                     int n_cond ) : kind(kind), n_cond(n_cond) {
+    // initialize coefficients and arma structure
+    this->coef = std::vector<double>(kind.p() + kind.q() + kind.P() + kind.Q(), 0);
+    this->arma = std::vector<int>{kind.p(), kind.q(), kind.P(), kind.Q(), kind.period(), kind.d(), kind.D()};
+    // initialize xreg coef and data
+
+    int n_cols = xreg_pars.size();
+    int n = xreg.size()/(n_cols - xreg_pars.intercept);
+
+    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_mat =
+      Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>(xreg.data(), n, n_cols-xreg_pars.intercept);
+    if( xreg_pars.intercept ){
+      new_mat.conservativeResize(Eigen::NoChange, new_mat.cols()+1);
+      new_mat.col(new_mat.cols()-1) = Eigen::Matrix<double, Eigen::Dynamic, 1>::Constant(n, 1, 1);
+    }
+    this->xreg = new_mat;
+    // Eigen::Matrix<double, Eigen::Dynamic, 1> xreg_coef = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>(coef, n_cols , 1);
+
+  }
+  double operator()(const Eigen::VectorXd &x) {
     // VectorXd is the vector of parameters
-    // use this to fill phi and theta
-
-    for( int i = 0; i < this->kind.p(); i++ ) {
-      // this->model.phi[i] = x(i);
+    // use this to fill coef
+    for( int i=0; i < this->coef.size(); i++ ) {
+      this->coef[i] = x[i];
     }
-    for( int i = this->kind.p(); i < (this->kind.p() + this->kind.q()); i++ ) {
-      // this->model.theta[i-this->kind.p()] = x(i);
+    for( int i = coef.size(); i < x.size(); i++) {
+      this->xreg[i - coef.size()] = x[i];
     }
-    // transform arima model parameters
-    // transformed object is here
 
+    // pack this inside an arma structure
+    arima_transform_parameters(this->coef, this->arma, false);
     // compute
-    // auto y_temp = this->y;
-    // y_temp -= xreg * xreg_pars;
-
-    //
+    auto y_temp = this->y;
+    y_temp -= this->xreg * this->xreg_pars;
+    // call arima css function
     // double res = arima_css_ssq( y_temp, this->model, this->kind, this->n_cond );
-
     // return 0.5 * log(res);
-    // }
-
-
-
-
-    // const double t1 = (1 - x[0]);
-    // const double t2 = (x[1] - x[0] * x[0]);
-    // return   t1 * t1 + 100 * t2 * t2;
   }
   std::vector<double> y;
-  structural_model<double> model;
+  std::vector<double> coef;
+  std::vector<int> arma;
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
   arima_kind kind;
   int n_cond;
 };

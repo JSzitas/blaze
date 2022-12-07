@@ -119,6 +119,13 @@ template <typename U=double> void operator-=(std::vector<U> &a,
     a[i] -= b[i];
   }
 }
+// this is for usage with mixes of st::vector and Eigen::vector
+template <class T, class U> void operator-=( T &a,
+                                             U &b) {
+  for( int i = 0; i < a.size(); i++ ) {
+    a[i] -= b[i];
+  }
+}
 
 int count_na( std::vector<float> &a ) {
   int count = 0;

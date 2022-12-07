@@ -95,7 +95,7 @@ template <typename U=double> std::vector<U> predict( lm_coef<U> coef,
                                                      std::vector<U> & new_xreg ) {
 
   int n_cols = coef.size();
-  int n = new_xreg/(n_cols - coef.intercept);
+  int n = new_xreg.size()/(n_cols - coef.intercept);
   Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat;
 
   if( coef.intercept ){
