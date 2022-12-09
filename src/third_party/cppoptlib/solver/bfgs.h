@@ -27,7 +27,7 @@ class Bfgs : public Solver<function_t> {
   explicit Bfgs(const State<scalar_t> &stopping_state =
                     DefaultStoppingSolverState<scalar_t>(),
                 typename Superclass::callback_t step_callback =
-                    GetDefaultStepCallback<scalar_t, vector_t, hessian_t>())
+                    GetEmptyStepCallback<scalar_t, vector_t, hessian_t>())
       : Solver<function_t>{stopping_state, std::move(step_callback)} {}
 
   void InitializeSolver(const function_state_t &initial_state) override {

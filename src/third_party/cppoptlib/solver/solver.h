@@ -135,27 +135,27 @@ State<T> DefaultStoppingSolverState() {
 }
 
 // Returns the defaul callback function.
-template <class scalar_t, class vector_t, class hessian_t>
-auto GetDefaultStepCallback() {
-  return
-      [](const function::State<scalar_t, vector_t, hessian_t> &function_state,
-         const State<scalar_t> &solver_state) {
-        std::cout << "Function-State"
-                  << "\t";
-        std::cout << "  value    " << function_state.value << "\t";
-        std::cout << "  x    " << function_state.x.transpose() << "\t";
-        std::cout << "  gradient    " << function_state.gradient.transpose()
-                  << std::endl;
-        std::cout << "Solver-State"
-                  << "\t";
-        std::cout << "  iterations " << solver_state.num_iterations << "\t";
-        std::cout << "  x_delta " << solver_state.x_delta << "\t";
-        std::cout << "  f_delta " << solver_state.f_delta << "\t";
-        std::cout << "  gradient_norm " << solver_state.gradient_norm << "\t";
-        std::cout << "  condition_hessian " << solver_state.condition_hessian
-                  << std::endl;
-      };
-}
+// template <class scalar_t, class vector_t, class hessian_t>
+// auto GetDefaultStepCallback() {
+//   return
+//       [](const function::State<scalar_t, vector_t, hessian_t> &function_state,
+//          const State<scalar_t> &solver_state) {
+//         std::cout << "Function-State"
+//                   << "\t";
+//         std::cout << "  value    " << function_state.value << "\t";
+//         std::cout << "  x    " << function_state.x.transpose() << "\t";
+//         std::cout << "  gradient    " << function_state.gradient.transpose()
+//                   << std::endl;
+//         std::cout << "Solver-State"
+//                   << "\t";
+//         std::cout << "  iterations " << solver_state.num_iterations << "\t";
+//         std::cout << "  x_delta " << solver_state.x_delta << "\t";
+//         std::cout << "  f_delta " << solver_state.f_delta << "\t";
+//         std::cout << "  gradient_norm " << solver_state.gradient_norm << "\t";
+//         std::cout << "  condition_hessian " << solver_state.condition_hessian
+//                   << std::endl;
+//       };
+// }
 
 template <class scalar_t, class vector_t, class hessian_t>
 auto GetEmptyStepCallback() {
@@ -187,7 +187,9 @@ class Solver {
   explicit Solver(const State<scalar_t> &stopping_state =
                       DefaultStoppingSolverState<scalar_t>(),
                   callback_t step_callback =
-                      GetDefaultStepCallback<scalar_t, vector_t, hessian_t>())
+                    GetEmptyStepCallback<scalar_t, vector_t, hessian_t>()
+                      // GetDefaultStepCallback<scalar_t, vector_t, hessian_t>()
+                      )
       : stopping_state_(stopping_state),
         step_callback_(std::move(step_callback)) {}
 
@@ -217,7 +219,7 @@ class Solver {
 
     do {
       // Trigger a user-defined callback.
-      this->step_callback_(function_state, solver_state);
+      // this->step_callback_(function_state, solver_state);
 
       // Find next function state.
       function_state_t previous_function_state(function_state);
@@ -230,7 +232,7 @@ class Solver {
     } while (solver_state.status == Status::Continue);
 
     // Final Trigger of a user-defined callback.
-    this->step_callback_(function_state, solver_state);
+    // this->step_callback_(function_state, solver_state);
 
     return {function_state, solver_state};
   }
