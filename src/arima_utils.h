@@ -69,41 +69,8 @@ std::vector<double> parameter_transform( std::vector<double> & coef ) {
   return new_par;
 }
 
-// originally partrans - this version does not allocate more than is needed
-void parameter_transform2( std::vector<double> & coef ) {
-  auto p = coef.size();
-  int j, k;
-  // we solve this by using a vector rather than an array
-  // std::vector<double> working_par(p);
-  // std::vector<double> new_par(p);
-  // the first p entries are to be used for overwriting and returning -
-  // the other p entries are free temporary storage ;)
-  std::vector<double> temp(p*2);
-  /* Step one: map (-Inf, Inf) to (-1, 1) via tanh
-   The parameters are now the pacf phi_{kk} */
-  for(j = 0; j < p; j++) {
-    temp[j] = temp[p+j] = tanh(coef[j]);
-  }
-  /* Step two: run the Durbin-Levinson recursions to find phi_{j.},
-   j = 2, ..., p and phi_{p.} are the autoregression coefficients */
-  for(j = 1; j < p; j++) {
-    for(k = 0; k < j; k++) {
-      // I believe allocating a is not necessary
-      temp[p+k] -= temp[j] * temp[j - k - 1];
-    }
-    for(k = 0; k < j; k++) {
-      temp[k] = temp[p+k];
-    }
-  }
-  // overwrite coef
-  for(int i=0; i<p; i++) {
-    coef[i] = temp[i];
-  }
-}
-
 // invert the parameter transformation
 std::vector<double> inv_parameter_transform( std::vector<double> & phi ) {
-
   auto p = phi.size();
   std::vector<double> new_pars(p);
   std::vector<double> work(p);

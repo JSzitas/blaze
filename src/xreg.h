@@ -114,4 +114,18 @@ template <typename U=double> std::vector<U> predict( lm_coef<U> coef,
   return res;
 }
 
+template <typename U=double> struct fixed_xreg{
+  fixed_xreg<U>(Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> &X) {
+    this->fixed = X;
+  }
+  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> fixed;
+};
+
+
+template <typename U=double> fixed_xreg<U> fix_xreg() {
+
+}
+
+
+
 #endif
