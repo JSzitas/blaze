@@ -307,35 +307,32 @@ public:
   // initialize with a given arima structure
   ARIMA_CSS_PROBLEM( std::vector<double> &y,
                      arima_kind &kind,
+                     structural_model<double> model,
                      lm_coef<double> & xreg_pars,
                      std::vector<double> & xreg,
                      int n_cond ) : kind(kind), n_cond(n_cond) {
     // initialize coefficients and arma structure
-    this->coef = std::vector<double>(kind.p() + kind.q() + kind.P() + kind.Q(), 0);
-    this->arma = std::vector<int>{kind.p(), kind.q(), kind.P(), kind.Q(), kind.period(), kind.d(), kind.D()};
+    this->model = model;
+    this->kind = kind;
     // initialize xreg coef and data
-
-    int n_cols = xreg_pars.size();
-    int n = xreg.size()/(n_cols - xreg_pars.intercept);
-
-    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_mat =
-      Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>(xreg.data(), n, n_cols-xreg_pars.intercept);
-    if( xreg_pars.intercept ){
-      new_mat.conservativeResize(Eigen::NoChange, new_mat.cols()+1);
-      new_mat.col(new_mat.cols()-1) = Eigen::Matrix<double, Eigen::Dynamic, 1>::Constant(n, 1, 1);
-    }
-    this->xreg = new_mat;
-    // Eigen::Matrix<double, Eigen::Dynamic, 1> xreg_coef = Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, 1>>(coef, n_cols , 1);
-
+    this->xreg = fixed_xreg<double>( xreg, y.size(), xreg_pars.has_intercept());
   }
-  double operator()(const Eigen::VectorXd &x) {
+  double operator()( const Eigen::VectorXd &x) {
     // VectorXd is the vector of parameters
     // use this to fill coef
-    for( int i=0; i < this->coef.size(); i++ ) {
-      this->coef[i] = x[i];
+
+    const int phi_pars = kind.p() + kind.P();
+    const int theta_pars = kind.q() + kind.Q();
+    const int arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
+
+    for( int i=0; i <phi_pars; i++ ) {
+      this->model.phi[i] = x[i];
     }
-    for( int i = coef.size(); i < x.size(); i++) {
-      this->xreg[i - coef.size()] = x[i];
+    for( int i = phi_pars; i < arma_pars; i++ ) {
+      this->model.theta[i] = x[i];
+    }
+    for( int i = arma_pars; i < x.size(); i++) {
+      this->xreg_pars[i - arma_pars] = x[i];
     }
 
     // pack this inside an arma structure
@@ -348,9 +345,11 @@ public:
     // return 0.5 * log(res);
   }
   std::vector<double> y;
-  std::vector<double> coef;
-  std::vector<int> arma;
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
+  structural_model<double> model;
+  // std::vector<double> coef;
+  // std::vector<int> arma;
+  fixed_xreg<double> xreg;
+  lm_coef<double> xreg_pars;
   arima_kind kind;
   int n_cond;
 };
