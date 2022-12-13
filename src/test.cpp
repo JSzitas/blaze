@@ -35,20 +35,7 @@ std::vector<double> lm_cpp( std::vector<double> &y,
   // return xreg_;
 
   auto res = xreg_coef( y, xreg_, use_intercept);
-  return res.coef;
+  return res.data();
 }
 
 
-// void count_non_na( std::vector<double> y) {
-//
-//   int n = 0;
-//   for( auto & el:y) {
-//     if( !std::isnan(el)) {
-//       n++;
-//     }
-//   }
-//
-//   std::cout << n;
-//
-//   return;
-// }

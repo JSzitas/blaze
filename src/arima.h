@@ -10,15 +10,14 @@
 
 template <typename U=double> class Arima {
 public:
-  Arima<U>(){};
-  Arima( std::vector<U> & y,
-         arima_kind kind,
-         std::vector<std::vector<U>> xreg = {{}},
-         bool intercept = true,
-         bool transform_parameters = true,
-         SSinit ss_init = Gardner,
-         fitting_method method = ML,
-         U kappa = 1000000 ){
+  Arima<U>( std::vector<U> & y,
+            arima_kind kind,
+            std::vector<std::vector<U>> xreg = {{}},
+            bool intercept = true,
+            bool transform_parameters = true,
+            SSinit ss_init = Gardner,
+            fitting_method method = ML,
+            U kappa = 1000000 ){
     this->y = y;
     // initialize xreg coef and data
     this->xreg = fixed_xreg<U>( xreg, y.size(), intercept);
@@ -206,6 +205,7 @@ public:
 private:
   std::vector<U> y;
   std::vector<U> deltas;
+  structural_model<U> model;
   arima_kind kind;
   std::vector<U> residuals;
   fixed_xreg<U> xreg;

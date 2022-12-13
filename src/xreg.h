@@ -23,7 +23,7 @@ template <typename U=double> struct lm_coef {
   const int size() const {
     return this->coef.size();
   }
-  const std::vector<U> data() const {
+  std::vector<U> data() const {
     return this->coef;
   }
   const bool has_intercept() const {
@@ -128,7 +128,7 @@ template <typename U=double> std::vector<U> predict( lm_coef<U> coef,
 }
 
 template <typename U=double> struct fixed_xreg{
-  fixed_xreg<double>( std::vector<U> & xreg, const int n, const bool use_intercept = true) {
+  fixed_xreg<U>( std::vector<U> & xreg, const int n, const bool use_intercept = true) {
     Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat = Eigen::Map<
       Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>
       >(xreg.data(), n, xreg.size()/n);
@@ -183,7 +183,7 @@ template <typename U=double> lm_coef<U> xreg_coef(
 template <typename U=double> std::vector<U> operator*( fixed_xreg<U> xreg,
                                                        lm_coef<U> xreg_pars) {
   Eigen::Matrix<U, Eigen::Dynamic, 1> coef_vec = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(xreg_pars.data(), xreg_pars.size(), 1);
-  auto result = xreg.fixed * coef_vec;
+  Eigen::Matrix<U, Eigen::Dynamic, 1> result = xreg.fixed * coef_vec;
   return std::vector<double>(result.data(), result.data() + result.rows() );
 }
 
