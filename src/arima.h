@@ -20,7 +20,8 @@ public:
          fitting_method method = ML,
          U kappa = 1000000 ){
     this->y = y;
-    this->xreg = xreg;
+    // initialize xreg coef and data
+    this->xreg = fixed_xreg<U>( xreg, y.size(), intercept);
     this->intercept = intercept;
     this->transform_parameters = transform_parameters;
     this->ss_init = ss_init;
@@ -96,6 +97,7 @@ public:
     if( method == CSS ) {
       // is using conditional sum of squares, just directly optimize and
       // use hessian 'as-is'
+      arima_solver_css( y_fit, this->model, this->kind, ncond );
 
 
 
@@ -206,8 +208,7 @@ private:
   std::vector<U> deltas;
   arima_kind kind;
   std::vector<U> residuals;
-  std::vector<std::vector<U>> xreg;
-  lm_coef<U> reg_coef;
+  fixed_xreg<U> xreg;
   bool intercept;
   bool transform_parameters;
   SSinit ss_init;

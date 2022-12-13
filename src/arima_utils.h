@@ -397,9 +397,18 @@ void arima_transform_parameters( structural_model<double> model,
   int n = mp + mq + msp + msq;
   std::vector<double> params(n);
   int i, j, v;
-  // for (i = 0; i < coef.size(); i++) {
-  //   params[i] = coef[i];
-  // }
+  for (i = 0; i < mp; i++) {
+    params[i] = model.phi[i];
+  }
+  for( i = mp; i < mq; i++) {
+    params[i] = model.theta[i];
+  }
+  for (i = mq; i < msp; i++) {
+    params[i] = model.phi[i];
+  }
+  for( i = msp; i < msq; i++) {
+    params[i] = model.theta[i];
+  }
 
   if (transform) {
     std::vector<double> temp(mp);
@@ -420,7 +429,7 @@ void arima_transform_parameters( structural_model<double> model,
       temp.resize(msp);
       // move values to a temporary
       for( i = v; i < msp; i++ ) {
-        temp[i-v] = coef[i];
+        temp[i-v] = params[i];
       }
       // overwrite
       temp = parameter_transform(temp);

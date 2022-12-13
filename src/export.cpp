@@ -23,7 +23,9 @@ public:
                                 intercept_transform[1], init_map[ss_init],
                                 kappa);
   }
-  void fit(){}
+  void fit(){
+    model.fit();
+  }
   // Rcpp::List predict(){};
 private:
   Arima<float> model;
@@ -39,6 +41,6 @@ RCPP_MODULE(BlazeArima) {
                 std::vector<std::vector<float>>,
                 std::string,
                 std::vector<bool>,
-                float>("basic contructor");
-  // .method("fit", &arima::fit, "fit arima model");
+                float>("basic contructor")
+  .method("fit", &arima::fit, "fit arima model");
 }

@@ -307,16 +307,12 @@ public:
   // initialize with a given arima structure
   ARIMA_CSS_PROBLEM( std::vector<double> &y,
                      arima_kind &kind,
-                     structural_model<double> model,
+                     structural_model<double> &model,
                      lm_coef<double> & xreg_pars,
-                     std::vector<double> & xreg,
-                     int n_cond ) : kind(kind), n_cond(n_cond) {
-    // initialize coefficients and arma structure
-    this->model = model;
-    this->kind = kind;
-    // initialize xreg coef and data
-    this->xreg = fixed_xreg<double>( xreg, y.size(), xreg_pars.has_intercept());
-  }
+                     fixed_xreg<double> & xreg,
+                     int n_cond ) : kind(kind), n_cond(n_cond),
+                     model(model), xreg_pars(xreg_pars),
+                     xreg(xreg) {}
   double operator()( const Eigen::VectorXd &x) {
     // VectorXd is the vector of parameters
     // use this to fill coef
@@ -334,15 +330,14 @@ public:
     for( int i = arma_pars; i < x.size(); i++) {
       this->xreg_pars[i - arma_pars] = x[i];
     }
-
     // pack this inside an arma structure
-    arima_transform_parameters(this->coef, this->arma, false);
+    arima_transform_parameters(this->model, this->kind, false);
     // compute
     auto y_temp = this->y;
     y_temp -= this->xreg * this->xreg_pars;
     // call arima css function
-    // double res = arima_css_ssq( y_temp, this->model, this->kind, this->n_cond );
-    // return 0.5 * log(res);
+    double res = arima_css_ssq( y_temp, this->model, this->kind, this->n_cond );
+    return 0.5 * log(res);
   }
   std::vector<double> y;
   structural_model<double> model;
@@ -356,6 +351,8 @@ public:
 
 void arima_solver_css( std::vector<double> &y,
                        structural_model<double> &model,
+                       lm_coef<double> xreg_coef,
+                       fixed_xreg<double> xreg,
                        arima_kind kind,
                        int n_cond ) {
   // define solver
@@ -363,44 +360,57 @@ void arima_solver_css( std::vector<double> &y,
   // initialize a solver object
   Solver solver;
 
-
-
   // initialize problem
-  ARIMA_CSS_PROBLEM f(kind);
+  ARIMA_CSS_PROBLEM css_arima_problem( y, kind, model, xreg_coef,
+                                       xreg, n_cond);
   // initialize function input
-  Eigen::VectorXd x(2);
+  // first determine size >>
+  auto vec_size = kind.p() + kind.q() +
+    (kind.P() * kind.period()) +
+    (kind.Q() * kind.period()) +
+    xreg_coef.size();
+  Eigen::VectorXd x(vec_size);
+  // initialize to all zeroes except for xreg
+  for(int i = kind.p() + kind.q() +
+      (kind.P() * kind.period()) +
+      (kind.Q() * kind.period()); i < vec_size; i++) {
+    x[i] = xreg_coef[i];
+  }
+  print_vector(x);
+
   // x << -1, 2;
-  auto [solution, solver_state] = solver.Minimize(f, x);
-
-  // armaCSS <- function(p) {
-  //   par <- as.double(fixed)
-  //   par[mask] <- p
-  //   trarma <- .Call(stats:::C_ARIMA_transPars, par, arma, FALSE)
-  //   if (ncxreg > 0)
-  //     x <- x - xreg %*% par[narma + (1L:ncxreg)]
-  //   res <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
-  //                as.integer(ncond), FALSE)
-  //     0.5 * log(res)
-  // }
-
-
-  //         res <- optim(init[mask], armaCSS, method = "BFGS",
-  //                      hessian = TRUE, control = optim.control)
-  //         coef[mask] <- res$par
-  //         trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma, FALSE)
-  //         mod <- stats:::makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
-  //                                  SSinit)
-  //         if (ncxreg > 0) {
-  //           x <- x - xreg %*% coef[narma + (1L:ncxreg)]
-  //         }
-  //         val <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
-  //                      as.integer(ncond), TRUE)
-  //           sigma2 <- val[[1L]]
-  //         var <- solve(res$hessian * n.used)
+  auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
+  // print solution, solver state and estimated coef
+  print_vector(x);
 }
 
 
 
+// armaCSS <- function(p) {
+//   par <- as.double(fixed)
+//   par[mask] <- p
+//   trarma <- .Call(stats:::C_ARIMA_transPars, par, arma, FALSE)
+//   if (ncxreg > 0)
+//     x <- x - xreg %*% par[narma + (1L:ncxreg)]
+//   res <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
+//                as.integer(ncond), FALSE)
+//     0.5 * log(res)
+// }
+
+
+//         res <- optim(init[mask], armaCSS, method = "BFGS",
+//                      hessian = TRUE, control = optim.control)
+//         coef[mask] <- res$par
+//         trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma, FALSE)
+//         mod <- stats:::makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
+//                                  SSinit)
+//         if (ncxreg > 0) {
+//           x <- x - xreg %*% coef[narma + (1L:ncxreg)]
+//         }
+//         val <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
+//                      as.integer(ncond), TRUE)
+//           sigma2 <- val[[1L]]
+//         var <- solve(res$hessian * n.used)
 
 
 

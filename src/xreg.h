@@ -24,7 +24,7 @@ template <typename U=double> struct lm_coef {
     return this->coef.size();
   }
   const std::vector<U> data() const {
-    return this->coef();
+    return this->coef;
   }
   const bool has_intercept() const {
     return this->intercept;
@@ -96,7 +96,7 @@ template <typename U=double> lm_coef<U> xreg_coef(
     std::reverse(result.begin(), result.end());
   }
   // compute standard errors - this is mildly annoying - perhaps it is faster to
-  // only invert once and then do the multiplies maybe?
+  // only invert once and then do the multiplies?
   // Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> covar_mat = (new_mat.transpose() * new_mat).inverse();
   // auto covariances = est_variance(new_vec, new_mat, res, covar_mat);
 
@@ -137,12 +137,48 @@ template <typename U=double> struct fixed_xreg{
         new_mat.col(new_mat.cols()-1) = Eigen::Matrix<U, Eigen::Dynamic, 1>::Constant(n, 1, 1);
       }
       this->fixed = new_mat;
+      this->intercept = intercept;
   }
-  fixed_xreg<U>(Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> &X) {
+  fixed_xreg<U>(Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> &X, const bool intercept = true) {
     this->fixed = X;
+    this->intercept = intercept;
   }
+  const int size() const {
+    return this->fixed.cols() - this->intercept;
+  }
+  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> data() const {
+    return this->fixed;
+  }
+// private:
   Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> fixed;
+  bool intercept;
 };
+
+template <typename U=double> lm_coef<U> xreg_coef(
+  std::vector<U> &y,
+  fixed_xreg<U> & xreg,
+  bool use_intercept = true) {
+
+  Eigen::Matrix<U, Eigen::Dynamic, 1> new_vec = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(y.data(), y.size() , 1);
+
+  auto decomp = xreg.data().completeOrthogonalDecomposition();
+  Eigen::Matrix<U, Eigen::Dynamic, 1> res = decomp.solve(new_vec);
+  std::vector<double> result(res.data(), res.data() + res.rows() * res.cols());
+  // put intercept at the start if it is used
+  if( use_intercept ) {
+    auto intercept = result[result.size()-1];
+    result.resize(result.size()-1);
+    std::reverse(result.begin(), result.end());
+    result.push_back(intercept);
+    std::reverse(result.begin(), result.end());
+  }
+  // compute standard errors - this is mildly annoying - perhaps it is faster to
+  // only invert once and then do the multiplies?
+  // Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> covar_mat = (new_mat.transpose() * new_mat).inverse();
+  // auto covariances = est_variance(new_vec, new_mat, res, covar_mat);
+  lm_coef<U> final( result, use_intercept );
+  return final;
+}
 
 template <typename U=double> std::vector<U> operator*( fixed_xreg<U> xreg,
                                                        lm_coef<U> xreg_pars) {
