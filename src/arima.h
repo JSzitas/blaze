@@ -92,9 +92,6 @@ public:
     if( method == CSS ) {
       // is using conditional sum of squares, just directly optimize and
       // use hessian 'as-is'
-
-      // fixed_xreg<U>( xreg, y.size(), intercept);
-
       arima_solver_css( this->y, this->model, this->reg_coef,
                         this->xreg, this->kind, ncond );
 
@@ -205,6 +202,9 @@ public:
      }
     return res;
   };
+  void print_coef() {
+    // this->model.phi
+  }
 private:
   std::vector<U> y;
   std::vector<U> deltas;

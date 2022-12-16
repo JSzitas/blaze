@@ -30,7 +30,7 @@ public:
                      structural_model<double> &model,
                      lm_coef<double> & xreg_pars,
                      std::vector<std::vector<double>> & xreg,
-                     int n_cond ) : kind(kind), n_cond(n_cond),
+                     int n_cond ) : y(y), kind(kind), n_cond(n_cond),
                      model(model), xreg_pars(xreg_pars) {
     // initialize an xreg matrix
     int n = y.size();
@@ -60,10 +60,14 @@ public:
     for( int i=0; i < this->xreg_pars.size();i++ ) {
       new_xreg[i] = x[arma_pars + i];
     }
-    // and this
-    Eigen::VectorXd y_temp = new_xreg * this->xreg;
+    std::cout << "Iteration" << std::endl;
+    Eigen::VectorXd y_temp(y.size()); //= new_xreg * this->xreg;
     for(int i=0; i < y_temp.size(); i++) {
-      y_temp[i] = this->y[i] - y_temp[i];
+      y_temp[i] = this->y[i];
+    }
+    // and this
+    if(xreg.cols() > 0) {
+      y_temp = y_temp - new_xreg * this->xreg;
     }
     // call arima css function - rewrite this to take an Eigen::VectorXd -> then we can
     // feed it directly with the Eigen::VectorXd
@@ -95,23 +99,18 @@ void arima_solver_css( std::vector<double> &y,
                                        xreg, n_cond);
   // initialize function input
   // first determine size >>
-  auto vec_size = kind.p() + kind.q() +
-    (kind.P() * kind.period()) +
-    (kind.Q() * kind.period()) +
-    xreg_coef.size();
+  auto vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
   Eigen::VectorXd x(vec_size);
   // initialize to all zeroes except for xreg
-  for(int i = kind.p() + kind.q() +
-      (kind.P() * kind.period()) +
-      (kind.Q() * kind.period()); i < vec_size; i++) {
+  for(int i = kind.p() + kind.q() + kind.P() + kind.Q(); i < vec_size; i++) {
     x[i] = xreg_coef.coef[i];
   }
-  print_vector(x);
+  // print_vector(x);
 
   // x << -1, 2;
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // print solution, solver state and estimated coef
-  print_vector(x);
+  // print_vector(x);
 }
 
 

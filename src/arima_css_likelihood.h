@@ -105,12 +105,15 @@ double arima_css_ssq( std::vector<double> & y,
   }
   return ssq/nu;
 }
+
+// const std::vector<double> & y,
+
 double arima_css_ssq( const Eigen::VectorXd & y,
                       const Eigen::VectorXd & pars,
                       const arima_kind &kind,
                       const int n_cond )
 {
-  double ssq = 0.0, tmp = 0.;
+  double ssq = 0.0, tmp = 0.0;
   int n = y.size(), p = kind.p() + kind.P(), q = kind.q() + kind.Q();
   int ns, nu = 0;
   std::vector<double> w(n);

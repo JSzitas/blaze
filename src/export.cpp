@@ -9,11 +9,11 @@ using namespace Rcpp;
 class BlazeArima {
 public:
   BlazeArima( std::vector<double> y,
-              std::vector<int> orders_period,
-              std::vector<std::vector<double>> xreg,
-              std::string ss_init,
-              std::vector<bool> intercept_transform,
-              double kappa) {
+              std::vector<int> orders_period = {1,0,1,0,0,0,1},
+              std::vector<std::vector<double>> xreg = {{}},
+              std::string ss_init = std::string("Gardner"),
+              std::vector<bool> intercept_transform = {true, true},
+              double kappa = 1000000) {
 
     arima_kind kind = arima_kind(orders_period[0], orders_period[1], orders_period[2],
                                  orders_period[3], orders_period[4], orders_period[5],
@@ -31,6 +31,9 @@ public:
   void fit(){
     model.fit();
   }
+  // void print_coef(){
+  //
+  // }
   // Rcpp::List predict(){};
 private:
   Arima<double> model;
