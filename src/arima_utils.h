@@ -5,6 +5,7 @@
 #include "utils/utils.h"
 #include "utils/poly.h"
 #include "structural_model.h"
+#include "third_party/eigen.h"
 
 // defines the arima structure
 struct arima_kind{
@@ -370,17 +371,100 @@ void arima_transform_parameters( std::vector<double> &coef,
   for( i = p; i < phi.size() + theta.size(); i++) {
     coef[i] = theta[i-p];
   }
+}
 
+// this just directly modifies coef
+void arima_transform_parameters( Eigen::VectorXd &coef,
+                                 const arima_kind &arma,
+                                 bool transform = true)
+{
+  // the coefficients are all 'packed in' inside coef - so we have
+  // different types of coefficients. this tells us basically how many
+  // of each type there are
+  int mp = arma.p(), mq = arma.q(), msp = arma.P(), msq = arma.Q(), ns = arma.period();
+  int p = mp + ns * msp;
+  int q = mq + ns * msq;
 
-  // // the output is a 2 element list
-  // std::vector<double> result(phi.size()+theta.size());
-  // for( i = 0; i < p; i++) {
-  //   result[i] = phi[i];
-  // }
-  // for( i = p; i < phi.size() + theta.size(); i++) {
-  //   result[i] = theta[i-p];
-  // }
-  // return result;
+  std::vector<double> phi(p);
+  std::vector<double> theta(q);
+  int n = mp + mq + msp + msq;
+  std::vector<double> params(n);
+  int i, j, v;
+  for (i = 0; i < coef.size(); i++) {
+    params[i] = coef[i];
+  }
+
+  if (transform) {
+    std::vector<double> temp(mp);
+    if (mp > 0) {
+      for(i = 0; i < mp; i++) {
+        temp[i] = params[i];
+      }
+      temp = parameter_transform(temp);
+      for(i = 0; i < temp.size(); i++) {
+        params[i] = temp[i];
+      }
+    }
+    v = mp + mq;
+    if (msp > 0) {
+      // this is a transformation over a view
+      // ie parameters v and higher
+      // create a copy
+      temp.resize(msp);
+      // move values to a temporary
+      for( i = v; i < msp; i++ ) {
+        temp[i-v] = coef[i];
+      }
+      // overwrite
+      temp = parameter_transform(temp);
+      // write back to parameters
+      for( i = v; i < msp; i++ ) {
+        params[i] = temp[i-v];
+      }
+    }
+  }
+  if (ns > 0) {
+    /* expand out seasonal ARMA models */
+    for (i = 0; i < mp; i++) {
+      phi[i] = params[i];
+    }
+    for (i = 0; i < mq; i++) {
+      theta[i] = params[i + mp];
+    }
+    for (i = mp; i < p; i++) {
+      phi[i] = 0.0;
+    }
+    for (i = mq; i < q; i++) {
+      theta[i] = 0.0;
+    }
+    for (j = 0; j < msp; j++) {
+      phi[(j + 1) * ns - 1] += params[j + mp + mq];
+      for (i = 0; i < mp; i++) {
+        phi[(j + 1) * ns + i] -= params[i] * params[j + mp + mq];
+      }
+    }
+    for (j = 0; j < msq; j++) {
+      theta[(j + 1) * ns - 1] += params[j + mp + mq + msp];
+      for (i = 0; i < mq; i++) {
+        theta[(j + 1) * ns + i] += params[i + mp] *
+          params[j + mp + mq + msp];
+      }
+    }
+  } else {
+    for(i = 0; i < mp; i++) {
+      phi[i] = params[i];
+    }
+    for(i = 0; i < mq; i++) {
+      theta[i] = params[i + mp];
+    }
+  }
+  // the output is written back to coef
+  for( i = 0; i < p; i++) {
+    coef[i] = phi[i];
+  }
+  for( i = p; i < phi.size() + theta.size(); i++) {
+    coef[i] = theta[i-p];
+  }
 }
 
 void arima_transform_parameters( structural_model<double> model,

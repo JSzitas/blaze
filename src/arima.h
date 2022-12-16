@@ -10,6 +10,7 @@
 
 template <typename U=double> class Arima {
 public:
+  Arima<U>(){};
   Arima<U>( std::vector<U> & y,
             arima_kind kind,
             std::vector<std::vector<U>> xreg = {{}},
@@ -20,7 +21,7 @@ public:
             U kappa = 1000000 ){
     this->y = y;
     // initialize xreg coef and data
-    this->xreg = fixed_xreg<U>( xreg, y.size(), intercept);
+    this->xreg = xreg;
     this->intercept = intercept;
     this->transform_parameters = transform_parameters;
     this->ss_init = ss_init;
@@ -34,9 +35,6 @@ public:
     this->deltas = make_delta( this->kind.d(), this->kind.period(), this->kind.D());
     // get number of available observations
     int available_n = this->y.size();
-    // take a copy so we do not modify the underlying data - maybe we
-    // change this later
-    std::vector<U> y_fit = this->y;
     // find na across y
     std::vector<int> na_cases = find_na(y);
     // fit xreg
@@ -57,13 +55,11 @@ public:
       // fit coefficients and adjust y for fitted coefficients -
       // the original R code does this repeatedly, but it can be done only once
       // - the fitted effects from external regressors are never refitted
-      if( this->y_d <= xreg_d.size() ) {
+      if( y_d.size() <= xreg_d.size() ) {
         reg_coef = xreg_coef(this->y, this->xreg, this->intercept);
-        y_fit -= predict(reg_coef, xreg);
       }
       else {
         reg_coef = xreg_coef(y_d, xreg_d);
-        y_fit -= predict(reg_coef, xreg);
       }
       this->reg_coef = reg_coef;
       // find na cases across xreg
@@ -96,7 +92,11 @@ public:
     if( method == CSS ) {
       // is using conditional sum of squares, just directly optimize and
       // use hessian 'as-is'
-      arima_solver_css( y_fit, this->model, this->kind, ncond );
+
+      // fixed_xreg<U>( xreg, y.size(), intercept);
+
+      arima_solver_css( this->y, this->model, this->reg_coef,
+                        this->xreg, this->kind, ncond );
 
 
 
@@ -190,13 +190,16 @@ public:
      if( newxreg.size() != this->xreg.size() ) {
        return forecast_result<U>(0) ;
      }
-     auto res = kalman_forecast(h, this-> structural_arma_model);
+     auto res = kalman_forecast(h, this->model);
      auto xreg_adjusted = std::vector<U>(h);
      if( this->reg_coef.size() > 0 ) {
        // get the result of xreg regression
        xreg_adjusted = predict(this->reg_coef, newxreg);
      }
-     res.forecast = xreg_adjusted + res.forecast;
+     for(int i=0; i < res.forecast.size(); i++) {
+       res.forecast[i] += xreg_adjusted[i];
+     }
+     // res.forecast = xreg_adjusted + res.forecast;
      for( int i = 0; i < res.se.size(); i++ ) {
        res.se[i] = res.se[i] * this->sigma2;
      }
@@ -208,7 +211,8 @@ private:
   structural_model<U> model;
   arima_kind kind;
   std::vector<U> residuals;
-  fixed_xreg<U> xreg;
+  std::vector<std::vector<U>> xreg;
+  lm_coef<U> reg_coef;
   bool intercept;
   bool transform_parameters;
   SSinit ss_init;

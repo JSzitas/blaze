@@ -29,13 +29,13 @@ template <typename U=double> struct lm_coef {
   const bool has_intercept() const {
     return this->intercept;
   };
-  U operator[](int i) {
-    return coef[i];
-  }
-  const U operator[](int i) const {
-    return coef[i];
-  }
-private:
+//   U operator[](int i) {
+//     return coef[i];
+//   }
+//   const U operator[](int i) const {
+//     return coef[i];
+//   }
+// private:
   std::vector<U> coef;
   bool intercept = false;
 };
@@ -104,64 +104,25 @@ template <typename U=double> lm_coef<U> xreg_coef(
   return final;
 }
 
-template <typename U=double> std::vector<U> predict( lm_coef<U> coef,
-                                                     std::vector<U> & new_xreg ) {
+// map 2 vectors to Eigen matrices and call solve
+template <typename U=double> lm_coef<U> xreg_coef(
+  std::vector<U> &y,
+  std::vector<std::vector<U>> & xreg,
+  bool use_intercept = true) {
 
-  int n_cols = coef.size();
-  int n = new_xreg.size()/(n_cols - coef.intercept);
-  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat;
-
-  if( coef.intercept ){
-    new_mat = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>>(new_xreg.data(), n, n_cols-1);
+  const int n = y.size();
+  const int ncol = xreg.size();
+  auto _xreg = flatten_vec(xreg);
+  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat = Eigen::Map<
+    Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>
+  >(_xreg.data(), n, ncol);
+  if( use_intercept ) {
     new_mat.conservativeResize(Eigen::NoChange, new_mat.cols()+1);
     new_mat.col(new_mat.cols()-1) = Eigen::Matrix<U, Eigen::Dynamic, 1>::Constant(n, 1, 1);
   }
-  else {
-    new_mat = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>>(new_xreg.data(), n, n_cols);
-  }
-  Eigen::Matrix<U, Eigen::Dynamic, 1> coef_ = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(coef, n_cols , 1);
-  // predictions
-  Eigen::Matrix<U, Eigen::Dynamic, 1> result = new_mat * coef;
+  Eigen::Matrix<U, Eigen::Dynamic, 1> new_vec = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(y.data(), n , 1);
 
-  std::vector<double> res(result.data(), result.data() + result.rows() );
-  return res;
-}
-
-template <typename U=double> struct fixed_xreg{
-  fixed_xreg<U>( std::vector<U> & xreg, const int n, const bool use_intercept = true) {
-    Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat = Eigen::Map<
-      Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>
-      >(xreg.data(), n, xreg.size()/n);
-      if( use_intercept ) {
-        new_mat.conservativeResize(Eigen::NoChange, new_mat.cols()+1);
-        new_mat.col(new_mat.cols()-1) = Eigen::Matrix<U, Eigen::Dynamic, 1>::Constant(n, 1, 1);
-      }
-      this->fixed = new_mat;
-      this->intercept = intercept;
-  }
-  fixed_xreg<U>(Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> &X, const bool intercept = true) {
-    this->fixed = X;
-    this->intercept = intercept;
-  }
-  const int size() const {
-    return this->fixed.cols() - this->intercept;
-  }
-  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> data() const {
-    return this->fixed;
-  }
-// private:
-  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> fixed;
-  bool intercept;
-};
-
-template <typename U=double> lm_coef<U> xreg_coef(
-  std::vector<U> &y,
-  fixed_xreg<U> & xreg,
-  bool use_intercept = true) {
-
-  Eigen::Matrix<U, Eigen::Dynamic, 1> new_vec = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(y.data(), y.size() , 1);
-
-  auto decomp = xreg.data().completeOrthogonalDecomposition();
+  auto decomp = new_mat.completeOrthogonalDecomposition();
   Eigen::Matrix<U, Eigen::Dynamic, 1> res = decomp.solve(new_vec);
   std::vector<double> result(res.data(), res.data() + res.rows() * res.cols());
   // put intercept at the start if it is used
@@ -176,15 +137,65 @@ template <typename U=double> lm_coef<U> xreg_coef(
   // only invert once and then do the multiplies?
   // Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> covar_mat = (new_mat.transpose() * new_mat).inverse();
   // auto covariances = est_variance(new_vec, new_mat, res, covar_mat);
+
   lm_coef<U> final( result, use_intercept );
   return final;
 }
 
-template <typename U=double> std::vector<U> operator*( fixed_xreg<U> xreg,
-                                                       lm_coef<U> xreg_pars) {
-  Eigen::Matrix<U, Eigen::Dynamic, 1> coef_vec = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(xreg_pars.data(), xreg_pars.size(), 1);
-  Eigen::Matrix<U, Eigen::Dynamic, 1> result = xreg.fixed * coef_vec;
-  return std::vector<double>(result.data(), result.data() + result.rows() );
+template <typename U=double> std::vector<U> predict( lm_coef<U> &coef,
+                                                     std::vector<U> & new_xreg ) {
+
+  int n_cols = coef.size();
+  int n = new_xreg.size()/(n_cols - coef.intercept);
+  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat;
+
+  if( coef.intercept ){
+    new_mat = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>>(new_xreg.data(), n, n_cols-1);
+    new_mat.conservativeResize(Eigen::NoChange, new_mat.cols()+1);
+    new_mat.col(new_mat.cols()-1) = Eigen::Matrix<U, Eigen::Dynamic, 1>::Constant(n, 1, 1);
+  }
+  else {
+    new_mat = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>>(new_xreg.data(), n, n_cols);
+  }
+  Eigen::Matrix<U, Eigen::Dynamic, 1> coef_ = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(coef.coef.data(), n_cols , 1);
+  // predictions
+  Eigen::Matrix<U, Eigen::Dynamic, 1> result = new_mat * coef_;
+
+  std::vector<double> res(result.data(), result.data() + result.rows() );
+  return res;
 }
+
+template <typename U=double> std::vector<U> predict( lm_coef<U> &coef,
+                                                     std::vector<std::vector<U>> & new_xreg ) {
+
+  int n_cols = coef.size();
+  int n = new_xreg.size()/(n_cols - coef.intercept);
+  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat;
+  auto _xreg = flatten_vec(new_xreg);
+  new_mat = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>>(_xreg.data(), n, n_cols-coef.intercept);
+
+  if( coef.intercept ){
+    new_mat.conservativeResize(Eigen::NoChange, new_mat.cols()+1);
+    new_mat.col(new_mat.cols()-1) = Eigen::Matrix<U, Eigen::Dynamic, 1>::Constant(n, 1, 1);
+  }
+
+  Eigen::Matrix<U, Eigen::Dynamic, 1> coef_ = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(coef.coef.data(), n_cols , 1);
+  // predictions
+  Eigen::Matrix<U, Eigen::Dynamic, 1> result = new_mat * coef_;
+
+  std::vector<double> res(result.data(), result.data() + result.rows() );
+  return res;
+}
+
+template <typename U=double> std::vector<U> predict( lm_coef<U> coef,
+                                                     Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> & fixed_xreg ) {
+
+  Eigen::Matrix<U, Eigen::Dynamic, 1> coef_ = Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(coef.coef.data(), coef.size() , 1);
+  // predictions
+  Eigen::Matrix<U, Eigen::Dynamic, 1> result = fixed_xreg * coef_;
+  std::vector<double> res(result.data(), result.data() + result.rows() );
+  return res;
+}
+
 
 #endif

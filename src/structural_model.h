@@ -11,6 +11,18 @@ enum SSinit {
 
 // Kalman filtering model structure
 template <typename U=double> struct structural_model {
+  structural_model<U>() {
+    // std::vector<U> phi;
+    // std::vector<U> theta;
+    // std::vector<U> delta;
+    // std::vector<U> Z;
+    // std::vector<U> a;
+    // std::vector<U> P;
+    // std::vector<U> T;
+    // std::vector<U> V;
+    // U h;
+    // std::vector<U> Pn;
+  }
   structural_model<U>( std::vector<U> phi,
                             std::vector<U> theta,
                             std::vector<U> delta,
@@ -24,7 +36,6 @@ template <typename U=double> struct structural_model {
   phi(std::move(phi)), theta(std::move(theta)), delta(std::move(delta)),
   Z(std::move(Z)), a(std::move(a)), P(std::move(P)),
   T(std::move(T)), V(std::move(V)), h(std::move(h)), Pn(std::move(Pn)){};
-
   structural_model<U>( std::vector<U>&& phi,
                             std::vector<U>&& theta,
                             std::vector<U>&& delta,

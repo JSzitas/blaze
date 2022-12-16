@@ -137,7 +137,7 @@ int count_na( std::vector<float> &a ) {
   return count;
 }
 
-std::vector<int> find_na( std::vector<float> &a ) {
+template<typename U=double>std::vector<int> find_na( std::vector<U> &a ) {
   std::vector<int> result;
   result.reserve(a.size());
   for(int i = 0; i < a.size(); i++) {
@@ -156,6 +156,35 @@ template <typename T> std::vector<T> intersect( std::vector<T> &a,
   for( auto&val:b ) {
     if( comp_set.count(val) ) {
       result.push_back(val);
+    }
+  }
+  return result;
+}
+
+template <typename T> std::vector<T> intersect( std::vector<T> &a,
+                                                std::vector<T> b) {
+  std::unordered_set<T> comp_set(a.begin(), a.end());
+  std::vector<T> result;
+  result.reserve(min(a.size(), b.size()));
+  for( auto&val:b ) {
+    if( comp_set.count(val) ) {
+      result.push_back(val);
+    }
+  }
+  return result;
+}
+
+template <typename U=double> std::vector<U> flatten_vec(std::vector<std::vector<U>> x) {
+  int size=0;
+  for(int i=0; i < x.size(); i++) {
+    size += x[i].size();
+  }
+  int p = 0;
+  std::vector<U> result(size);
+  for( int i=0; i < size; i++ ) {
+    for( int j=0; j <x[i].size(); j++) {
+      result[p] = x[i][j];
+      p++;
     }
   }
   return result;

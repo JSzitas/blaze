@@ -23,7 +23,9 @@ public:
     init_map["Gardner"] = SSinit::Gardner;
     init_map["Rossignol"] = SSinit::Rossignol;
     this->model = Arima<double>( y, kind, xreg, intercept_transform[0],
-                                intercept_transform[1], init_map[ss_init],
+                                intercept_transform[1],
+                                init_map[ss_init],
+                                CSS,
                                 kappa);
   }
   void fit(){
