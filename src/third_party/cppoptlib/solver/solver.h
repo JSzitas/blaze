@@ -134,28 +134,26 @@ State<T> DefaultStoppingSolverState() {
   return state;
 }
 
-// Returns the defaul callback function.
-// template <class scalar_t, class vector_t, class hessian_t>
-// auto GetDefaultStepCallback() {
-//   return
-//       [](const function::State<scalar_t, vector_t, hessian_t> &function_state,
-//          const State<scalar_t> &solver_state) {
-//         std::cout << "Function-State"
-//                   << "\t";
-//         std::cout << "  value    " << function_state.value << "\t";
-//         std::cout << "  x    " << function_state.x.transpose() << "\t";
-//         std::cout << "  gradient    " << function_state.gradient.transpose()
-//                   << std::endl;
-//         std::cout << "Solver-State"
-//                   << "\t";
-//         std::cout << "  iterations " << solver_state.num_iterations << "\t";
-//         std::cout << "  x_delta " << solver_state.x_delta << "\t";
-//         std::cout << "  f_delta " << solver_state.f_delta << "\t";
-//         std::cout << "  gradient_norm " << solver_state.gradient_norm << "\t";
-//         std::cout << "  condition_hessian " << solver_state.condition_hessian
-//                   << std::endl;
-//       };
-// }
+template <class T>
+State<T> CustomState( int num_iter = 200,
+                      T x_delta = 1e-9,
+                      int x_delta_violations = 5,
+                      T f_delta = 1e-9,
+                      int f_delta_violations = 5,
+                      T gradient_norm = 1e-4,
+                      T condition_hessian = 0) {
+  State<T> state;
+  state.num_iterations = num_iter;
+  state.x_delta = x_delta;
+  state.x_delta_violations = x_delta_violations;
+  state.f_delta = f_delta;
+  state.f_delta_violations = f_delta_violations;
+  state.gradient_norm = gradient_norm;
+  state.condition_hessian = condition_hessian;
+  state.status = Status::NotStarted;
+  return state;
+}
+
 
 template <class scalar_t, class vector_t, class hessian_t>
 auto GetEmptyStepCallback() {
@@ -183,9 +181,11 @@ class Solver {
  protected:
   static constexpr int Order = Ord;
 
+   // DefaultStoppingSolverState<scalar_t>(),
+
  public:
   explicit Solver(const State<scalar_t> &stopping_state =
-                      DefaultStoppingSolverState<scalar_t>(),
+                      CustomState<scalar_t>(),
                   callback_t step_callback =
                     GetEmptyStepCallback<scalar_t, vector_t, hessian_t>()
                       // GetDefaultStepCallback<scalar_t, vector_t, hessian_t>()

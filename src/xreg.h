@@ -197,5 +197,15 @@ template <typename U=double> std::vector<U> predict( lm_coef<U> coef,
   return res;
 }
 
+template <typename T> void print_eigvec(Eigen::Matrix<T, Eigen::Dynamic,1> &x) {
+  int i=0;
+  for(; i < (x.size()-1); i++) {
+    std::cout << x[i] << ", ";
+  }
+  i++;
+  std::cout << x[i] << std::endl;
+}
+
+
 
 #endif

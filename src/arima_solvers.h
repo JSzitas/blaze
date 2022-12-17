@@ -43,34 +43,22 @@ public:
       new_mat.col(new_mat.cols()-1) = Eigen::Matrix<double, Eigen::Dynamic, 1>::Constant(n, 1, 1);
     }
     this->xreg = new_mat;
+    this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
   }
   double operator()( const Eigen::VectorXd &x) const {
-    // VectorXd is the vector of parameters
-    // use this to fill coef
-
-    const int phi_pars = kind.p() + kind.P();
-    const int theta_pars = kind.q() + kind.Q();
-    const int arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
-
-    auto new_x = x;
+    Eigen::VectorXd new_x = x;
     // pack this inside an arma structure
     // rewrite arima_transform_parameters for Eigen::VectorXd
     arima_transform_parameters(new_x, this->kind, false);
-    Eigen::VectorXd new_xreg(this->xreg_pars.size());
-    for( int i=0; i < this->xreg_pars.size();i++ ) {
-      new_xreg[i] = x[arma_pars + i];
-    }
-    std::cout << "Iteration" << std::endl;
-    Eigen::VectorXd y_temp(y.size()); //= new_xreg * this->xreg;
+    Eigen::VectorXd y_temp(y.size());
     for(int i=0; i < y_temp.size(); i++) {
       y_temp[i] = this->y[i];
     }
     // and this
     if(xreg.cols() > 0) {
-      y_temp = y_temp - new_xreg * this->xreg;
+      y_temp = y_temp - x.tail(x.size() - this->arma_pars) * this->xreg;
     }
-    // call arima css function - rewrite this to take an Eigen::VectorXd -> then we can
-    // feed it directly with the Eigen::VectorXd
+    // call arima css function
     double res = arima_css_ssq( y_temp, x, this->kind, this->n_cond );
     return 0.5 * log(res);
   }
@@ -81,6 +69,7 @@ public:
   lm_coef<double> xreg_pars;
   arima_kind kind;
   int n_cond;
+  int arma_pars;
 };
 
 void arima_solver_css( std::vector<double> &y,
@@ -91,6 +80,7 @@ void arima_solver_css( std::vector<double> &y,
                        int n_cond ) {
   // define solver
   using Solver = cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM>;
+
   // initialize a solver object
   Solver solver;
 
@@ -111,6 +101,7 @@ void arima_solver_css( std::vector<double> &y,
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // print solution, solver state and estimated coef
   // print_vector(x);
+  print_eigvec(solution.x);
 }
 
 

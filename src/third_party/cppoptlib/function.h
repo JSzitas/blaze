@@ -72,6 +72,7 @@ class Function {
 
   // Computes the value of a function.
   virtual scalar_t operator()(const vector_t &x) const = 0;
+  // virtual scalar_t operator()( vector_t &x) = 0;
 
   // Computes the gradient of a function.
   virtual void Gradient(const vector_t &x, vector_t *grad) const {
