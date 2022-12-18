@@ -79,7 +79,8 @@ struct State {
                   .template lpNorm<Eigen::Infinity>();
     gradient_norm =
         current_function_state.gradient.template lpNorm<Eigen::Infinity>();
-
+    // std::cout << "Stopping number of iterations:" << stop_state.num_iterations;
+    // std::cout << " Current iter: " << num_iterations << std::endl;
     if ((stop_state.num_iterations > 0) &&
         (num_iterations > stop_state.num_iterations)) {
       status = Status::IterationLimit;
@@ -135,7 +136,7 @@ State<T> DefaultStoppingSolverState() {
 }
 
 template <class T>
-State<T> CustomState( int num_iter = 200,
+State<T> CustomState( int num_iter = 5,
                       T x_delta = 1e-9,
                       int x_delta_violations = 5,
                       T f_delta = 1e-9,

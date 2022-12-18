@@ -22,7 +22,7 @@ public:
     this->y = y;
     // initialize xreg coef and data
     this->xreg = xreg;
-    this->intercept = intercept;
+    this->intercept = ((kind.d() + kind.D()) == 0 ) && intercept;
     this->transform_parameters = transform_parameters;
     this->ss_init = ss_init;
     this->kind = kind;
@@ -38,7 +38,7 @@ public:
     // find na across y
     std::vector<int> na_cases = find_na(y);
     // fit xreg
-    if( this->xreg.size() > 0 ) {
+    if( this->xreg.size() > 0 || this->intercept) {
       std::vector<U> y_d;
       std::vector<std::vector<U>> xreg_d;
       // if we have any differences
@@ -92,6 +92,8 @@ public:
     if( method == CSS ) {
       // is using conditional sum of squares, just directly optimize and
       // use hessian 'as-is'
+      // print_vector(this->reg_coef.coef);
+
       arima_solver_css( this->y, this->model, this->reg_coef,
                         this->xreg, this->kind, ncond );
 

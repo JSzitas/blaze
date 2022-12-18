@@ -19,25 +19,25 @@ struct arima_kind{
     this->sarma_Q = Q;
     this->s_period = s_period;
   }
-  int p() const {
+  const int p() const {
     return this->arma_p;
   }
-  int d() const {
+  const int d() const {
     return this->diff_d;
   }
-  int q() const {
+  const int q() const {
     return this->arma_q;
   }
-  int P() const {
+  const int P() const {
     return this->sarma_P;
   }
-  int D() const {
+  const int D() const {
     return this->seas_diff_D;
   }
-  int Q() const {
-    return this->sarma_P;
+  const int Q() const {
+    return this->sarma_Q;
   }
-  int period() const {
+  const int period() const {
     return this->s_period;
   }
 private:
@@ -459,6 +459,8 @@ void arima_transform_parameters( Eigen::VectorXd &coef,
     }
   }
   // the output is written back to coef
+  // ##########################################################
+  // this is probabably a memory BUG for seasonal models
   for( i = 0; i < p; i++) {
     coef[i] = phi[i];
   }

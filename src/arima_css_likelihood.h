@@ -116,6 +116,7 @@ double arima_css_ssq( const Eigen::VectorXd & y,
   double ssq = 0.0, tmp = 0.0;
   int n = y.size(), p = kind.p() + kind.P(), q = kind.q() + kind.Q();
   int ns, nu = 0;
+  // std::cout << "ncond: " << n_cond << std::endl;
   std::vector<double> w(n);
   // w = (double *) R_alloc(n, sizeof(double));
   for (int l = 0; l < n; l++) {
@@ -136,24 +137,32 @@ double arima_css_ssq( const Eigen::VectorXd & y,
   }
   // prepare the residuals
   std::vector<double> resid(n);
-  for (int l = 0; l < n_cond; l++) {
-    resid[l] = 0;
-  }
+  // for (int l = 0; l < n_cond; l++) {
+  //   resid[l] = 0;
+  // }
+  // print_vector(w);
 
+  int ma_offset;
   for (int l = n_cond; l < n; l++) {
+    ma_offset = min(l - n_cond, q);
     tmp = w[l];
+    // std::cout << "tmp: " << tmp << std::endl;
     for (int j = 0; j < p; j++) {
       tmp -= pars[j] * w[l - j - 1];
     }
-    for (int j = p; j < min(l - n_cond, q); j++) {
-      tmp -= pars[j] * resid[l - j - 1];
+    // to offset that this is all in one vector, we need to
+    // start at p and go to p + q
+    for (int j = 0; j < ma_offset; j++) {
+      tmp -= pars[p+j] * resid[l - j - 1];
     }
     resid[l] = tmp;
     if (!isnan(tmp)) {
       nu++;
       ssq += tmp * tmp;
+      // std::cout << " tmp post: " << tmp << " ssq " << ssq << std::endl;
     }
   }
+  // std::cout << "SSQ: " << ssq << " nu: " << nu << std::endl;
   return ssq/nu;
 }
 

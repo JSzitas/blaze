@@ -38,32 +38,46 @@ public:
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_mat = Eigen::Map<
       Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>
     >(_xreg.data(), n, xreg.size()/n);
-    if( xreg_pars.intercept ) {
+    if( xreg_pars.has_intercept() ) {
       new_mat.conservativeResize(Eigen::NoChange, new_mat.cols()+1);
       new_mat.col(new_mat.cols()-1) = Eigen::Matrix<double, Eigen::Dynamic, 1>::Constant(n, 1, 1);
     }
     this->xreg = new_mat;
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
+    // std::cout << "arma pars: " << this->arma_pars << std::endl;
+    // std::cout << "xreg cols: " << new_mat.cols() << std::endl;
   }
   double operator()( const Eigen::VectorXd &x) const {
     Eigen::VectorXd new_x = x;
     // pack this inside an arma structure
+    // std::cout << "pre transform" << std::endl;
+    // print_eigvec(new_x);
     // rewrite arima_transform_parameters for Eigen::VectorXd
     arima_transform_parameters(new_x, this->kind, false);
+    // print_eigvec(new_x);
+    // std::cout << "post transform" << std::endl;
     Eigen::VectorXd y_temp(y.size());
     for(int i=0; i < y_temp.size(); i++) {
       y_temp[i] = this->y[i];
     }
-    // and this
+    // std::cout << "Pre xreg: " << std::endl;
+    // print_eigvec(y_temp);
+    // IT IS DEFINITELY A BUG HERE OF SOME SORT
+    // Eigen::VectorXd xreg_proj = this->xreg * new_x.tail(new_x.size() - this->arma_pars);
+    // std::cout << "Projection: ";
+    // print_eigvec(xreg_proj);
     if(xreg.cols() > 0) {
-      y_temp = y_temp - x.tail(x.size() - this->arma_pars) * this->xreg;
+      y_temp = y_temp - this->xreg * new_x.tail(new_x.size() - this->arma_pars);
     }
+    // std::cout << "Post xreg: " << std::endl;
+    // print_eigvec(y_temp);
+
     // call arima css function
-    double res = arima_css_ssq( y_temp, x, this->kind, this->n_cond );
+    double res = arima_css_ssq( y_temp, new_x, this->kind, this->n_cond );
+    // std::cout << "Loglik:" << 0.5 * log(res) << std::endl;
     return 0.5 * log(res);
   }
   std::vector<double> y;
-  std::vector<double> y_temp;
   structural_model<double> model;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
   lm_coef<double> xreg_pars;
@@ -90,18 +104,29 @@ void arima_solver_css( std::vector<double> &y,
   // initialize function input
   // first determine size >>
   auto vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
+  auto arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
   Eigen::VectorXd x(vec_size);
-  // initialize to all zeroes except for xreg
-  for(int i = kind.p() + kind.q() + kind.P() + kind.Q(); i < vec_size; i++) {
-    x[i] = xreg_coef.coef[i];
+  for( auto &val:x ) {
+    val = 0;
   }
-  // print_vector(x);
 
-  // x << -1, 2;
+  // initialize to all zeroes except for xreg
+  for(int i = arma_size; i < vec_size; i++) {
+    x[i] = xreg_coef.coef[i-arma_size];
+  }
+  // print_eigvec(x);
+  // arima_transform_parameters(x, kind, false);
+  // print_eigvec(x);
+
+  // auto init_solution = css_arima_problem.Eval(x);
+  // print_eigvec(init_solution.x);
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // print solution, solver state and estimated coef
-  // print_vector(x);
-  print_eigvec(solution.x);
+  std::vector<double> result(x.size());
+  for( int i=0; i < result.size(); i++) {
+    result[i] = solution.x[i];
+  }
+  print_vector(result);
 }
 
 

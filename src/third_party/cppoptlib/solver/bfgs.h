@@ -25,7 +25,7 @@ class Bfgs : public Solver<function_t> {
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   explicit Bfgs(const State<scalar_t> &stopping_state =
-                    DefaultStoppingSolverState<scalar_t>(),
+                    CustomState<scalar_t>(),
                 typename Superclass::callback_t step_callback =
                     GetEmptyStepCallback<scalar_t, vector_t, hessian_t>())
       : Solver<function_t>{stopping_state, std::move(step_callback)} {}

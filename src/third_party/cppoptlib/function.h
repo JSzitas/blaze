@@ -89,6 +89,8 @@ class Function {
   virtual State<scalar_t, vector_t, hessian_t> Eval(const vector_t &x,
                                                     const int order = 2) const {
     State<scalar_t, vector_t, hessian_t> state(x.rows(), order);
+    // calling eval
+    // std::cout << "Eval" << std::endl;
     state.value = this->operator()(x);
     state.x = x;
     if (order >= 1) {
