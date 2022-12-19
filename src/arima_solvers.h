@@ -44,37 +44,24 @@ public:
     }
     this->xreg = new_mat;
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
-    // std::cout << "arma pars: " << this->arma_pars << std::endl;
-    // std::cout << "xreg cols: " << new_mat.cols() << std::endl;
   }
   double operator()( const Eigen::VectorXd &x) const {
     Eigen::VectorXd new_x = x;
-    // pack this inside an arma structure
-    // std::cout << "pre transform" << std::endl;
     // print_eigvec(new_x);
-    // rewrite arima_transform_parameters for Eigen::VectorXd
-    arima_transform_parameters(new_x, this->kind, false);
-    // print_eigvec(new_x);
-    // std::cout << "post transform" << std::endl;
     Eigen::VectorXd y_temp(y.size());
     for(int i=0; i < y_temp.size(); i++) {
       y_temp[i] = this->y[i];
     }
-    // std::cout << "Pre xreg: " << std::endl;
-    // print_eigvec(y_temp);
-    // IT IS DEFINITELY A BUG HERE OF SOME SORT
-    // Eigen::VectorXd xreg_proj = this->xreg * new_x.tail(new_x.size() - this->arma_pars);
-    // std::cout << "Projection: ";
-    // print_eigvec(xreg_proj);
     if(xreg.cols() > 0) {
       y_temp = y_temp - this->xreg * new_x.tail(new_x.size() - this->arma_pars);
+      // do differencing here if necessary - otherwise do differencing when getting
+      // the data first - in the constructor
     }
-    // std::cout << "Post xreg: " << std::endl;
-    // print_eigvec(y_temp);
 
+    arima_transform_parameters(new_x, this->kind, false);
+    // print_eigvec(new_x);
     // call arima css function
     double res = arima_css_ssq( y_temp, new_x, this->kind, this->n_cond );
-    // std::cout << "Loglik:" << 0.5 * log(res) << std::endl;
     return 0.5 * log(res);
   }
   std::vector<double> y;
@@ -109,7 +96,6 @@ void arima_solver_css( std::vector<double> &y,
   for( auto &val:x ) {
     val = 0;
   }
-
   // initialize to all zeroes except for xreg
   for(int i = arma_size; i < vec_size; i++) {
     x[i] = xreg_coef.coef[i-arma_size];
@@ -128,19 +114,6 @@ void arima_solver_css( std::vector<double> &y,
   }
   print_vector(result);
 }
-
-
-
-// armaCSS <- function(p) {
-//   par <- as.double(fixed)
-//   par[mask] <- p
-//   trarma <- .Call(stats:::C_ARIMA_transPars, par, arma, FALSE)
-//   if (ncxreg > 0)
-//     x <- x - xreg %*% par[narma + (1L:ncxreg)]
-//   res <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
-//                as.integer(ncond), FALSE)
-//     0.5 * log(res)
-// }
 
 
 //         res <- optim(init[mask], armaCSS, method = "BFGS",
