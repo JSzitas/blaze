@@ -8,117 +8,20 @@
  * Note that this function is very similar to the one that follows it
  * the main difference is in what they return -
  */
-double arima_css_ssq( std::vector<double> & y,
-                      structural_model<double> &model,
-                      arima_kind &kind,
-                      int n_cond )
-{
-  double ssq = 0.0, tmp = 0.;
-  int n = y.size(), p = model.phi.size(), q = model.theta.size();
-  int ns, nu = 0;
-  std::vector<double> w(n);
-  // w = (double *) R_alloc(n, sizeof(double));
-  for (int l = 0; l < n; l++) {
-    w[l] = y[l];
-  }
-  // regular differencing, as far as I can tell :)
-  for (int i = 0; i < kind.d(); i++) {
-    for (int l = n - 1; l > 0; l--) {
-      w[l] -= w[l - 1];
-    }
-  }
-  ns = kind.period();
-  // seasonal differencing, as far as I can tell :)
-  for (int i = 0; i < kind.D(); i++) {
-    for (int l = n - 1; l >= ns; l--) {
-      w[l] -= w[l - ns];
-    }
-  }
-  // prepare the residuals
-  std::vector<double> resid(n);
-  for (int l = 0; l < n_cond; l++) {
-    resid[l] = 0;
-  }
-
-  for (int l = n_cond; l < n; l++) {
-    tmp = w[l];
-    for (int j = 0; j < p; j++) {
-      tmp -= model.phi[j] * w[l - j - 1];
-    }
-    for (int j = 0; j < min(l - n_cond, q); j++) {
-      tmp -= model.theta[j] * resid[l - j - 1];
-    }
-    resid[l] = tmp;
-    if (!isnan(tmp)) {
-      nu++;
-      ssq += tmp * tmp;
-    }
-  }
-  return ssq/nu;
-}
-
-double arima_css_ssq( std::vector<double> & y,
-                      const Eigen::VectorXd & pars,
-                      arima_kind &kind,
-                      int n_cond )
-{
-  double ssq = 0.0, tmp = 0.;
-  int n = y.size(), p = kind.p() + kind.P(), q = kind.q() + kind.Q();
-  int ns, nu = 0;
-  std::vector<double> w(n);
-  // w = (double *) R_alloc(n, sizeof(double));
-  for (int l = 0; l < n; l++) {
-    w[l] = y[l];
-  }
-  // regular differencing, as far as I can tell :)
-  for (int i = 0; i < kind.d(); i++) {
-    for (int l = n - 1; l > 0; l--) {
-      w[l] -= w[l - 1];
-    }
-  }
-  ns = kind.period();
-  // seasonal differencing, as far as I can tell :)
-  for (int i = 0; i < kind.D(); i++) {
-    for (int l = n - 1; l >= ns; l--) {
-      w[l] -= w[l - ns];
-    }
-  }
-  // prepare the residuals
-  std::vector<double> resid(n);
-  for (int l = 0; l < n_cond; l++) {
-    resid[l] = 0;
-  }
-
-  for (int l = n_cond; l < n; l++) {
-    tmp = w[l];
-    for (int j = 0; j < p; j++) {
-      tmp -= pars[j] * w[l - j - 1];
-    }
-    for (int j = p; j < min(l - n_cond, q); j++) {
-      tmp -= pars[j] * resid[l - j - 1];
-    }
-    resid[l] = tmp;
-    if (!isnan(tmp)) {
-      nu++;
-      ssq += tmp * tmp;
-    }
-  }
-  return ssq/nu;
-}
-
-// const std::vector<double> & y,
-
 double arima_css_ssq( const Eigen::VectorXd & y,
                       const Eigen::VectorXd & pars,
                       const arima_kind &kind,
                       const int n_cond )
 {
   double ssq = 0.0, tmp = 0.0;
-  int n = y.size(), p = kind.p() + kind.P(), q = kind.q() + kind.Q();
-  int ns, nu = 0;
-  // std::cout << "ncond: " << n_cond << std::endl;
+  int n = y.size(), mp = kind.p(),  mq = kind.q();
+  int msp = kind.P(), msq = kind.Q(), ns = kind.period();
+  int p = mp + ns * msp;
+  int q = mq + ns * msq;
+
+  int nu = 0;
+  // move differencing out of this and operate directly on y, dropping the const specifier
   std::vector<double> w(n);
-  // w = (double *) R_alloc(n, sizeof(double));
   for (int l = 0; l < n; l++) {
     w[l] = y[l];
   }
@@ -128,7 +31,7 @@ double arima_css_ssq( const Eigen::VectorXd & y,
       w[l] -= w[l - 1];
     }
   }
-  ns = kind.period();
+
   // seasonal differencing, as far as I can tell :)
   for (int i = 0; i < kind.D(); i++) {
     for (int l = n - 1; l >= ns; l--) {
@@ -137,16 +40,10 @@ double arima_css_ssq( const Eigen::VectorXd & y,
   }
   // prepare the residuals
   std::vector<double> resid(n);
-  // for (int l = 0; l < n_cond; l++) {
-  //   resid[l] = 0;
-  // }
-  // print_vector(w);
-
   int ma_offset;
   for (int l = n_cond; l < n; l++) {
     ma_offset = min(l - n_cond, q);
     tmp = w[l];
-    // std::cout << "tmp: " << tmp << std::endl;
     for (int j = 0; j < p; j++) {
       tmp -= pars[j] * w[l - j - 1];
     }
@@ -159,10 +56,8 @@ double arima_css_ssq( const Eigen::VectorXd & y,
     if (!isnan(tmp)) {
       nu++;
       ssq += tmp * tmp;
-      // std::cout << " tmp post: " << tmp << " ssq " << ssq << std::endl;
     }
   }
-  // std::cout << "SSQ: " << ssq << " nu: " << nu << std::endl;
   return ssq/nu;
 }
 
