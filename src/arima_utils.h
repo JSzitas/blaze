@@ -11,13 +11,22 @@
 struct arima_kind{
   arima_kind(){};
   arima_kind( int p, int d, int q, int P, int D, int Q, int s_period ){
-    this->arma_p= p;
+    this->arma_p = p;
     this->diff_d = d;
     this->arma_q = q;
     this->sarma_P = P;
     this->seas_diff_D = D;
     this->sarma_Q = Q;
     this->s_period = s_period;
+  }
+  arima_kind( std::vector<int> arima_def ) {
+    this->arma_p = arima_def[0];
+    this->diff_d = arima_def[1];
+    this->arma_q = arima_def[2];
+    this->sarma_P = arima_def[3];
+    this->seas_diff_D = arima_def[4];
+    this->sarma_Q = arima_def[5];
+    this->s_period = arima_def[6];
   }
   const int p() const {
     return this->arma_p;
@@ -330,6 +339,7 @@ void arima_transform_parameters( std::vector<double> &coef,
     }
   }
   if (ns > 0) {
+    coef.resize(p+q);
     /* expand out seasonal ARMA models */
     for (i = 0; i < mp; i++) {
       phi[i] = params[i];
@@ -365,10 +375,10 @@ void arima_transform_parameters( std::vector<double> &coef,
     }
   }
   // the output is written back to coef
-  for( i = 0; i < p; i++) {
+  for( i = 0; i < phi.size(); i++) {
     coef[i] = phi[i];
   }
-  for( i = p; i < phi.size() + theta.size(); i++) {
+  for( i = phi.size(); i < phi.size() + theta.size(); i++) {
     coef[i] = theta[i-p];
   }
 }
@@ -388,7 +398,7 @@ void arima_transform_parameters( Eigen::VectorXd &coef,
   std::vector<double> phi(p);
   std::vector<double> theta(q);
   int n = mp + mq + msp + msq;
-  std::vector<double> params(n);
+  std::vector<double> params(coef.size());
   int i, j, v;
   for (i = 0; i < coef.size(); i++) {
     params[i] = coef[i];
@@ -423,14 +433,16 @@ void arima_transform_parameters( Eigen::VectorXd &coef,
       }
     }
   }
-  if (ns > 0) {
+  for (i = 0; i < mp; i++) {
+    phi[i] = params[i];
+  }
+  for (i = 0; i < mq; i++) {
+    theta[i] = params[i + mp];
+  }
+
+  if ((msp + msq) > 0) {
+    coef.resize(p+q);
     /* expand out seasonal ARMA models */
-    for (i = 0; i < mp; i++) {
-      phi[i] = params[i];
-    }
-    for (i = 0; i < mq; i++) {
-      theta[i] = params[i + mp];
-    }
     for (i = mp; i < p; i++) {
       phi[i] = 0.0;
     }
@@ -450,21 +462,11 @@ void arima_transform_parameters( Eigen::VectorXd &coef,
           params[j + mp + mq + msp];
       }
     }
-  } else {
-    for(i = 0; i < mp; i++) {
-      phi[i] = params[i];
-    }
-    for(i = 0; i < mq; i++) {
-      theta[i] = params[i + mp];
-    }
   }
-  // the output is written back to coef
-  // ##########################################################
-  // this is probabably a memory BUG for seasonal models
   for( i = 0; i < p; i++) {
     coef[i] = phi[i];
   }
-  for( i = p; i < phi.size() + theta.size(); i++) {
+  for( i = p; i < p+q; i++) {
     coef[i] = theta[i-p];
   }
 }
