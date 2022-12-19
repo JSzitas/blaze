@@ -136,7 +136,7 @@ State<T> DefaultStoppingSolverState() {
 }
 
 template <class T>
-State<T> CustomState( int num_iter = 5,
+State<T> CustomState( int num_iter = 200,
                       T x_delta = 1e-9,
                       int x_delta_violations = 5,
                       T f_delta = 1e-9,
@@ -219,9 +219,6 @@ class Solver {
     this->InitializeSolver(initial_state);
 
     do {
-      // Trigger a user-defined callback.
-      // this->step_callback_(function_state, solver_state);
-
       // Find next function state.
       function_state_t previous_function_state(function_state);
       function_state = this->OptimizationStep(function, previous_function_state,
@@ -231,9 +228,6 @@ class Solver {
       solver_state.Update(previous_function_state, function_state,
                           stopping_state_);
     } while (solver_state.status == Status::Continue);
-
-    // Final Trigger of a user-defined callback.
-    // this->step_callback_(function_state, solver_state);
 
     return {function_state, solver_state};
   }
