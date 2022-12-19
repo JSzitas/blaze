@@ -15,9 +15,7 @@ public:
               std::vector<bool> intercept_transform = {true, true},
               double kappa = 1000000) {
 
-    arima_kind kind = arima_kind(orders_period[0], orders_period[1], orders_period[2],
-                                 orders_period[3], orders_period[4], orders_period[5],
-                                 orders_period[6]);
+    arima_kind kind = arima_kind(orders_period);
     // the map is certainly nicer than if else statements and switches
     std::map<std::string, SSinit> init_map;
     init_map["Gardner"] = SSinit::Gardner;
