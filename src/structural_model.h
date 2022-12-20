@@ -371,5 +371,4 @@ std::vector<double> make_delta( int n_diff,
   return a;
 }
 
-
 #endif
