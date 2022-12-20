@@ -20,7 +20,7 @@ double arima_css_ssq( const Eigen::VectorXd & y,
   int q = mq + ns * msq;
 
   int nu = 0;
-  // prepare the residuals
+  // prepare the residuals - possibly move this out and never allocate here?
   std::vector<double> resid(n);
   int ma_offset;
   for (int l = n_cond; l < n; l++) {
