@@ -12,7 +12,7 @@ namespace cppoptlib::utils {
 
 // Approximates the gradient of the given function in x0.
 template <class function_t>
-void ComputeFiniteGradient(const function_t &function,
+void ComputeFiniteGradient(function_t &function,
                            const typename function_t::vector_t &x0,
                            typename function_t::vector_t *grad,
                            const int accuracy = 0) {
@@ -53,7 +53,7 @@ void ComputeFiniteGradient(const function_t &function,
 
 // Approximates the hessian_t of the given function in x0.
 template <class function_t>
-void ComputeFiniteHessian(const function_t &function,
+void ComputeFiniteHessian(function_t &function,
                           const typename function_t::vector_t &x0,
                           typename function_t::hessian_t *hessian,
                           int accuracy = 0) {
@@ -202,7 +202,7 @@ void ComputeFiniteHessian(const function_t &function,
 }
 
 template <class function_t>
-bool IsGradientCorrect(const function_t &function,
+bool IsGradientCorrect( function_t &function,
                        const typename function_t::vector_t &x0,
                        int accuracy = 3) {
   constexpr float tolerance = 1e-2;
@@ -230,7 +230,7 @@ bool IsGradientCorrect(const function_t &function,
 }
 
 template <class function_t>
-bool IsHessianCorrect(const function_t &function,
+bool IsHessianCorrect( function_t &function,
                       const typename function_t::vector_t &x0,
                       int accuracy = 3) {
   constexpr float tolerance = 1e-1;

@@ -36,7 +36,7 @@ class Bfgs : public Solver<function_t> {
         hessian_t::Identity(initial_state.x.rows(), initial_state.x.rows());
   }
 
-  function_state_t OptimizationStep(const function_t &function,
+  function_state_t OptimizationStep(function_t &function,
                                     const function_state_t &current,
                                     const state_t & /*state*/) override {
     vector_t search_direction = -inverse_hessian_ * current.gradient;
@@ -52,7 +52,7 @@ class Bfgs : public Solver<function_t> {
     const scalar_t rate = linesearch::MoreThuente<function_t, 1>::Search(
         current, search_direction, function);
 
-    const function_state_t next =
+    function_state_t next =
         function.Eval(current.x + rate * search_direction, 1);
 
     // Update inverse Hessian estimate.

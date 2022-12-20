@@ -71,15 +71,15 @@ class Function {
   virtual ~Function() = default;
 
   // Computes the value of a function.
-  virtual scalar_t operator()(const vector_t &x) const = 0;
-  // virtual scalar_t operator()( vector_t &x) = 0;
+  // virtual scalar_t operator()(const vector_t &x) const = 0;
+  virtual scalar_t operator()(const vector_t &x) = 0;
 
   // Computes the gradient of a function.
-  virtual void Gradient(const vector_t &x, vector_t *grad) const {
+  virtual void Gradient(const vector_t &x, vector_t *grad) {
     utils::ComputeFiniteGradient(*this, x, grad);
   }
   // Computes the Hessian of a function.
-  virtual void Hessian(const vector_t &x, hessian_t *hessian) const {
+  virtual void Hessian(const vector_t &x, hessian_t *hessian) {
     utils::ComputeFiniteHessian(*this, x, hessian);
   }
 
@@ -87,7 +87,7 @@ class Function {
   // Override this method if you can compute the objective value, gradient and
   // Hessian simultaneously.
   virtual State<scalar_t, vector_t, hessian_t> Eval(const vector_t &x,
-                                                    const int order = 2) const {
+                                                    const int order = 2) { //const
     State<scalar_t, vector_t, hessian_t> state(x.rows(), order);
     state.value = this->operator()(x);
     state.x = x;

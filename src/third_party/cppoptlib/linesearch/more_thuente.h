@@ -26,7 +26,7 @@ class MoreThuente {
    */
 
   static scalar_t Search(const state_t &state, const vector_t &search_direction,
-                         const Function &function,
+                         Function &function,
                          const scalar_t alpha_init = 1.0) {
     scalar_t alpha = alpha_init;
     vector_t g = state.gradient;
@@ -39,7 +39,7 @@ class MoreThuente {
     return alpha;
   }
 
-  static int cvsrch(const Function &function, vector_t *x, scalar_t f,
+  static int cvsrch(Function &function, vector_t *x, scalar_t f,
                     vector_t *g, scalar_t *stp, const vector_t &s) {
     // we rewrite this from MIN-LAPACK and some MATLAB code
     int info = 0;

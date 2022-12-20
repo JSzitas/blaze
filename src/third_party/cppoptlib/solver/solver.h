@@ -205,12 +205,12 @@ class Solver {
 
   // Minimizes a given function and returns the function state
   virtual std::tuple<function_state_t, state_t> Minimize(
-      const function_t &function, const vector_t &x0) {
+      function_t &function, const vector_t &x0) {
     return this->Minimize(function, function.Eval(x0, Order));
   }
 
   virtual std::tuple<function_state_t, state_t> Minimize(
-      const function_t &function, const function_state_t &initial_state) {
+      function_t &function, const function_state_t &initial_state) {
     // Solver state during the optimization.
     state_t solver_state;
     // Function state during the optimization.
@@ -232,7 +232,7 @@ class Solver {
     return {function_state, solver_state};
   }
 
-  virtual function_state_t OptimizationStep(const function_t &function,
+  virtual function_state_t OptimizationStep(function_t &function,
                                             const function_state_t &current,
                                             const state_t &state) = 0;
 
