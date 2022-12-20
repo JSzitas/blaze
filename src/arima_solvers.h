@@ -21,7 +21,7 @@ enum fitting_method{
 
 using FunctionXd = cppoptlib::function::Function<double>;
 
-class ARIMA_CSS_PROBLEM : public FunctionXd {
+template <const bool has_xreg>class ARIMA_CSS_PROBLEM : public FunctionXd {
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
@@ -30,8 +30,8 @@ public:
                      structural_model<double> &model,
                      lm_coef<double> & xreg_pars,
                      std::vector<std::vector<double>> & xreg,
-                     int n_cond ) : y(y), kind(kind), n_cond(n_cond),
-                     model(model), xreg_pars(xreg_pars) {
+                     int n_cond ) : kind(kind), n_cond(n_cond),
+                     xreg_pars(xreg_pars) {
     // initialize an xreg matrix
     int n = y.size();
     std::vector<double> _xreg = flatten_vec(xreg);
@@ -44,33 +44,75 @@ public:
     }
     this->xreg = new_mat;
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
+    Eigen::VectorXd y_temp(n);
+    for( int i=0; i < n; i++ ) {
+      y_temp[i] = y[i];
+    }
+    if constexpr(!has_xreg) {
+      // if you have no xreg, you can pull differencing out and only do it once
+      // rather than do it repeatedly at every step
+      // regular differencing
+      for (int i = 0; i < kind.d(); i++) {
+        for (int l = n - 1; l > 0; l--) {
+          y_temp[l] -= y_temp[l - 1];
+        }
+      }
+      // seasonal differencing
+      int ns = kind.period();
+      for (int i = 0; i < kind.D(); i++) {
+        for (int l = n - 1; l >= ns; l--) {
+          y_temp[l] -= y_temp[l - ns];
+        }
+      }
+    }
+    this->y = y;
+    this->y_temp = y_temp;
+    this->n = n;
+    this->xreg = new_mat;
+    this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
+    // preallocate new_x
+    this->new_x = Eigen::VectorXd(this->arma_pars + this->xreg.cols());
   }
-  double operator()( const Eigen::VectorXd &x) const {
-    Eigen::VectorXd new_x = x;
-    // print_eigvec(new_x);
-    Eigen::VectorXd y_temp(y.size());
-    for(int i=0; i < y_temp.size(); i++) {
-      y_temp[i] = this->y[i];
-    }
-    if(xreg.cols() > 0) {
-      y_temp = y_temp - this->xreg * new_x.tail(new_x.size() - this->arma_pars);
-      // do differencing here if necessary - otherwise do differencing when getting
-      // the data first - in the constructor
-    }
+  double operator()( const Eigen::VectorXd &x) {
+    this->new_x = x;
 
-    arima_transform_parameters(new_x, this->kind, false);
-    // print_eigvec(new_x);
+    if constexpr(has_xreg) {
+      // refresh y_temp and load it with original y data
+      for(int i=0; i < this->n; i++) {
+        this->y_temp[i] = this->y[i];
+      }
+      if(xreg.cols() > 0) {
+        this->y_temp = this->y_temp - this->xreg * x.tail(x.size() - this->arma_pars);
+        // do differencing here
+        for (int i = 0; i < kind.d(); i++) {
+          for (int l = n - 1; l > 0; l--) {
+            this->y_temp[l] -= this->y_temp[l - 1];
+          }
+        }
+        // seasonal differencing
+        int ns = kind.period();
+        for (int i = 0; i < kind.D(); i++) {
+          for (int l = n - 1; l >= ns; l--) {
+            this->y_temp[l] -= this->y_temp[l - ns];
+          }
+        }
+      }
+    }
+    arima_transform_parameters(this->new_x, this->kind, false);
     // call arima css function
-    double res = arima_css_ssq( y_temp, new_x, this->kind, this->n_cond );
+    double res = arima_css_ssq( this->y_temp, this->new_x, this->kind, this->n_cond );
     return 0.5 * log(res);
   }
   std::vector<double> y;
-  structural_model<double> model;
+  Eigen::VectorXd y_temp;
+  Eigen::VectorXd new_x;
+  // structural_model<double> model;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
   lm_coef<double> xreg_pars;
   arima_kind kind;
   int n_cond;
   int arma_pars;
+  int n;
 };
 
 void arima_solver_css( std::vector<double> &y,
@@ -79,17 +121,7 @@ void arima_solver_css( std::vector<double> &y,
                        std::vector<std::vector<double>> xreg,
                        arima_kind kind,
                        int n_cond ) {
-  // define solver
-  using Solver = cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM>;
 
-  // initialize a solver object
-  Solver solver;
-
-  // initialize problem
-  ARIMA_CSS_PROBLEM css_arima_problem( y, kind, model, xreg_coef,
-                                       xreg, n_cond);
-  // initialize function input
-  // first determine size >>
   auto vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
   auto arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
   Eigen::VectorXd x(vec_size);
@@ -100,17 +132,37 @@ void arima_solver_css( std::vector<double> &y,
   for(int i = arma_size; i < vec_size; i++) {
     x[i] = xreg_coef.coef[i-arma_size];
   }
-  // print_eigvec(x);
-  // arima_transform_parameters(x, kind, false);
-  // print_eigvec(x);
-
-  // auto init_solution = css_arima_problem.Eval(x);
-  // print_eigvec(init_solution.x);
-  auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
-  // print solution, solver state and estimated coef
   std::vector<double> result(x.size());
-  for( int i=0; i < result.size(); i++) {
-    result[i] = solution.x[i];
+  // initialize problem
+  if( xreg_coef.size() > 0 ) {
+    // define solver
+    using Solver = cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<true>>;
+    // initialize a solver object
+    Solver solver;
+    ARIMA_CSS_PROBLEM<true> css_arima_problem( y, kind, model, xreg_coef,
+                                               xreg, n_cond);
+
+    // auto init_solution = css_arima_problem.Eval(x);
+    // print_eigvec(init_solution.x);
+    auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
+    for( int i=0; i < result.size(); i++) {
+      result[i] = solution.x[i];
+    }
+  }
+  else {
+    // define solver
+    using Solver = cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<false>>;
+    // initialize a solver object
+    Solver solver;
+    ARIMA_CSS_PROBLEM<false> css_arima_problem( y, kind, model, xreg_coef,
+                                                xreg, n_cond);
+
+    // auto init_solution = css_arima_problem.Eval(x);
+    // print_eigvec(init_solution.x);
+    auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
+    for( int i=0; i < result.size(); i++) {
+      result[i] = solution.x[i];
+    }
   }
   print_vector(result);
 }
