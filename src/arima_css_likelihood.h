@@ -20,32 +20,14 @@ double arima_css_ssq( const Eigen::VectorXd & y,
   int q = mq + ns * msq;
 
   int nu = 0;
-  // move differencing out of this and operate directly on y, dropping the const specifier
-  std::vector<double> w(n);
-  for (int l = 0; l < n; l++) {
-    w[l] = y[l];
-  }
-  // regular differencing, as far as I can tell :)
-  for (int i = 0; i < kind.d(); i++) {
-    for (int l = n - 1; l > 0; l--) {
-      w[l] -= w[l - 1];
-    }
-  }
-
-  // seasonal differencing, as far as I can tell :)
-  for (int i = 0; i < kind.D(); i++) {
-    for (int l = n - 1; l >= ns; l--) {
-      w[l] -= w[l - ns];
-    }
-  }
   // prepare the residuals
   std::vector<double> resid(n);
   int ma_offset;
   for (int l = n_cond; l < n; l++) {
     ma_offset = min(l - n_cond, q);
-    tmp = w[l];
+    tmp = y[l];
     for (int j = 0; j < p; j++) {
-      tmp -= pars[j] * w[l - j - 1];
+      tmp -= pars[j] * y[l - j - 1];
     }
     // to offset that this is all in one vector, we need to
     // start at p and go to p + q
