@@ -136,12 +136,12 @@ State<T> DefaultStoppingSolverState() {
 }
 
 template <class T>
-State<T> CustomState( int num_iter = 200,
-                      T x_delta = 1e-9,
+State<T> CustomState( int num_iter = 100,
+                      T x_delta = 1e-8,
                       int x_delta_violations = 5,
-                      T f_delta = 1e-9,
+                      T f_delta = 1e-8,
                       int f_delta_violations = 5,
-                      T gradient_norm = 1e-4,
+                      T gradient_norm = 1e-3,
                       T condition_hessian = 0) {
   State<T> state;
   state.num_iterations = num_iter;
