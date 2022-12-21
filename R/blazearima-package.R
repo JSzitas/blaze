@@ -8,3 +8,5 @@ NULL
 ## usethis namespace: end
 NULL
 
+## ensure module gets loaded
+Rcpp::loadModule("BlazeArima", TRUE)
