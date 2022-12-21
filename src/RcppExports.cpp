@@ -10,22 +10,11 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// lm_cpp
-std::vector<double> lm_cpp(std::vector<double>& y, std::vector<std::vector<double>>& xreg, bool use_intercept);
-RcppExport SEXP _blazearima_lm_cpp(SEXP ySEXP, SEXP xregSEXP, SEXP use_interceptSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::vector<double>& >::type y(ySEXP);
-    Rcpp::traits::input_parameter< std::vector<std::vector<double>>& >::type xreg(xregSEXP);
-    Rcpp::traits::input_parameter< bool >::type use_intercept(use_interceptSEXP);
-    rcpp_result_gen = Rcpp::wrap(lm_cpp(y, xreg, use_intercept));
-    return rcpp_result_gen;
-END_RCPP
-}
+
+RcppExport SEXP _rcpp_module_boot_BlazeArima();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_blazearima_lm_cpp", (DL_FUNC) &_blazearima_lm_cpp, 3},
+    {"_rcpp_module_boot_BlazeArima", (DL_FUNC) &_rcpp_module_boot_BlazeArima, 0},
     {NULL, NULL, 0}
 };
 

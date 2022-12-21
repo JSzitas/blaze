@@ -27,7 +27,7 @@ public:
                                 kappa);
   }
   void fit(){
-    model.fit();
+    this->model.fit();
   }
   // void print_coef(){
   //
