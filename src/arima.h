@@ -93,9 +93,27 @@ public:
       // is using conditional sum of squares, just directly optimize and
       // use hessian 'as-is'
       // print_vector(this->reg_coef.coef);
-
-      arima_solver_css( this->y, this->model, this->reg_coef,
-                        this->xreg, this->kind, ncond );
+      const bool is_seasonal = kind.P() + kind.Q();
+      if( this->reg_coef.size() > 0 ) {
+        if( is_seasonal ) {
+          arima_solver_css<true, true>( this->y, this->model, this->reg_coef,
+                                         this->xreg, this->kind, ncond );
+        }
+        else {
+          arima_solver_css<true, false>( this->y, this->model, this->reg_coef,
+                                         this->xreg, this->kind, ncond );
+        }
+      }
+      else {
+        if( is_seasonal ) {
+          arima_solver_css<false, true>( this->y, this->model, this->reg_coef,
+                                        this->xreg, this->kind, ncond );
+        }
+        else {
+          arima_solver_css<false, false>( this->y, this->model, this->reg_coef,
+                                          this->xreg, this->kind, ncond );
+        }
+      }
 
 
 

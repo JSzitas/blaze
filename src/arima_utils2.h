@@ -80,7 +80,7 @@ std::vector<double> parameter_transform( std::vector<double> & coef ) {
   return new_par;
 }
 // new partrans
-void parameter_transform2( std::vector<double> & coef, int start, int end ) {
+void parameter_transform( std::vector<double> & coef, int start, int end ) {
   auto p = coef.size();
   int j, k;
   // we solve this by using a vector rather than an array
@@ -90,8 +90,6 @@ void parameter_transform2( std::vector<double> & coef, int start, int end ) {
    The parameters are now the pacf phi_{kk} */
   for(j = start; j < end; j++) {
     coef[j] = new_par[j] = tanh(coef[j]);
-
-    // new_par[j] = working_par[j] = tanh(coef[j]);
   }
   /* Step two: run the Durbin-Levinson recursions to find phi_{j.},
    j = 2, ..., p and phi_{p.} are the autoregression coefficients */
@@ -104,11 +102,7 @@ void parameter_transform2( std::vector<double> & coef, int start, int end ) {
       coef[k] = new_par[k];
     }
   }
-  // why not just return work directly
-  // return new_par;
 }
-
-
 
 // this just directly modifies coef
 void arima_transform_parameters( std::vector<double> &coef,
