@@ -75,6 +75,8 @@ public:
       kind.p() + (kind.P() * kind.period()) +
       kind.q() + (kind.Q() *kind.period()) +
       this->xreg.cols());
+    // preallocate model residuals
+    this->residual = std::vector<double>(n);
   }
   double operator()( const Eigen::VectorXd &x) {
     for( int i=0; i < x.size(); i++ ) {
@@ -105,7 +107,7 @@ public:
     }
     arima_transform_parameters<seasonal, false>(this->new_x, this->kind);
     // call arima css function
-    double res = arima_css_ssq( this->y_temp, this->new_x, this->kind, this->n_cond );
+    double res = arima_css_ssq( this->y_temp, this->new_x, this->kind, this->n_cond, this->residual );
     return 0.5 * log(res);
   }
   std::vector<double> y;
@@ -114,6 +116,7 @@ public:
   // structural_model<double> model;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
   lm_coef<double> xreg_pars;
+  std::vector<double> residual;
   arima_kind kind;
   int n_cond;
   int arma_pars;

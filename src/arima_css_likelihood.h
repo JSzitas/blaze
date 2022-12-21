@@ -11,7 +11,8 @@
 double arima_css_ssq( const Eigen::VectorXd & y,
                       const Eigen::VectorXd & pars,
                       const arima_kind &kind,
-                      const int n_cond )
+                      const int n_cond,
+                      std::vector<double> &resid)
 {
   double ssq = 0.0, tmp = 0.0;
   int n = y.size(), mp = kind.p(),  mq = kind.q();
@@ -21,7 +22,6 @@ double arima_css_ssq( const Eigen::VectorXd & y,
 
   int nu = 0;
   // prepare the residuals - possibly move this out and never allocate here?
-  std::vector<double> resid(n);
   int ma_offset;
   for (int l = n_cond; l < n; l++) {
     ma_offset = min(l - n_cond, q);
