@@ -32,7 +32,7 @@ public:
     // this should just proceed with fitting, not do things which can be done in
     // the constructor
     // create deltas
-    this->deltas = make_delta( this->kind.d(), this->kind.period(), this->kind.D());
+    std::vector<U> deltas = make_delta( this->kind.d(), this->kind.period(), this->kind.D());
     // get number of available observations
     int available_n = this->y.size();
     // find na across y
@@ -68,7 +68,7 @@ public:
       }
     }
     int missing_cases = na_cases.size();
-    available_n -= (this->deltas.size() + missing_cases);
+    available_n -= (deltas.size() + missing_cases);
     // override method to ML if any cases are missing
     if(this->method == CSSML) {
       if(missing_cases > 0) {
@@ -89,6 +89,8 @@ public:
       // too few non missing observations - alternatively we can throw
       return;
     }
+    // allocate coef vector
+    this->coef = std::vector<U>(kind.p() + kind.q() + kind.P() + kind.Q() + reg_coef.size());
     if( method == CSS ) {
       // is using conditional sum of squares, just directly optimize and
       // use hessian 'as-is'
@@ -97,21 +99,25 @@ public:
       if( this->reg_coef.size() > 0 ) {
         if( is_seasonal ) {
           arima_solver_css<true, true>( this->y, this->model, this->reg_coef,
-                                         this->xreg, this->kind, ncond );
+                                        this->xreg, this->kind,
+                                        this->coef, ncond );
         }
         else {
           arima_solver_css<true, false>( this->y, this->model, this->reg_coef,
-                                         this->xreg, this->kind, ncond );
+                                         this->xreg, this->kind,
+                                         this->coef, ncond );
         }
       }
       else {
         if( is_seasonal ) {
           arima_solver_css<false, true>( this->y, this->model, this->reg_coef,
-                                        this->xreg, this->kind, ncond );
+                                         this->xreg, this->kind,
+                                         this->coef, ncond );
         }
         else {
           arima_solver_css<false, false>( this->y, this->model, this->reg_coef,
-                                          this->xreg, this->kind, ncond );
+                                          this->xreg, this->kind,
+                                          this->coef, ncond );
         }
       }
 
@@ -222,14 +228,14 @@ public:
      }
     return res;
   };
-  void print_coef() {
-    // this->model.phi
+  const std::vector<U> get_coef() const {
+    return this->coef;
   }
 private:
   std::vector<U> y;
-  std::vector<U> deltas;
   structural_model<U> model;
   arima_kind kind;
+  std::vector<U> coef;
   std::vector<U> residuals;
   std::vector<std::vector<U>> xreg;
   lm_coef<U> reg_coef;

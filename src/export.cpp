@@ -29,8 +29,9 @@ public:
   void fit(){
     this->model.fit();
   }
-  // void print_coef(){
-  //
+  std::vector<double> get_coef() {
+    return this->model.get_coef();
+  }
   // }
   // Rcpp::List predict(){};
 private:
@@ -48,5 +49,6 @@ RCPP_MODULE(BlazeArima) {
                 std::string,
                 std::vector<bool>,
                 double>("basic contructor")
-  .method("fit", &BlazeArima::fit, "fit arima model");
+  .method("fit", &BlazeArima::fit, "fit arima model")
+  .method("get_coef", &BlazeArima::get_coef, "get fitted arima coefficients");
 }

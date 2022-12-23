@@ -19,7 +19,7 @@ class Armijo {
    * @return step-width
    */
   static scalar_t Search(const state_t &state, const vector_t &search_direction,
-                         const function_t &function,
+                         function_t &function,
                          const scalar_t alpha_init = 1.0) {
     constexpr scalar_t c = 0.2;
     constexpr scalar_t rho = 0.9;
@@ -54,7 +54,7 @@ class Armijo<function_t, 2> {
    * @return step-width
    */
   static scalar_t Search(const state_t &state, const vector_t &search_direction,
-                         const function_t &function) {
+                         function_t &function) {
     constexpr scalar_t c = 0.2;
     constexpr scalar_t rho = 0.9;
     scalar_t alpha = 1.0;

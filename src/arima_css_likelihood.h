@@ -14,15 +14,14 @@ double arima_css_ssq( const Eigen::VectorXd & y,
                       const int n_cond,
                       std::vector<double> &resid)
 {
-  double ssq = 0.0, tmp = 0.0;
-  int n = y.size(), mp = kind.p(),  mq = kind.q();
-  int msp = kind.P(), msq = kind.Q(), ns = kind.period();
-  int p = mp + ns * msp;
-  int q = mq + ns * msq;
 
-  int nu = 0;
+  const int n = y.size(),
+    p = kind.p() + kind.period() * kind.P(),
+    q = kind.q() + kind.period() * kind.Q();
+
   // prepare the residuals - possibly move this out and never allocate here?
-  int ma_offset;
+  int ma_offset, nu = 0;;
+  double ssq = 0.0, tmp = 0.0;
   for (int l = n_cond; l < n; l++) {
     ma_offset = min(l - n_cond, q);
     tmp = y[l];
@@ -41,54 +40,6 @@ double arima_css_ssq( const Eigen::VectorXd & y,
     }
   }
   return ssq/nu;
-}
-
-std::vector<double> arima_css_resid( std::vector<double> & y,
-                                     structural_model<double> &model,
-                                     arima_kind &kind,
-                                     int n_cond )
-{
-  double ssq = 0.0, tmp = 0.;
-  int n = y.size(), p = model.phi.size(), q = model.theta.size();
-  int ns, nu = 0;
-  std::vector<double> w(n);
-  for (int l = 0; l < n; l++) {
-    w[l] = y[l];
-  }
-  // regular differencing
-  for (int i = 0; i < kind.d(); i++) {
-    for (int l = n - 1; l > 0; l--) {
-      w[l] -= w[l - 1];
-    }
-  }
-  ns = kind.period();
-  // seasonal differencing
-  for (int i = 0; i < kind.D(); i++) {
-    for (int l = n - 1; l >= ns; l--) {
-      w[l] -= w[l - ns];
-    }
-  }
-  // prepare the residuals
-  std::vector<double> resid(n);
-  for (int l = 0; l < n_cond; l++) {
-    resid[l] = 0;
-  }
-
-  for (int l = n_cond; l < n; l++) {
-    tmp = w[l];
-    for (int j = 0; j < p; j++) {
-      tmp -= model.phi[j] * w[l - j - 1];
-    }
-    for (int j = 0; j < min(l - n_cond, q); j++) {
-      tmp -= model.theta[j] * resid[l - j - 1];
-    }
-    resid[l] = tmp;
-    if (!isnan(tmp)) {
-      nu++;
-      ssq += tmp * tmp;
-    }
-  }
-  return resid;
 }
 
 std::vector<double> arima_likelihood( std::vector<double> & y,

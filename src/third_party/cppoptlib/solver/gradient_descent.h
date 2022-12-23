@@ -31,7 +31,7 @@ class GradientDescent : public Solver<function_t> {
           GetDefaultStepCallback<scalar_t, vector_t, hessian_t>())
       : Solver<function_t>{stopping_state, std::move(step_callback)} {}
 
-  function_state_t OptimizationStep(const function_t &function,
+  function_state_t OptimizationStep( function_t &function,
                                     const function_state_t &current,
                                     const state_t & /*state*/) override {
     const scalar_t rate = linesearch::MoreThuente<function_t, 1>::Search(

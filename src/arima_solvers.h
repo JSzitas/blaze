@@ -26,7 +26,7 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
   ARIMA_CSS_PROBLEM( std::vector<double> &y,
-                     arima_kind &kind,
+                     const arima_kind &kind,
                      structural_model<double> &model,
                      lm_coef<double> & xreg_pars,
                      std::vector<std::vector<double>> & xreg,
@@ -129,7 +129,8 @@ template <const bool has_xreg,
               structural_model<double> &model,
               lm_coef<double> xreg_coef,
               std::vector<std::vector<double>> xreg,
-              arima_kind kind,
+              const arima_kind & kind,
+              std::vector<double> & coef,
               int n_cond ) {
 
   auto vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
@@ -142,16 +143,15 @@ template <const bool has_xreg,
   for(int i = arma_size; i < vec_size; i++) {
     x[i] = xreg_coef.coef[i-arma_size];
   }
-  std::vector<double> result(x.size());
+  // std::vector<double> result(x.size());
   using Solver = cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal>>;
   Solver solver;
   ARIMA_CSS_PROBLEM<has_xreg, seasonal> css_arima_problem( y, kind, model, xreg_coef,
                                                            xreg, n_cond);
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
-  for( int i=0; i < result.size(); i++) {
-    result[i] = solution.x[i];
+  for( int i=0; i < solution.x.size(); i++) {
+    coef[i] = solution.x[i];
   }
-  // print_vector(result);
 }
 
 

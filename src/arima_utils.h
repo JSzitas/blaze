@@ -82,11 +82,9 @@ std::vector<double> parameter_transform( std::vector<double> & coef ) {
 
 // new partrans
 template <class T> void parameter_transform( T &coef, int start, int end ) {
-  auto p = coef.size();
   int j, k;
   // we solve this by using a vector rather than an array
-  // std::vector<double> working_par(p);
-  std::vector<double> new_par(p);
+  std::vector<double> new_par(coef.size());
   /* Step one: map (-Inf, Inf) to (-1, 1) via tanh
    The parameters are now the pacf phi_{kk} */
   for(j = start; j < end; j++) {
@@ -312,101 +310,6 @@ std::vector<std::complex<double>> invert_ma_coef_from_roots( std::vector<std::co
     }
   }
   return result;
-}
-
-// this just directly modifies coef
-void arima_transform_parameters( std::vector<double> &coef,
-                                 std::vector<int> &arma,
-                                 bool transform = true)
-{
-  // the coefficients are all 'packed in' inside coef - so we have
-  // different types of coefficients. this tells us basically how many
-  // of each type there are
-  int mp = arma[0], mq = arma[1], msp = arma[2], msq = arma[3], ns = arma[4];
-  int p = mp + ns * msp;
-  int q = mq + ns * msq;
-
-  std::vector<double> phi(p);
-  std::vector<double> theta(q);
-  int n = mp + mq + msp + msq;
-  std::vector<double> params(n);
-  int i, j, v;
-  for (i = 0; i < coef.size(); i++) {
-    params[i] = coef[i];
-  }
-
-  if (transform) {
-    std::vector<double> temp(mp);
-    if (mp > 0) {
-      for(i = 0; i < mp; i++) {
-        temp[i] = params[i];
-      }
-      temp = parameter_transform(temp);
-      for(i = 0; i < temp.size(); i++) {
-        params[i] = temp[i];
-      }
-    }
-    v = mp + mq;
-    if (msp > 0) {
-      // this is a transformation over a view
-      // ie parameters v and higher
-      // create a copy
-      temp.resize(msp);
-      // move values to a temporary
-      for( i = v; i < msp; i++ ) {
-        temp[i-v] = coef[i];
-      }
-      // overwrite
-      temp = parameter_transform(temp);
-      // write back to parameters
-      for( i = v; i < msp; i++ ) {
-        params[i] = temp[i-v];
-      }
-    }
-  }
-  if (ns > 0) {
-    coef.resize(p+q);
-    /* expand out seasonal ARMA models */
-    for (i = 0; i < mp; i++) {
-      phi[i] = params[i];
-    }
-    for (i = 0; i < mq; i++) {
-      theta[i] = params[i + mp];
-    }
-    for (i = mp; i < p; i++) {
-      phi[i] = 0.0;
-    }
-    for (i = mq; i < q; i++) {
-      theta[i] = 0.0;
-    }
-    for (j = 0; j < msp; j++) {
-      phi[(j + 1) * ns - 1] += params[j + mp + mq];
-      for (i = 0; i < mp; i++) {
-        phi[(j + 1) * ns + i] -= params[i] * params[j + mp + mq];
-      }
-    }
-    for (j = 0; j < msq; j++) {
-      theta[(j + 1) * ns - 1] += params[j + mp + mq + msp];
-      for (i = 0; i < mq; i++) {
-        theta[(j + 1) * ns + i] += params[i + mp] *
-          params[j + mp + mq + msp];
-      }
-    }
-  } else {
-    for(i = 0; i < mp; i++) {
-      phi[i] = params[i];
-    }
-    for(i = 0; i < mq; i++) {
-      theta[i] = params[i + mp];
-    }
-  }
-  // the output is written back to coef
-  for( i = 0; i < phi.size(); i++) {
-    coef[i] = phi[i];
-  }
-  for( i = phi.size(); i < phi.size() + theta.size(); i++) {
-    coef[i] = theta[i-p];
-  }
 }
 
 // this just directly modifies coef
