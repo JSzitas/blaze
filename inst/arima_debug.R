@@ -243,6 +243,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     var <- if (no.optim)
       numeric()
     else solve(res$hessian * n.used)
+    print(var)
   }
   else {
     if (method == "CSS-ML") {
