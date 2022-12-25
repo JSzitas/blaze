@@ -32,8 +32,10 @@ public:
   std::vector<double> get_coef() {
     return this->model.get_coef();
   }
-  // }
-  // Rcpp::List predict(){};
+  Rcpp::List forecast( int h = 10, std::vector<std::vector<double>> newxreg = {{}} ){
+    forecast_result<double> result = this->model.forecast(h, newxreg );
+    return List::create(Named("forecast") = result.forecast, Named("std.err.") = result.se);
+  };
 private:
   Arima<double> model;
 };
@@ -50,5 +52,6 @@ RCPP_MODULE(BlazeArima) {
                 std::vector<bool>,
                 double>("basic contructor")
   .method("fit", &BlazeArima::fit, "fit arima model")
-  .method("get_coef", &BlazeArima::get_coef, "get fitted arima coefficients");
+  .method("get_coef", &BlazeArima::get_coef, "get fitted arima coefficients")
+  .method("forecast", &BlazeArima::forecast, "forecast from a fitted arima model");
 }
