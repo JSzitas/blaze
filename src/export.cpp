@@ -32,9 +32,22 @@ public:
   std::vector<double> get_coef() {
     return this->model.get_coef();
   }
+  Rcpp::List get_structural_model() {
+    auto res = this->model.get_structural_model();
+    return List::create(Named("phi") = res.phi,
+                        Named("theta") = res.theta,
+                        Named("Delta") = res.delta,
+                        Named("Z") = res.Z,
+                        Named("a") = res.a,
+                        Named("P") = res.P,
+                        Named("T") = res.T,
+                        Named("V") = res.V,
+                        Named("h") = res.h,
+                        Named("Pn") = res.Pn);
+  }
   Rcpp::List forecast( int h = 10, std::vector<std::vector<double>> newxreg = {{}} ){
     forecast_result<double> result = this->model.forecast(h, newxreg );
-    return List::create(Named("forecast") = result.forecast, Named("std.err.") = result.se);
+    return List::create(Named("forecast") = result.forecast, Named("std.err.") = result.std_err);
   };
 private:
   Arima<double> model;
@@ -51,7 +64,12 @@ RCPP_MODULE(BlazeArima) {
                 std::string,
                 std::vector<bool>,
                 double>("basic contructor")
-  .method("fit", &BlazeArima::fit, "fit arima model")
-  .method("get_coef", &BlazeArima::get_coef, "get fitted arima coefficients")
-  .method("forecast", &BlazeArima::forecast, "forecast from a fitted arima model");
+  .method("fit", &BlazeArima::fit,
+                "fit arima model")
+  .method("get_coef", &BlazeArima::get_coef,
+                "get fitted arima coefficients")
+  .method("forecast", &BlazeArima::forecast,
+                "forecast from a fitted arima model")
+  .method("get_structural_model", &BlazeArima::get_structural_model,
+                "get structural model specification from arima model");
 }
