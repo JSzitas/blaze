@@ -116,6 +116,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
   for (i in seq_len(seasonal$order[2L])) Delta <- Delta %+%
     c(1, rep.int(0, seasonal$period - 1), -1)
   Delta <- -Delta[-1L]
+  print((Delta))
   # debug_arima <<- Delta
   nd <- order[2L] + seasonal$order[2L]
   n.used <- sum(!is.na(x)) - length(Delta)
@@ -235,6 +236,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma, FALSE)
     mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
                      SSinit)
+    arima_mdl <<- mod
     if (ncxreg > 0)
       x <- x - xreg %*% coef[narma + (1L:ncxreg)]
     val <- .Call(stats:::C_ARIMA_CSS, x, arma, trarma[[1L]], trarma[[2L]],
@@ -243,7 +245,6 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     var <- if (no.optim)
       numeric()
     else solve(res$hessian * n.used)
-    print(var)
   }
   else {
     if (method == "CSS-ML") {
