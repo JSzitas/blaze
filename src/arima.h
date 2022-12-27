@@ -24,6 +24,7 @@ public:
     this->kind = kind;
     this->method = method;
     this->kappa = kappa;
+    this->model = structural_model<U>();
   };
   void fit() {
     // this should just proceed with fitting, not do things which can be done in
@@ -35,6 +36,8 @@ public:
     int available_n = this->y.size();
     // find na across y
     std::vector<int> na_cases = find_na(y);
+    // initialize xreg
+    lm_coef<U> reg_coef( this->xreg.size(), this->intercept );;
     // fit xreg
     if (this->xreg.size() > 0 || this->intercept) {
       std::vector<U> y_d;
@@ -49,7 +52,6 @@ public:
         y_d = diff(this->y, this->kind.period(), this->kind.D());
         xreg_d = diff(this->xreg, this->kind.period(), this->kind.D());
       }
-      lm_coef<U> reg_coef(xreg_d.size(), this->intercept);
       // fit coefficients and adjust y for fitted coefficients -
       // the original R code does this repeatedly, but it can be done only once
       // - the fitted effects from external regressors are never refitted
@@ -58,12 +60,14 @@ public:
       } else {
         reg_coef = xreg_coef(y_d, xreg_d);
       }
-      this->reg_coef = reg_coef;
       // find na cases across xreg
       for (int i = 0; i < xreg.size(); i++) {
         na_cases = intersect(na_cases, find_na(xreg[i]));
       }
     }
+    // store regression coefficients (if any) in this object
+    this->reg_coef = reg_coef;
+    // adjust CSS for missing cases
     int missing_cases = na_cases.size();
     available_n -= (deltas.size() + missing_cases);
     // override method to ML if any cases are missing
@@ -90,8 +94,6 @@ public:
     this->coef = std::vector<U>(arma_coef_size + reg_coef.size());
     if (method == CSS) {
       // is using conditional sum of squares, just directly optimize and
-      // use hessian 'as-is'
-      // print_vector(this->reg_coef.coef);
       const bool is_seasonal = kind.P() + kind.Q();
       if (this->reg_coef.size() > 0) {
         if (is_seasonal) {
@@ -206,25 +208,33 @@ public:
       this->aic = available_n * (log(this->sigma2) + one_p_log_twopi);
     }
   };
-  forecast_result<U> forecast(int h = 10,
+  forecast_result<U> forecast(const int h = 10,
                               std::vector<std::vector<U>> newxreg = {{}}) {
     // validate xreg length
     if (newxreg.size() != this->xreg.size()) {
       return forecast_result<U>(0);
     }
-    auto res = kalman_forecast(h, this->model);
+    // rescale sigma2 - this is necessary because the original sigma2 is
+    // a conditional sum of squares
+    double rescaled_sigma2 = exp(0.5 * log(this->sigma2));
+    auto res = kalman_forecast(h, this->model, rescaled_sigma2);
+    if( reg_coef.has_intercept() ) {
+      // handle intercept
+      for (int i = 0; i < h; i++) {
+        res.forecast[i] += this->reg_coef.get_intercept();
+      }
+    }
     if(newxreg.size() > 0) {
-      auto xreg_adjusted = predict(this->reg_coef, newxreg);
-      for (int i = 0; i < res.forecast.size(); i++) {
+      auto xreg_adjusted = predict(h, this->reg_coef, newxreg);
+      for (int i = 0; i < h; i++) {
         res.forecast[i] += xreg_adjusted[i];
       }
     }
-    // res.forecast = xreg_adjusted + res.forecast;
-    for (int i = 0; i < res.se.size(); i++) {
-      res.se[i] = res.se[i] * this->sigma2;
-    }
     return res;
   };
+  const structural_model<U> get_structural_model() const {
+    return this->model;
+  }
   const std::vector<U> get_coef() const { return this->coef; }
 
 private:
