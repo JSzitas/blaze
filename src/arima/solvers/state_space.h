@@ -10,50 +10,61 @@
 enum SSinit { Gardner = 1, Rossignol = 2 };
 
 template <typename U = double> struct forecast_result {
+  forecast_result<U>( std::vector<U> &forecasts,
+                      std::vector<U> &std_errs ) :
+  forecast(std::move(forecasts)), std_err(std::move(std_errs)){}
+  forecast_result<U>( std::vector<U> &&forecasts,
+                      std::vector<U> &&std_errs ) :
+  forecast(std::move(forecasts)), std_err(std::move(std_errs)){}
   forecast_result<U>(int h) {
     this->forecast = std::vector<U>(h);
-    this->se = std::vector<U>(h);
+    this->std_err = std::vector<U>(h);
   }
-  void add(int i, U forecast, U se) {
-    this->forecast[i] = forecast;
-    this->se[i] = se;
+  void add(int i, U fcst, U se) {
+    this->forecast[i] = fcst;
+    this->std_err[i] = se;
   }
   std::vector<U> forecast;
-  std::vector<U> se;
+  std::vector<U> std_err;
 };
 
 /* Forecasts based on state space representation of ARIMA via
  * the kalman filter.
+ * TODO: add an option to update model.a and model.P while this runs
  */
-template <typename U = double>
-forecast_result<U> kalman_forecast(int n_ahead, structural_model<U> &model,
-                                   bool update = false) {
+template < typename U = double>
+forecast_result<U> kalman_forecast(const int n_ahead,
+                                   structural_model<U> &model,
+                                   U sigma2 = 1.0) {
   int p = model.a.size();
-  std::vector<double> anew(p);
+  std::vector<double> anew = model.a;
+  std::vector<double> a = model.a;
   std::vector<double> Pnew(p * p);
   std::vector<double> mm(p * p);
+  std::vector<double> P = model.P;
 
-  forecast_result<U> res(n_ahead);
-
-  double fc, tmp;
+  std::vector<double> forecasts(n_ahead);
+  std::vector<double> standard_errors(n_ahead);
+  double fc = 0.0, tmp = 0.0;
   for (int l = 0; l < n_ahead; l++) {
     fc = 0.0;
     for (int i = 0; i < p; i++) {
       tmp = 0.0;
       for (int k = 0; k < p; k++) {
-        tmp += model.T[i + p * k] * model.a[k];
+        tmp += model.T[i + p * k] * a[k];
       }
       anew[i] = tmp;
       fc += tmp * model.Z[i];
     }
     for (int i = 0; i < p; i++) {
-      model.a[i] = update * anew[i] - (1 - update) * model.a[i];
+      a[i] = anew[i];
     }
+    forecasts[l] = fc;
     for (int i = 0; i < p; i++) {
       for (int j = 0; j < p; j++) {
         tmp = 0.0;
         for (int k = 0; k < p; k++) {
-          tmp += model.T[i + p * k] * model.P[k + p * j];
+          tmp += model.T[i + p * k] * P[k + p * j];
         }
         mm[i + p * j] = tmp;
       }
@@ -71,13 +82,12 @@ forecast_result<U> kalman_forecast(int n_ahead, structural_model<U> &model,
     for (int i = 0; i < p; i++) {
       for (int j = 0; j < p; j++) {
         tmp += model.Z[i] * model.Z[j] * Pnew[i + j * p];
-        model.P[i + j * p] =
-            update * Pnew[i + j * p] + (1 - update) * model.P[i + j * p];
+        P[i + j * p] = Pnew[i + j * p];
       }
     }
-    res.add(l, fc, tmp);
+    standard_errors[l] = sqrt(tmp) * sigma2;
   }
-  return res;
+  return forecast_result<U>( forecasts, standard_errors );
 }
 
 /* originally an R function - this creates the arima model in state space
@@ -213,8 +223,8 @@ structural_model<U> make_arima(std::vector<U> phi, std::vector<U> theta,
   return res;
 }
 
-template <typename U = double>
-structural_model<U> make_arima(std::vector<U> &coef, std::vector<U> &delta,
+template <class C, typename U = double>
+structural_model<U> make_arima( C &coef, std::vector<U> &delta,
                                const arima_kind &kind, U kappa = 1000000,
                                SSinit state_init = Gardner, U tol = 1e-9) {
   const int p = kind.p() + (kind.P() * kind.period());
@@ -224,11 +234,15 @@ structural_model<U> make_arima(std::vector<U> &coef, std::vector<U> &delta,
   std::vector<U> phi(p);
   for (int i = 0; i < p; i++) {
     phi[i] = coef[i];
+    // std::cout << "loading phi: " << phi[i] << " with coef: " << coef[i] << std::endl;
   }
   std::vector<U> theta(q);
   for (int i = p; i < p + q; i++) {
     theta[i - p] = coef[i];
+    // std::cout << "loading theta: " << theta[i-p] << " with coef: " << coef[i] << std::endl;
   }
+  // print_vector(phi);
+  // print_vector(theta);
 
   int i, j;
   std::vector<U> Z(rd);

@@ -38,13 +38,14 @@ double arima_css_ssq(const Eigen::VectorXd &y, const Eigen::VectorXd &pars,
   }
   return ssq / nu;
 }
-
-std::vector<double> arima_likelihood(std::vector<double> &y,
+template <class T>
+std::vector<double> arima_likelihood(const T &y,
                                      structural_model<double> &model) {
   // define integers needed for further processing - these are mostly used
   // for indexing and offsetting
-  int n = y.size(), rd = model.a.size(), p = model.phi.size(),
-      q = model.theta.size(), d = model.delta.size(), r = rd - d, nu = 0;
+  const int n = y.size(), rd = model.a.size(), p = model.phi.size(),
+      q = model.theta.size(), d = model.delta.size(), r = rd - d;
+  int nu = 0;
 
   // define data structures needed for computation intermediaries
   std::vector<double> anew(rd);
@@ -204,6 +205,7 @@ std::vector<double> arima_likelihood(std::vector<double> &y,
         }
       }
     } else {
+      // model updates
       for (int i = 0; i < rd; i++) {
         model.a[i] = anew[i];
       }

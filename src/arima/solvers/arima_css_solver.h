@@ -113,6 +113,20 @@ public:
                                this->n_cond, this->residual);
     return 0.5 * log(res);
   }
+  void finalize( structural_model<double> &model,
+                 std::vector<double> & delta,
+                 double kappa,
+                 SSinit ss_init) {
+    // this function creates state space representation and expands it
+    // I found out it is easier and cheaper (computationally) to do here
+    // do the same for model coefficients
+    // finally, make state space model
+    structural_model<double> arima_ss = make_arima( this->new_x,
+                                                    delta, this->kind,
+                                                    kappa, ss_init);
+    model.set(arima_ss);
+    arima_likelihood(this->y_temp, model);
+  }
   std::vector<double> y;
   Eigen::VectorXd y_temp;
   Eigen::VectorXd new_x;
@@ -156,21 +170,12 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // update variance estimate for the arima model - this was passed by reference
   sigma2 = exp(2 * solution.value);
-  // do the same for model coefficients
-  for (int i = 0; i < solution.x.size(); i++) {
+
+  css_arima_problem.finalize( model, delta, kappa, ss_init);
+  // pass fitted coefficients back to the caller
+  for (int i = 0; i < vec_size; i++) {
     coef[i] = solution.x[i];
   }
-  std::vector<double> solution_to_expand(coef.size());
-  for (int i = 0; i < coef.size(); i++) {
-    solution_to_expand[i] = coef[i];
-  }
-  // before we can initialize the state space model we need to transform the
-  // parameters one last time
-  arima_transform_parameters<seasonal, false>(solution_to_expand, kind);
-  // finally, make state space model
-  structural_model<double> arima_ss = make_arima( solution_to_expand,
-                                                  delta, kind, kappa, ss_init);
-  model.set(arima_ss);
 }
 
 #endif
