@@ -72,11 +72,14 @@ public:
                         (kind.Q() * kind.period()) + this->xreg.cols());
     // pre-allocate model residuals
     this->residual = std::vector<double>(n);
-    // pre-allocate transformation helper vector
-    this->transform_temp_phi =
+    // pre-allocate transformation helper vector - this is only necessary
+    // for expanding seasonal models
+    if constexpr(seasonal) {
+      this->transform_temp_phi =
         std::vector<double>(kind.p() + (kind.P() * kind.period()));
-    this->transform_temp_theta =
+      this->transform_temp_theta =
         std::vector<double>(kind.q() + (kind.Q() * kind.period()));
+    }
   }
   double operator()(const Eigen::VectorXd &x) {
     for (int i = 0; i < x.size(); i++) {
@@ -105,9 +108,16 @@ public:
         }
       }
     }
-    arima_transform_parameters<seasonal, false>(this->new_x, this->kind,
-                                                this->transform_temp_phi,
-                                                this->transform_temp_theta);
+    /* I figured out that I can basically expand this out altogether for non-seasonal
+     * models - the compiler should insert an empty function anyways, but just to
+     * make sure that this gets compiled away - we can make sure its a dead branch
+     */
+    if constexpr(seasonal) {
+      // the expansion of arima parameters is only necessary for seasonal models
+      arima_transform_parameters<seasonal, false>(this->new_x, this->kind,
+                                                  this->transform_temp_phi,
+                                                  this->transform_temp_theta);
+    }
     // call arima css function
     double res = arima_css_ssq(this->y_temp, this->new_x, this->kind,
                                this->n_cond, this->residual);
