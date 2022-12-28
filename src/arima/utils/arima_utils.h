@@ -275,8 +275,8 @@ invert_ma_coef_from_roots(std::vector<std::complex<double>> roots) {
 // this just directly modifies coef
 template <const bool seasonal, const bool transform>
 void arima_transform_parameters(Eigen::VectorXd &coef, const arima_kind &arma,
-                                std::vector<double> &temp_phi,
-                                std::vector<double> &temp_theta) {
+                                std::vector<double> &phi,
+                                std::vector<double> &theta) {
   // the coefficients are all 'packed in' inside coef - so we have
   // different types of coefficients. this tells us basically how many
   // of each type there are
@@ -294,15 +294,10 @@ void arima_transform_parameters(Eigen::VectorXd &coef, const arima_kind &arma,
     const int msq = arma.Q(), ns = arma.period();
     const int p = mp + ns * msp;
     const int q = mq + ns * msq;
-
-    std::vector<double> phi(p);
-    std::vector<double> theta(q);
-
     int i, j, v;
     /* expand out seasonal ARMA models
      * note that the offsetting here is crucial - the original indexing was
      * into two data structures of the same combined size as our coef */
-    // fill P seasonal entries
     for (i = 0; i < mp; i++) {
       phi[i] = coef[i];
     }
