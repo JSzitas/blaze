@@ -232,18 +232,14 @@ structural_model<U> make_arima( C &coef, std::vector<U> &delta,
   const int r = max(p, q + 1), d = delta.size(), rd = r + d;
 
   std::vector<U> phi(p);
-  for (int i = 0; i < p; i++) {
+  std::vector<U> theta(q + max(r - 1 - q, 0));
+  // copz out elements of coef into phi and theta
+  for( int i = 0; i < p; i++) {
     phi[i] = coef[i];
-    // std::cout << "loading phi: " << phi[i] << " with coef: " << coef[i] << std::endl;
   }
-  std::vector<U> theta(q);
-  for (int i = p; i < p + q; i++) {
-    theta[i - p] = coef[i];
-    // std::cout << "loading theta: " << theta[i-p] << " with coef: " << coef[i] << std::endl;
+  for( int i = p; i < p + q; i++) {
+    theta[i-p] = coef[i];
   }
-  // print_vector(phi);
-  // print_vector(theta);
-
   int i, j;
   std::vector<U> Z(rd);
   Z[0] = 1;
@@ -299,9 +295,6 @@ structural_model<U> make_arima( C &coef, std::vector<U> &delta,
         T[((rd + 1) * i) + 1] = 1;
       }
     }
-  }
-  if (q < r - 1) {
-    theta.resize(theta.size() + r - 1 - q);
   }
   // this is R <- c(1, theta, rep.int(0, d))
   // we can skip the d part as vectors are 0 initialized.
