@@ -35,7 +35,7 @@ public:
     // get number of available observations
     int available_n = this->y.size();
     // find na across y
-    std::vector<int> na_cases = find_na(y);
+    std::vector<int> na_cases = find_na(this->y);
     // initialize xreg
     lm_coef<U> reg_coef( this->xreg.size(), this->intercept );;
     // fit xreg
@@ -61,8 +61,8 @@ public:
         reg_coef = xreg_coef(y_d, xreg_d);
       }
       // find na cases across xreg
-      for (int i = 0; i < xreg.size(); i++) {
-        na_cases = intersect(na_cases, find_na(xreg[i]));
+      for (int i = 0; i < this->xreg.size(); i++) {
+        na_cases = intersect(na_cases, find_na(this->xreg[i]));
       }
     }
     // store regression coefficients (if any) in this object
@@ -81,7 +81,7 @@ public:
     // ncond is the number of parameters we are effectively estimating thanks to
     // seasonal parameters
     int ncond = 0;
-    if (method == CSS || method == CSSML) {
+    if (this->method == CSS || this->method == CSSML) {
       ncond += this->kind.d() + (this->kind.D() * this->kind.period());
       ncond += this->kind.p() + (this->kind.P() * this->kind.period());
     }
@@ -90,11 +90,12 @@ public:
       return;
     }
     // allocate coef vector
-    const int arma_coef_size = kind.p() + kind.q() + kind.P() + kind.Q();
+    const int arma_coef_size = this->kind.p() + this->kind.q() + this->kind.P() + this->kind.Q();
     this->coef = std::vector<U>(arma_coef_size + reg_coef.size());
-    if (method == CSS) {
+    if (this->method == CSS) {
       // is using conditional sum of squares, just directly optimize and
-      const bool is_seasonal = kind.P() + kind.Q();
+      const bool is_seasonal = this->kind.P() + this->kind.Q();
+      const bool has_xreg = this->reg_coef.size() > 0;
       if (this->reg_coef.size() > 0) {
         if (is_seasonal) {
           arima_solver_css<true, true>(this->y, this->model, this->reg_coef,
@@ -121,23 +122,20 @@ public:
         }
       }
       // load xreg coefficients from coef as necessary
-      for (int i = arma_coef_size; i < coef.size(); i++) {
-        this->reg_coef[i - arma_coef_size] = coef[i];
+      for (int i = arma_coef_size; i < this->coef.size(); i++) {
+        this->reg_coef[i - arma_coef_size] = this->coef[i];
       }
-    } else {
-      //         if (method == "CSS-ML") {
-      //           res <- optim(init[mask], armaCSS, method = "BFGS",
-      //                        hessian = FALSE, control = optim.control)
-      //           if (res$convergence == 0)
-      //             init[mask] <- res$par
-      //             if (arma[1L] > 0)
-      //               if (!arCheck(init[1L:arma[1L]]))
-      //                 stop("non-stationary AR part from CSS")
-      //                 if (arma[3L] > 0)
-      //                   if (!arCheck(init[sum(arma[1L:2L]) + 1L:arma[3L]]))
-      //                     stop("non-stationary seasonal AR part from CSS")
-      //                     ncond <- 0L
-      //         }
+    }
+    // if( this->method == CSSML) {
+    // perform checks on AR coefficients
+    //               if (!arCheck(init[1L:arma[1L]]))
+    //                 stop("non-stationary AR part from CSS")
+    //                 if (arma[3L] > 0)
+    //                   if (!arCheck(init[sum(arma[1L:2L]) + 1L:arma[3L]]))
+    //                     stop("non-stationary seasonal AR part from CSS")
+    //                     ncond <- 0L
+    // }
+    // if( this->method == ML || this->method == CSSML) {
       //         if (transform.pars) {
       //           init <- .Call(stats:::C_ARIMA_Invtrans, init, arma)
       //           if (arma[2L] > 0) {
@@ -198,8 +196,8 @@ public:
       //                 arimaSS(x - xreg %*% coef[narma + (1L:ncxreg)], mod)
       //               } else arimaSS(x, mod)
       //                 sigma2 <- val[[1L]][1L]/n.used
-    }
-    if (method != CSS) {
+      // }
+    if (this->method != CSS) {
       this->aic = std::nan("");
     } else {
       // 1.837877 is equal to log(2*pi) - log is not standard comliant,
