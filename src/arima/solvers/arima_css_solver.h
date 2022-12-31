@@ -21,6 +21,19 @@ using FunctionXd = cppoptlib::function::Function<double>;
 
 template <const bool has_xreg, const bool seasonal>
 class ARIMA_CSS_PROBLEM : public FunctionXd {
+private:
+  arima_kind kind;
+  int n_cond;
+  lm_coef<double> xreg_pars;
+  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
+  int arma_pars;
+  std::vector<double> y;
+  Eigen::VectorXd y_temp;
+  size_t n;
+  Eigen::VectorXd new_x;
+  std::vector<double> residual;
+  std::vector<double> transform_temp_phi;
+  std::vector<double> transform_temp_theta;
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
@@ -29,7 +42,7 @@ public:
                     std::vector<std::vector<double>> &xreg, int n_cond)
       : kind(kind), n_cond(n_cond), xreg_pars(xreg_pars) {
     // initialize an xreg matrix
-    int n = y.size();
+    size_t n = y.size();
     std::vector<double> _xreg = flatten_vec(xreg);
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_mat =
         Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>(
@@ -42,7 +55,7 @@ public:
     this->xreg = new_mat;
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
     Eigen::VectorXd y_temp(n);
-    for (int i = 0; i < n; i++) {
+    for (size_t i = 0; i < n; i++) {
       y_temp[i] = y[i];
     }
     if constexpr (!has_xreg) {
@@ -74,12 +87,10 @@ public:
     this->residual = std::vector<double>(n);
     // pre-allocate transformation helper vector - this is only necessary
     // for expanding seasonal models
-    if constexpr(seasonal) {
-      this->transform_temp_phi =
-        std::vector<double>(kind.p() + (kind.P() * kind.period()));
-      this->transform_temp_theta =
-        std::vector<double>(kind.q() + (kind.Q() * kind.period()));
-    }
+    this->transform_temp_phi =
+      std::vector<double>(kind.p() + (kind.P() * kind.period()));
+    this->transform_temp_theta =
+      std::vector<double>(kind.q() + (kind.Q() * kind.period()));
   }
   double operator()(const Eigen::VectorXd &x) {
     for (int i = 0; i < x.size(); i++) {
@@ -87,7 +98,7 @@ public:
     }
     if constexpr (has_xreg) {
       // refresh y_temp and load it with original y data
-      for (int i = 0; i < this->n; i++) {
+      for (size_t i = 0; i < this->n; i++) {
         this->y_temp[i] = this->y[i];
       }
       this->y_temp =
@@ -95,14 +106,14 @@ public:
       // do differencing here
       if (!xreg_pars.has_intercept()) {
         for (int i = 0; i < kind.d(); i++) {
-          for (int l = n - 1; l > 0; l--) {
+          for (size_t l = n - 1; l > 0; l--) {
             this->y_temp[l] -= this->y_temp[l - 1];
           }
         }
         // seasonal differencing
         int ns = kind.period();
         for (int i = 0; i < kind.D(); i++) {
-          for (int l = n - 1; l >= ns; l--) {
+          for (size_t l = n - 1; l >= ns; l--) {
             this->y_temp[l] -= this->y_temp[l - ns];
           }
         }
@@ -137,26 +148,15 @@ public:
                                                     kappa, ss_init);
     model.set(arima_ss);
     // modify y_temp to acount for xreg
-    for (int i = 0; i < this->n; i++) {
+    for (size_t i = 0; i < this->n; i++) {
       this->y_temp[i] = this->y[i];
     }
     this->y_temp = this->y_temp -
       this->xreg * final_pars.tail(final_pars.size() - this->arma_pars);
     // get arima steady state values
-    arima_steady_state(this->y_temp, model);
+    // print_vector(this->y_temp);
+    // arima_steady_state(this->y_temp, model);
   }
-  std::vector<double> y;
-  Eigen::VectorXd y_temp;
-  Eigen::VectorXd new_x;
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
-  lm_coef<double> xreg_pars;
-  std::vector<double> residual;
-  arima_kind kind;
-  std::vector<double> transform_temp_phi;
-  std::vector<double> transform_temp_theta;
-  int n_cond;
-  int arma_pars;
-  int n;
 };
 
 template <const bool has_xreg, const bool seasonal>

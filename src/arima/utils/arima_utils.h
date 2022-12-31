@@ -294,7 +294,7 @@ void arima_transform_parameters(Eigen::VectorXd &coef, const arima_kind &arma,
     const int msq = arma.Q(), ns = arma.period();
     const int p = mp + ns * msp;
     const int q = mq + ns * msq;
-    int i, j, v;
+    int i, j;
     /* expand out seasonal ARMA models
      * note that the offsetting here is crucial - the original indexing was
      * into two data structures of the same combined size as our coef */
