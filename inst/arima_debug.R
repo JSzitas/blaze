@@ -116,7 +116,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
   for (i in seq_len(seasonal$order[2L])) Delta <- Delta %+%
     c(1, rep.int(0, seasonal$period - 1), -1)
   Delta <- -Delta[-1L]
-  print((Delta))
+  # print((Delta))
   # debug_arima <<- Delta
   nd <- order[2L] + seasonal$order[2L]
   n.used <- sum(!is.na(x)) - length(Delta)
@@ -234,8 +234,13 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
                        res$convergence), domain = NA)
     coef[mask] <- res$par
     trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma, FALSE)
+    trarma_pars <<- trarma
     mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
                      SSinit)
+    # arima_pre_ll_mod <<- mod
+    if (ncxreg > 0)
+      x <- x - xreg %*% coef[narma + (1L:ncxreg)]
+    arimaSS(x, mod)
     arima_mdl <<- mod
     if (ncxreg > 0)
       x <- x - xreg %*% coef[narma + (1L:ncxreg)]

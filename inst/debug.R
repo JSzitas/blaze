@@ -1,61 +1,81 @@
-source("R/arima_debug.R")
+# debug initialization and fitting
+Rcpp::sourceCpp("src/export.cpp")
 
-arima2(lynx, order = c(1,4,2))
+arima_obj <- new( BlazeArima, c(lynx), c(2,0,1,0,0,0,1), list(), "Gardner", c(TRUE,TRUE), 1000000  )
+print("Cpp coef: ")
+arima_obj$fit()
+arima_obj$get_coef()
 
-Rcpp::sourceCpp("src/arima.cpp")
-# do.call( try_make_arima, debug_arima[[2]][1:3])
+print("Intended (R) coef: ")
+coef(arima(c(lynx), order = c(2,0,1), seasonal = list( order = c(0,0,0), period = 1),
+            include.mean = TRUE,
+            transform.pars = TRUE, kappa = 1000000, method = "CSS"))
 
-seasonal_period <- 10
-normal_diff <- 3
-seasonal_order_diff <- 2
+arima_obj2 <- new( BlazeArima, c(lynx), c(4,1,2,0,0,0,10), list(), "Gardner", c(TRUE,TRUE), 1000000  )
+print("Cpp coef: ")
+arima_obj2$fit()
+arima_obj2$get_coef()
 
-# r_ts_conv <- function(a,b) {
-#   result <- rep(0, length(a) + length(b)-1)
-#   for (i in seq_len(length(a))) {
-#     for (j in seq_len(length(b))) {
-#       result[i + j-1] = result[i+j-1] + a[i] * b[j];
-#     }
-#   }
-#   return(result)
-# }
+print("Intended (R) coef: ")
+coef(arima(c(lynx), order = c(4,1,2), seasonal = list( order = c(0,0,0), period = 10),
+            include.mean = TRUE,
+            transform.pars = TRUE, kappa = 1000000, method = "CSS"))
+
+arima_obj3 <- new( BlazeArima, c(lynx), c(3,0,1,2,0,0,10), list(), "Gardner", c(TRUE,TRUE), 1000000  )
+print("Cpp coef: ")
+arima_obj3$fit()
+arima_obj3$get_coef()
+
+print("Intended (R) coef: ")
+coef(arima(c(lynx), order = c(3,0,1), seasonal = list( order = c(2,0,0), period = 10),
+            include.mean = TRUE,
+            transform.pars = TRUE, kappa = 1000000, method = "CSS"))
+
+arima_obj4 <- new( BlazeArima, c(lynx), c(3,1,1,2,1,2,10), list(), "Gardner", c(TRUE,TRUE), 1000000  )
+print("Cpp coef: ")
+arima_obj4$fit()
+arima_obj4$get_coef()
+
+print("Intended (R) coef: ")
+coef(arima(c(lynx), order = c(3,1,1), seasonal = list( order = c(2,1,2), period = 10),
+           include.mean = TRUE,
+           transform.pars = TRUE, kappa = 1000000, method = "CSS"))
+
+
+arima_obj5 <- new( BlazeArima, c(lynx), c(3,2,1,3,0,1,12), list(), "Gardner", c(TRUE,TRUE), 1000000  )
+print("Cpp coef: ")
+arima_obj5$fit()
+print(arima_obj5$get_coef())
+
+print("Intended (R) coef: ")
+coef(arima(c(lynx), order = c(3,2,1), seasonal = list( order = c(3,0,1), period = 12),
+           include.mean = TRUE,
+           transform.pars = TRUE, kappa = 1000000, method = "CSS"))
+
+
+arima_obj6 <- new( BlazeArima, c(lynx), c(2,3,0,0,0,0,1), list(), "Gardner", c(TRUE,TRUE), 1000000  )
+print("Cpp coef: ")
+arima_obj6$fit()
+print(arima_obj6$get_coef())
+
+
+print("Intended (R) coef: ")
+coef(arima(c(lynx), order = c(2,3,0), seasonal = list( order = c(0,0,0), period = 1),
+           include.mean = TRUE,
+           transform.pars = TRUE, kappa = 1000000, method = "CSS"))
+
+# arima_obj <- new( BlazeArima, c(lynx), c(2,0,1,0,0,0,1), list(), "Gardner", c(TRUE,TRUE), 1000000  )
+# # print("Cpp coef: ")
+# arima_obj$fit()
+# arima_obj$get_coef()
 #
-# r_ts_conv_n <- function( n_diff = 4) {
+# arima_obj$get_structural_model()
 #
-#   a <- 1
-#   b <- c(1,-1)
-#   for( k in seq_len(n_diff) ) {
-#     temp = rep(0, n_diff+1)
-#     for (i in seq_len(k)) {
-#       for (j in seq_len(2)) {
-#         temp[i + j-1] = temp[i+j-1] + a[i] * b[j];
-#       }
-#     }
-#     a = temp
-#   }
-#   return(-a[-1L])
-# }
+# res = arima_obj$forecast(12, list())
+# res
 
 
 
-# Delta <- 1
-# for (i in seq_len(normal_diff)) {
-#   Delta <- ts_conv(Delta, c(1, -1))
-#   print(Delta)
-# }
-# for (i in seq_len(seasonal_order_diff)) {
-#   Delta <- ts_conv(Delta, c(1, rep.int(0, seasonal_period - 1), -1))
-#   print(Delta)
-# }
-# Delta <- -Delta[-1L]
 
 
-# debug_arima <- do.call(debug_make_arima, debug_arima[[2]][1:3])
 
-
-# checked:
-# print(debug_arima[[1]]$V)
-# print(debug_arima[[1]]$Z)
-# print(debug_arima[[1]]$a)
-# print(debug_arima[[1]]$P)
-# TODO:
-# print(debug_arima$Pn)
