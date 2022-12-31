@@ -124,6 +124,7 @@ public:
     return 0.5 * log(res);
   }
   void finalize( structural_model<double> &model,
+                 const Eigen::VectorXd & final_pars,
                  std::vector<double> & delta,
                  double kappa,
                  SSinit ss_init) {
@@ -135,7 +136,14 @@ public:
                                                     delta, this->kind,
                                                     kappa, ss_init);
     model.set(arima_ss);
-    arima_likelihood(this->y_temp, model);
+    // modify y_temp to acount for xreg
+    for (int i = 0; i < this->n; i++) {
+      this->y_temp[i] = this->y[i];
+    }
+    this->y_temp = this->y_temp -
+      this->xreg * final_pars.tail(final_pars.size() - this->arma_pars);
+    // get arima steady state values
+    arima_steady_state(this->y_temp, model);
   }
   std::vector<double> y;
   Eigen::VectorXd y_temp;
@@ -181,7 +189,7 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
   // update variance estimate for the arima model - this was passed by reference
   sigma2 = exp(2 * solution.value);
 
-  css_arima_problem.finalize( model, delta, kappa, ss_init);
+  css_arima_problem.finalize( model, solution.x, delta, kappa, ss_init);
   // pass fitted coefficients back to the caller
   for (int i = 0; i < vec_size; i++) {
     coef[i] = solution.x[i];
