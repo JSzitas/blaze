@@ -16,7 +16,7 @@ template <typename T> bool is_same(T &a, T &b, T tol = 0.000001) {
 }
 
 template <class T, typename U> bool all_const(T &a, U tol) {
-  for (long long unsigned int i = 1; i < a.size(); i++) {
+  for (size_t i = 1; i < a.size(); i++) {
     if (!is_same(a[i], a[0], tol)) {
       return false;
     }
@@ -51,7 +51,7 @@ template <class T> void print_vector(T &a) {
   if( a.size() < 1 ) {
     return;
   }
-  for (int i = 0; i < a.size(); i++) {
+  for (size_t i = 0; i < a.size(); i++) {
     std::cout << a[i] << ", ";
   }
   std::cout << " " << std::endl;
@@ -80,11 +80,11 @@ template <typename T> T min(T a, T b) { return a > b ? b : a; }
 
 template <typename T> void pop_front(std::vector<T> &x) { x.erase(x.begin()); }
 
-template <class T> T diff(T &a, int lag = 1, int d = 1) {
-  int p = a.size();
+template <class T> T diff(T &a, size_t lag = 1, size_t d = 1) {
+  size_t p = a.size();
   T result = a;
-  for (int j = 0; j < d; j++) {
-    for (int i = lag; i < p - j; i++) {
+  for (size_t j = 0; j < d; j++) {
+    for (size_t i = lag; i < p - j; i++) {
       result[i - lag] = result[i] - result[i - lag];
     }
   }
@@ -93,10 +93,11 @@ template <class T> T diff(T &a, int lag = 1, int d = 1) {
 }
 
 template <class U>
-std::vector<std::vector<U>> diff(std::vector<std::vector<U>> &a, int lag = 1,
-                                 int d = 1) {
+std::vector<std::vector<U>> diff(std::vector<std::vector<U>> &a,
+                                 size_t lag = 1,
+                                 size_t d = 1) {
   std::vector<std::vector<U>> result(a.size());
-  for (int i = 0; i < a.size(); i++) {
+  for (size_t i = 0; i < a.size(); i++) {
     result[i] = diff(a[i], lag, d);
   }
   return result;
@@ -106,19 +107,19 @@ std::vector<std::vector<U>> diff(std::vector<std::vector<U>> &a, int lag = 1,
 // pretty sensible, seeing how this operator works
 template <typename U = double>
 void operator-=(std::vector<U> &a, std::vector<U> &b) {
-  for (int i = 0; i < a.size(); i++) {
+  for (size_t i = 0; i < a.size(); i++) {
     a[i] -= b[i];
   }
 }
 // this is for usage with mixes of st::vector and Eigen::vector
 template <class T, class U> void operator-=(T &a, U &b) {
-  for (int i = 0; i < a.size(); i++) {
+  for (size_t i = 0; i < a.size(); i++) {
     a[i] -= b[i];
   }
 }
 
-int count_na(std::vector<float> &a) {
-  int count = 0;
+template <typename U=double> size_t count_na(std::vector<U> &a) {
+  size_t count = 0;
   for (auto &item : a) {
     if (std::isnan(item)) {
       count++;
@@ -127,10 +128,10 @@ int count_na(std::vector<float> &a) {
   return count;
 }
 
-template <typename U = double> std::vector<int> find_na(std::vector<U> &a) {
-  std::vector<int> result;
+template <typename U = double> std::vector<size_t> find_na(std::vector<U> &a) {
+  std::vector<size_t> result;
   result.reserve(a.size());
-  for (int i = 0; i < a.size(); i++) {
+  for (size_t i = 0; i < a.size(); i++) {
     if (std::isnan(a[i])) {
       result.push_back(i);
     }
@@ -166,14 +167,14 @@ std::vector<T> intersect(std::vector<T> &a, std::vector<T> b) {
 
 template <typename U = double>
 std::vector<U> flatten_vec(std::vector<std::vector<U>> x) {
-  int size = 0;
-  for (int i = 0; i < x.size(); i++) {
+ size_t size = 0;
+  for (size_t i = 0; i < x.size(); i++) {
     size += x[i].size();
   }
-  int p = 0;
+  size_t p = 0;
   std::vector<U> result(size);
-  for (int i = 0; i < size; i++) {
-    for (int j = 0; j < x[i].size(); j++) {
+  for (size_t i = 0; i < size; i++) {
+    for (size_t j = 0; j < x[i].size(); j++) {
       result[p] = x[i][j];
       p++;
     }

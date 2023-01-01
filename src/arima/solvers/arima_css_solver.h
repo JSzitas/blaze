@@ -154,8 +154,7 @@ public:
     this->y_temp = this->y_temp -
       this->xreg * final_pars.tail(final_pars.size() - this->arma_pars);
     // get arima steady state values
-    // print_vector(this->y_temp);
-    // arima_steady_state(this->y_temp, model);
+    arima_steady_state(this->y_temp, model);
   }
 };
 

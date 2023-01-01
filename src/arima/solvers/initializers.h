@@ -154,7 +154,7 @@ std::vector<double> get_Q0_rossignol(std::vector<double> &phi_coef,
 }
 
 /* based on code from AS154 */
-static void inclu2(int np, std::vector<double> &xnext,
+inline static void inclu2(int np, std::vector<double> &xnext,
                    std::vector<double> &xrow, double ynext,
                    std::vector<double> &d, std::vector<double> &rbar,
                    std::vector<double> &thetab) {

@@ -777,14 +777,14 @@ std::vector<std::complex<double>> polyroot(std::vector<double> &x) {
 
   double *coef_vector = new double[size];
   // copy to dynamically allocated vector
-  for (int i = 0; i < size; i++) {
+  for (size_t i = 0; i < size; i++) {
     coef_vector[i] = x[i];
   }
   // call poly
   auto res = rpoly(coef_vector, size, real_part, complex_part);
   // create vector of complex elements from real and complex part
   std::vector<std::complex<double>> result;
-  for (int i = 1; i < size; i++) {
+  for (size_t i = 1; i < size; i++) {
     result.push_back(std::complex<double>(real_part[i], complex_part[i]));
   }
   // remember to clean up what you allocated

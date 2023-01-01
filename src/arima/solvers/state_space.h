@@ -165,6 +165,7 @@ structural_model<U> make_arima(std::vector<U> phi, std::vector<U> theta,
   for (i = 1; i < theta.size() + 1; i++) {
     R[i] = theta[i - 1];
   }
+  size_t mat_p = 0;
   std::vector<U> V(R.size() * R.size());
   // here we do an outer product, ie: V <- R %o% R
   for (i = 0; i < R.size(); i++) {
@@ -188,7 +189,6 @@ structural_model<U> make_arima(std::vector<U> phi, std::vector<U> theta,
       temp = std::move(get_Q0_rossignol(phi, theta));
       break;
     };
-    size_t mat_p = 0;
     /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
      * matrix, and r == 3, then we update the highlighted parts: (input)
      * (updated) x x x x x   =>    y y y|x x x x x x x   =>    y y y|x x x x x x
@@ -197,6 +197,7 @@ structural_model<U> make_arima(std::vector<U> phi, std::vector<U> theta,
      *   x x x x x   =>    x x x x x
      *   x x x x x   =>    x x x x x
      */
+    mat_p = 0;
     for (j = 0; j < r; j++) {
       for (i = 0; i < r; i++) {
         Pn[(j * rd) + i] = std::move(temp[mat_p]);
@@ -304,7 +305,7 @@ structural_model<U> make_arima( C &coef, std::vector<U> &delta,
   }
   std::vector<U> V(R.size() * R.size());
   // here we do an outer product, ie: V <- R %o% R
-  int mat_p = 0;
+  size_t mat_p = 0;
   for (i = 0; i < R.size(); i++) {
     for (j = 0; j < R.size(); j++) {
       V[mat_p] = R[i] * R[j];
@@ -326,7 +327,6 @@ structural_model<U> make_arima( C &coef, std::vector<U> &delta,
       temp = std::move(get_Q0_rossignol(phi, theta));
       break;
     };
-    mat_p = 0;
     /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
      * matrix, and r == 3, then we update the highlighted parts: (input)
      * (updated) x x x x x   =>    y y y|x x x x x x x   =>    y y y|x x x x x x
@@ -335,9 +335,10 @@ structural_model<U> make_arima( C &coef, std::vector<U> &delta,
      *   x x x x x   =>    x x x x x
      *   x x x x x   =>    x x x x x
      */
+    mat_p = 0;
     for (j = 0; j < r; j++) {
       for (i = 0; i < r; i++) {
-        Pn[(j * rd) + i] = std::move(temp[mat_p]);
+        Pn[(j * rd) + i] = temp[mat_p];
         mat_p++;
       }
     }
