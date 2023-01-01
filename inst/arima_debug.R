@@ -241,7 +241,7 @@ arima2 <- function (x, order = c(0L, 0L, 0L), seasonal = list(order = c(0L,
     if (ncxreg > 0)
       x <- x - xreg %*% coef[narma + (1L:ncxreg)]
     # x_adj <<- x
-    # arimaSS(x, mod)
+    arimaSS(x, mod)
     # arima_mdl <<- mod
     if (ncxreg > 0)
       x <- x - xreg %*% coef[narma + (1L:ncxreg)]
