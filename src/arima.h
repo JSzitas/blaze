@@ -25,6 +25,7 @@ public:
     this->method = method;
     this->kappa = kappa;
     this->model = structural_model<U>();
+    this->fitted = false;
   };
   void fit() {
     // this should just proceed with fitting, not do things which can be done in
@@ -33,9 +34,9 @@ public:
     std::vector<U> deltas =
         make_delta(this->kind.d(), this->kind.period(), this->kind.D());
     // get number of available observations
-    int available_n = this->y.size();
+    size_t available_n = this->y.size();
     // find na across y
-    std::vector<int> na_cases = find_na(this->y);
+    std::vector<size_t> na_cases = find_na(this->y);
     // initialize xreg
     lm_coef<U> reg_coef( this->xreg.size(), this->intercept );;
     // fit xreg
@@ -61,14 +62,14 @@ public:
         reg_coef = xreg_coef(y_d, xreg_d);
       }
       // find na cases across xreg
-      for (int i = 0; i < this->xreg.size(); i++) {
+      for (size_t i = 0; i < this->xreg.size(); i++) {
         na_cases = intersect(na_cases, find_na(this->xreg[i]));
       }
     }
     // store regression coefficients (if any) in this object
     this->reg_coef = reg_coef;
     // adjust CSS for missing cases
-    int missing_cases = na_cases.size();
+    size_t missing_cases = na_cases.size();
     available_n -= (deltas.size() + missing_cases);
     // override method to ML if any cases are missing
     if (this->method == CSSML) {
@@ -122,94 +123,96 @@ public:
         }
       }
       // load xreg coefficients from coef as necessary
-      for (int i = arma_coef_size; i < this->coef.size(); i++) {
+      for (size_t i = arma_coef_size; i < this->coef.size(); i++) {
         this->reg_coef[i - arma_coef_size] = this->coef[i];
       }
     }
-    // if( this->method == CSSML) {
-    // perform checks on AR coefficients
-    //               if (!arCheck(init[1L:arma[1L]]))
-    //                 stop("non-stationary AR part from CSS")
-    //                 if (arma[3L] > 0)
-    //                   if (!arCheck(init[sum(arma[1L:2L]) + 1L:arma[3L]]))
-    //                     stop("non-stationary seasonal AR part from CSS")
-    //                     ncond <- 0L
-    // }
-    // if( this->method == ML || this->method == CSSML) {
-      //         if (transform.pars) {
-      //           init <- .Call(stats:::C_ARIMA_Invtrans, init, arma)
-      //           if (arma[2L] > 0) {
-      //             ind <- arma[1L] + 1L:arma[2L]
-      //             init[ind] <- maInvert(init[ind])
-      //           }
-      //           if (arma[4L] > 0) {
-      //             ind <- sum(arma[1L:3L]) + 1L:arma[4L]
-      //             init[ind] <- maInvert(init[ind])
-      //           }
-      //         }
-      //         trarma <- .Call(stats:::C_ARIMA_transPars, init, arma,
-      //         transform.pars)
-      //           mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
-      //                            SSinit)
-      //           res <- optim(init[mask], armafn, method = "BFGS",
-      //                        hessian = TRUE, control = optim.control, trans =
-      //                        as.logical(transform.pars))
-      //           if (res$convergence > 0)
-      //             warning(gettextf("possible convergence problem: optim gave
-      //             code = %d",
-      //                              res$convergence), domain = NA)
-      //             coef[mask] <- res$par
-      //             if (transform.pars) {
-      //               if (arma[2L] > 0L) {
-      //                 ind <- arma[1L] + 1L:arma[2L]
-      //                 if (all(mask[ind]))
-      //                   coef[ind] <- maInvert(coef[ind])
-      //               }
-      //               if (arma[4L] > 0L) {
-      //                 ind <- sum(arma[1L:3L]) + 1L:arma[4L]
-      //                 if (all(mask[ind]))
-      //                   coef[ind] <- maInvert(coef[ind])
-      //               }
-      //               if (any(coef[mask] != res$par)) {
-      //                 oldcode <- res$convergence
-      //                 res <- optim(coef[mask], armafn, method = "BFGS",
-      //                              hessian = TRUE, control = list(maxit = 0L,
-      //                                                             parscale =
-      //                                                             optim.control$parscale),
-      //                                                             trans =
-      //                                                             TRUE)
-      //                 res$convergence <- oldcode
-      //                 coef[mask] <- res$par
-      //               }
-      //               A <- .Call(stats:::C_ARIMA_Gradtrans, as.double(coef),
-      //               arma)
-      //                 A <- A[mask, mask]
-      //               var <- crossprod(A, solve(res$hessian * n.used, A))
-      //                 coef <- .Call(stats:::C_ARIMA_undoPars, coef, arma)
-      //             }
-      //             else var <- solve(res$hessian * n.used)
-      //               trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma,
-      //               FALSE) mod <- makeARIMA(trarma[[1L]], trarma[[2L]],
-      //               Delta, kappa,
-      //                                SSinit)
-      //               val <- if (ncxreg > 0L) {
-      //                 arimaSS(x - xreg %*% coef[narma + (1L:ncxreg)], mod)
-      //               } else arimaSS(x, mod)
-      //                 sigma2 <- val[[1L]][1L]/n.used
-      // }
+    if( this->method == CSSML) {
+      //perform checks on AR coefficients
+      // if( !ar_check() )
+      //             if (!arCheck(init[1L:arma[1L]]))
+      //               stop("non-stationary AR part from CSS")
+      //               if (arma[3L] > 0)
+      //                 if (!arCheck(init[sum(arma[1L:2L]) + 1L:arma[3L]]))
+      //                   stop("non-stationary seasonal AR part from CSS")
+      //                   ncond <- 0L
+    }
+    if( this->method == ML || this->method == CSSML) {
+            // if (this->transform_parameters) {
+            //   init <- .Call(stats:::C_ARIMA_Invtrans, init, arma)
+            //   if (this->kind.q()) {
+            //     ind <- arma[1L] + 1L:arma[2L]
+            //     init[ind] <- maInvert(init[ind])
+            //   }
+            //   if (this->kind.Q()) {
+            //     ind <- sum(arma[1L:3L]) + 1L:arma[4L]
+            //     init[ind] <- maInvert(init[ind])
+            //   }
+            // }
+            // trarma <- .Call(stats:::C_ARIMA_transPars, init, arma,
+            // transform.pars)
+            //   mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
+            //                    SSinit)
+            //   res <- optim(init[mask], armafn, method = "BFGS",
+            //                hessian = TRUE, control = optim.control, trans =
+            //                as.logical(transform.pars))
+            //   if (res$convergence > 0)
+            //     warning(gettextf("possible convergence problem: optim gave
+            //     code = %d",
+            //                      res$convergence), domain = NA)
+            //     coef[mask] <- res$par
+            //     if (transform.pars) {
+            //       if (arma[2L] > 0L) {
+            //         ind <- arma[1L] + 1L:arma[2L]
+            //         if (all(mask[ind]))
+            //           coef[ind] <- maInvert(coef[ind])
+            //       }
+            //       if (arma[4L] > 0L) {
+            //         ind <- sum(arma[1L:3L]) + 1L:arma[4L]
+            //         if (all(mask[ind]))
+            //           coef[ind] <- maInvert(coef[ind])
+            //       }
+            //       if (any(coef[mask] != res$par)) {
+            //         oldcode <- res$convergence
+            //         res <- optim(coef[mask], armafn, method = "BFGS",
+            //                      hessian = TRUE, control = list(maxit = 0L,
+            //                                                     parscale =
+            //                                                     optim.control$parscale),
+            //                                                     trans =
+            //                                                     TRUE)
+            //         res$convergence <- oldcode
+            //         coef[mask] <- res$par
+            //       }
+            //       A <- .Call(stats:::C_ARIMA_Gradtrans, as.double(coef),
+            //       arma)
+            //         A <- A[mask, mask]
+            //       var <- crossprod(A, solve(res$hessian * n.used, A))
+            //         coef <- .Call(stats:::C_ARIMA_undoPars, coef, arma)
+            //     }
+            //     else var <- solve(res$hessian * n.used)
+            //       trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma,
+            //       FALSE) mod <- makeARIMA(trarma[[1L]], trarma[[2L]],
+            //       Delta, kappa,
+            //                        SSinit)
+            //       val <- if (ncxreg > 0L) {
+            //         arimaSS(x - xreg %*% coef[narma + (1L:ncxreg)], mod)
+            //       } else arimaSS(x, mod)
+            //         sigma2 <- val[[1L]][1L]/n.used
+    }
     if (this->method != CSS) {
       this->aic = std::nan("");
     } else {
-      // 1.837877 is equal to log(2*pi) - log is not standard comliant,
-      // so we cannot expand the expression, sadly
+      // 1.837877 is equal to log(2*pi) - log is not standard compliant in a
+      // constexpr so we must expand the expression manually, sadly
       constexpr double one_p_log_twopi = 1.0 + 1.837877;
       this->aic = available_n * (log(this->sigma2) + one_p_log_twopi);
     }
+    this->fitted = true;
   };
-  forecast_result<U> forecast(const int h = 10,
+  forecast_result<U> forecast(const size_t h = 10,
                               std::vector<std::vector<U>> newxreg = {{}}) {
     // validate xreg length
-    if (newxreg.size() != this->xreg.size()) {
+    if (!this->fitted || newxreg.size() != this->xreg.size()) {
       return forecast_result<U>(0);
     }
     // rescale sigma2 - this is necessary because the original sigma2 is
@@ -218,22 +221,21 @@ public:
     auto res = kalman_forecast(h, this->model, rescaled_sigma2);
     if( reg_coef.has_intercept() ) {
       // handle intercept
-      for (int i = 0; i < h; i++) {
+      for (size_t i = 0; i < h; i++) {
         res.forecast[i] += this->reg_coef.get_intercept();
       }
     }
     if(newxreg.size() > 0) {
       auto xreg_adjusted = predict(h, this->reg_coef, newxreg);
-      for (int i = 0; i < h; i++) {
+      for (size_t i = 0; i < h; i++) {
         res.forecast[i] += xreg_adjusted[i];
       }
     }
     return res;
   };
-  const structural_model<U> get_structural_model() const {
-    return this->model;
-  }
+  const structural_model<U> get_structural_model() const { return this->model; }
   const std::vector<U> get_coef() const { return this->coef; }
+  const bool is_fitted() const { return this->fitted; }
 
 private:
   std::vector<U> y;
@@ -250,6 +252,7 @@ private:
   U sigma2;
   U kappa;
   U aic;
+  bool fitted;
 };
 
 #endif
