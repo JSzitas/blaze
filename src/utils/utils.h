@@ -182,4 +182,41 @@ std::vector<U> flatten_vec(std::vector<std::vector<U>> x) {
   return result;
 }
 
+template <typename U=double> struct StandardScaler{
+
+};
+
+template <typename U=double> struct MinMaxScaler{
+  MinMaxScaler<U>(std::vector<U> &x, U a=0, U b=1) {
+    U min_val = x[0];
+    U max_val = x[0];
+    for( size_t i =1; i < x.size(); i++) {
+      min_val = min(min_val, x[i]);
+      max_val = max(max_val, x[i]);
+    }
+    this->min_v = min_val;
+    this->max_v = max_val;
+    this->a = a;
+    this->b = b;
+  }
+  void scale(std::vector<U> &x) {
+
+    const auto spread = this->max_val - this->min_val;
+    const auto x_min = this->min_v;
+    const auto range = this->b - this->a;
+
+    for( size_t i=0; i < x.size(); i++ ) {
+      x[i] = (x[i] - x_min)/spread;
+      x[i] = (x[i] * range) + this->a;
+    }
+  }
+  void rescale(std::vector<U> &x) {
+
+  }
+private:
+  U a,b;
+  U min_v;
+  U max_v;
+};
+
 #endif
