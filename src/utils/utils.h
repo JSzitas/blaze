@@ -71,12 +71,16 @@ template <class T> void print_vector(T &a) {
 // }
 
 template <typename T> T max(T &a, T &b) { return a < b ? b : a; }
-
 template <typename T> T max(T a, T b) { return a < b ? b : a; }
-
 template <typename T> T min(T &a, T &b) { return a > b ? b : a; }
-
 template <typename T> T min(T a, T b) { return a > b ? b : a; }
+
+template <typename T, typename U> T max(T a, U b) { return (T)(a < b ? b : a); }
+template <typename T, typename U> T max(T &a, U &b) { return (T)(a < b ? b : a); }
+
+template <typename T, typename U> T min(T a, U b) { return (T)(a > b ? b : a); }
+template <typename T, typename U> T min(T &a, U &b) { return (T)(a > b ? b : a); }
+
 
 template <typename T> void pop_front(std::vector<T> &x) { x.erase(x.begin()); }
 
@@ -183,40 +187,66 @@ std::vector<U> flatten_vec(std::vector<std::vector<U>> x) {
 }
 
 template <typename U=double> struct StandardScaler{
-
-};
+    StandardScaler<U>(std::vector<U> &x) {
+      U mean_val = 0;
+      size_t i = 0;
+      for(; i < x.size(); i++) {
+        mean_val += x[i];
+      }
+      mean_val /= (U)i;
+      i = 0;
+      U sd_val = 0;
+      for(;i <x.size();i++) {
+        sd_val += pow(x[i] - mean_val,2);
+      }
+      sd_val /= (U)(i-1);
+      sd_val = sqrt(sd_val);
+      this->mean = mean_val;
+      this->sd = sd_val;
+    }
+    void scale(std::vector<U> &x) const {
+      for( size_t i=0; i < x.size(); i++ ) {
+        x[i] = (x[i] - this->mean)/this->sd;
+      }
+    }
+    void rescale(std::vector<U> &x) const {
+      for(size_t i=0; i < x.size(); i++) {
+        x[i] = this->mean + (x[i]*this->sd);
+      }
+    }
+  private:
+    U mean, sd;
+  };
 
 template <typename U=double> struct MinMaxScaler{
   MinMaxScaler<U>(std::vector<U> &x, U a=0, U b=1) {
     U min_val = x[0];
     U max_val = x[0];
     for( size_t i =1; i < x.size(); i++) {
-      min_val = min(min_val, x[i]);
-      max_val = max(max_val, x[i]);
+      min_val = min_val < x[i] ? min_val : x[i];
+      max_val = max_val > x[i] ? max_val : x[i];
     }
     this->min_v = min_val;
     this->max_v = max_val;
     this->a = a;
     this->b = b;
+    this->spread = this->max_v - this->min_v;
+    this->range = this->b - this->a;
   }
-  void scale(std::vector<U> &x) {
-
-    const auto spread = this->max_val - this->min_val;
-    const auto x_min = this->min_v;
-    const auto range = this->b - this->a;
-
+  void scale(std::vector<U> &x) const {
     for( size_t i=0; i < x.size(); i++ ) {
-      x[i] = (x[i] - x_min)/spread;
-      x[i] = (x[i] * range) + this->a;
+      x[i] = (x[i] - this->min_v)/this->spread;
+      x[i] = (x[i] * this->range) + this->a;
     }
   }
-  void rescale(std::vector<U> &x) {
-
+  void rescale(std::vector<U> &x) const {
+    for(size_t i=0; i < x.size(); i++) {
+      x[i] = this->a + (x[i]/this->range);
+      x[i] = (x[i] * this->spread) + this->min_v;
+    }
   }
 private:
-  U a,b;
-  U min_v;
-  U max_v;
+  U spread, range, a,b, min_v, max_v;
 };
 
 #endif
