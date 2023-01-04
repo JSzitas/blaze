@@ -4,9 +4,12 @@
 #include "third_party/eigen.h"
 #include "utils/utils.h"
 
+enum SSinit { Gardner = 1, Rossignol = 2 };
+
 // map 2 vectors to Eigen matrices and call solve
 template <typename U = double>
-std::vector<U> solve_mat_vec(std::vector<U> &mat, std::vector<U> &vec) {
+std::vector<U> solve_mat_vec(std::vector<U> &mat,
+                             std::vector<U> &vec) {
   const int n = vec.size();
 
   Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat =
