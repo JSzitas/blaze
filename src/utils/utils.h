@@ -187,36 +187,36 @@ std::vector<U> flatten_vec(std::vector<std::vector<U>> x) {
 }
 
 template <typename U=double> struct StandardScaler{
-    StandardScaler<U>(std::vector<U> &x) {
-      U mean_val = 0;
-      size_t i = 0;
-      for(; i < x.size(); i++) {
-        mean_val += x[i];
-      }
-      mean_val /= (U)i;
-      i = 0;
-      U sd_val = 0;
-      for(;i <x.size();i++) {
-        sd_val += pow(x[i] - mean_val,2);
-      }
-      sd_val /= (U)(i-1);
-      sd_val = sqrt(sd_val);
-      this->mean = mean_val;
-      this->sd = sd_val;
+  StandardScaler<U>(std::vector<U> &x) {
+    U mean_val = 0;
+    size_t i = 0;
+    for(; i < x.size(); i++) {
+      mean_val += x[i];
     }
-    void scale(std::vector<U> &x) const {
-      for( size_t i=0; i < x.size(); i++ ) {
-        x[i] = (x[i] - this->mean)/this->sd;
-      }
+    mean_val /= (U)i;
+    i = 0;
+    U sd_val = 0;
+    for(;i <x.size();i++) {
+      sd_val += pow(x[i] - mean_val,2);
     }
-    void rescale(std::vector<U> &x) const {
-      for(size_t i=0; i < x.size(); i++) {
-        x[i] = this->mean + (x[i]*this->sd);
-      }
+    sd_val /= (U)(i-1);
+    sd_val = sqrt(sd_val);
+    this->mean = mean_val;
+    this->sd = sd_val;
+  }
+  void scale(std::vector<U> &x) const {
+    for( size_t i=0; i < x.size(); i++ ) {
+      x[i] = (x[i] - this->mean)/this->sd;
     }
-  private:
-    U mean, sd;
-  };
+  }
+  void rescale(std::vector<U> &x) const {
+    for(size_t i=0; i < x.size(); i++) {
+      x[i] = this->mean + (x[i]*this->sd);
+    }
+  }
+private:
+  U mean, sd;
+};
 
 template <typename U=double> struct MinMaxScaler{
   MinMaxScaler<U>(std::vector<U> &x, U a=0, U b=1) {
