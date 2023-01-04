@@ -1,21 +1,20 @@
-#ifndef ARIMA_SOLVER
-#define ARIMA_SOLVER
+#ifndef ARIMA_CSS_SOLVER
+#define ARIMA_CSS_SOLVER
 
 #include "utils/utils.h"
 
 #include "arima/structures/structural_model.h"
+#include "arima/structures/fitting_method.h"
 
 #include "arima/solvers/arima_css_likelihood.h"
 #include "arima/solvers/state_space.h"
 
-#include "arima/utils/arima_utils.h"
+#include "arima/utils/transforms.h"
 #include "arima/utils/xreg.h"
 
 // include optimizer library
 #include "third_party/eigen.h"
 #include "third_party/optim.h"
-
-enum fitting_method { CSS = 1, CSSML = 2, ML = 3 };
 
 using FunctionXd = cppoptlib::function::Function<double>;
 

@@ -2,7 +2,11 @@
 #define ARIMA_CSS_LIKELIHOOD
 
 #include "arima/structures/structural_model.h"
-#include "arima/utils/arima_utils.h"
+#include "arima/structures/arima_kind.h"
+
+#include "third_party/eigen.h"
+
+#include "utils/utils.h"
 
 /* arma is p, q, sp, sq, ns, d, sd
  * Note that this function is very similar to the one that follows it
@@ -153,12 +157,6 @@ template <const int update_point = 0,
       }
     }
 }
-
-
-
-
-
-
 
 template <class T>
 std::vector<double> arima_likelihood(const T &y,
