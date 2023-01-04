@@ -1,12 +1,14 @@
 #ifndef ARIMA_WRAPPER
 #define ARIMA_WRAPPER
 
-#include "arima/solvers/arima_css_solver.h"
-#include "arima/solvers/initializers.h"
-#include "arima/structures/structural_model.h"
-#include "arima/utils/arima_utils.h"
-#include "arima/utils/xreg.h"
 #include "utils/utils.h"
+
+#include "arima/structures/fitting_method.h"
+#include "arima/structures/structural_model.h"
+
+#include "arima/utils/xreg.h"
+
+#include "arima/solvers/arima_css_solver.h"
 
 template <typename U = double> class Arima {
 public:
@@ -14,7 +16,8 @@ public:
   Arima<U>(std::vector<U> &y, arima_kind kind,
            std::vector<std::vector<U>> xreg = {{}}, bool intercept = true,
            bool transform_parameters = true, SSinit ss_init = Gardner,
-           fitting_method method = ML, U kappa = 1000000) {
+           fitting_method method = ML, U kappa = 1000000,
+           bool standardize = false) {
     this->y = y;
     // initialize xreg coef and data
     this->xreg = xreg;
@@ -24,6 +27,7 @@ public:
     this->kind = kind;
     this->method = method;
     this->kappa = kappa;
+    this->standardize = standardize;
     this->model = structural_model<U>();
     this->fitted = false;
   };
@@ -93,7 +97,7 @@ public:
     // allocate coef vector
     const int arma_coef_size = this->kind.p() + this->kind.q() + this->kind.P() + this->kind.Q();
     this->coef = std::vector<U>(arma_coef_size + reg_coef.size());
-    if (this->method == CSS) {
+    if (this->method == CSS || CSSML) {
       // is using conditional sum of squares, just directly optimize and
       const bool is_seasonal = this->kind.P() + this->kind.Q();
       const bool has_xreg = this->reg_coef.size() > 0;
@@ -128,7 +132,8 @@ public:
       }
     }
     if( this->method == CSSML) {
-      //perform checks on AR coefficients
+      //perform checks on AR coefficients following CSS fit
+
       // if( !ar_check() )
       //             if (!arCheck(init[1L:arma[1L]]))
       //               stop("non-stationary AR part from CSS")
@@ -251,6 +256,7 @@ private:
   fitting_method method;
   U sigma2;
   U kappa;
+  bool standardize;
   U aic;
   bool fitted;
 };
