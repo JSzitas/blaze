@@ -7,8 +7,6 @@
 #include "vector"
 #include "arima/solvers/initializers.h"
 
-enum SSinit { Gardner = 1, Rossignol = 2 };
-
 template <typename U = double> struct forecast_result {
   forecast_result<U>( std::vector<U> &forecasts,
                       std::vector<U> &std_errs ) :
