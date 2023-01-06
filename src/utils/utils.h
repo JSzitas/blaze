@@ -187,6 +187,10 @@ std::vector<U> flatten_vec(std::vector<std::vector<U>> x) {
 }
 
 template <typename U=double> struct StandardScaler{
+  StandardScaler<U>(){
+    this->mean = 0;
+    this->sd = 0;
+  }
   StandardScaler<U>(std::vector<U> &x) {
     U mean_val = 0;
     size_t i = 0;
@@ -213,6 +217,9 @@ template <typename U=double> struct StandardScaler{
     for(size_t i=0; i < x.size(); i++) {
       x[i] = this->mean + (x[i]*this->sd);
     }
+  }
+  U rescale_val( const U x ) const {
+    return this->mean + (x*this->sd);
   }
 private:
   U mean, sd;
@@ -244,6 +251,10 @@ template <typename U=double> struct MinMaxScaler{
       x[i] = this->a + (x[i]/this->range);
       x[i] = (x[i] * this->spread) + this->min_v;
     }
+  }
+  U rescale_val( const U x ) const {
+    auto y = this->a + (x/this->range);
+    return (y * this->spread) + this->min_v;
   }
 private:
   U spread, range, a,b, min_v, max_v;

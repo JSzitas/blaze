@@ -10,14 +10,14 @@
 
 #include "arima/solvers/arima_css_solver.h"
 
-template <typename U = double> class Arima {
+template <typename U = double, class Scaler = StandardScaler<U>> class Arima {
 public:
-  Arima<U>(){};
-  Arima<U>(std::vector<U> &y, arima_kind kind,
+  Arima<U, Scaler>(){};
+  Arima<U, Scaler>(std::vector<U> &y, arima_kind kind,
            std::vector<std::vector<U>> xreg = {{}}, bool intercept = true,
            bool transform_parameters = true, SSinit ss_init = Gardner,
            fitting_method method = ML, U kappa = 1000000,
-           bool standardize = false) {
+           bool standardize = true) {
     this->y = y;
     // initialize xreg coef and data
     this->xreg = xreg;
@@ -27,7 +27,7 @@ public:
     this->kind = kind;
     this->method = method;
     this->kappa = kappa;
-    this->standardize = standardize;
+    this->scalers = std::vector<Scaler>( standardize * (1 + xreg.size()) );
     this->model = structural_model<U>();
     this->fitted = false;
   };
@@ -37,6 +37,16 @@ public:
     // create deltas
     std::vector<U> deltas =
         make_delta(this->kind.d(), this->kind.period(), this->kind.D());
+    // if we have any scalers, fit them and apply scaling
+    if( this->scalers.size() > 0 ) {
+      // first scaler used for target
+      this->scalers[0] = Scaler(this->y);
+      this->scalers[0].scale(this->y);
+      for( size_t i = 1; i < this->scalers.size(); i++ ) {
+        this->scalers[i] = Scaler(this->xreg[i]);
+        this->scalers[i].scale(this->xreg[i]);
+      }
+    }
     // get number of available observations
     size_t available_n = this->y.size();
     // find na across y
@@ -212,6 +222,19 @@ public:
       constexpr double one_p_log_twopi = 1.0 + 1.837877;
       this->aic = available_n * (log(this->sigma2) + one_p_log_twopi);
     }
+    // invert scaling
+    if( this->scalers.size() > 0 ) {
+      // first scaler used for target
+      this->scalers[0].rescale(this->y);
+      for( size_t i = 1; i < this->scalers.size(); i++ ) {
+        this->scalers[i].rescale(this->xreg[i]);
+      }
+      if( this->intercept ) {
+        // the intercept also has to be rescaled to have any meaning
+        U temp = scalers.back().rescale_val(this->coef.back());
+        this->coef.back() = temp;
+      }
+    }
     this->fitted = true;
   };
   forecast_result<U> forecast(const size_t h = 10,
@@ -231,10 +254,19 @@ public:
       }
     }
     if(newxreg.size() > 0) {
+      if( scalers.size() > 0 ) {
+        for( size_t i = 1; i < newxreg.size(); i++) {
+          scalers[i].rescale(newxreg[i]);
+        }
+      }
       auto xreg_adjusted = predict(h, this->reg_coef, newxreg);
       for (size_t i = 0; i < h; i++) {
         res.forecast[i] += xreg_adjusted[i];
       }
+    }
+    if( scalers.size() > 0 ) {
+        scalers[0].rescale(res.forecast);
+        scalers[0].rescale(res.std_err);
     }
     return res;
   };
@@ -256,7 +288,7 @@ private:
   fitting_method method;
   U sigma2;
   U kappa;
-  bool standardize;
+  std::vector<Scaler> scalers;
   U aic;
   bool fitted;
 };
