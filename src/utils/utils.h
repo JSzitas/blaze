@@ -218,8 +218,30 @@ template <typename U=double> struct StandardScaler{
       x[i] = this->mean + (x[i]*this->sd);
     }
   }
+  void rescale_w_mean(std::vector<U> &x) const {
+    for(size_t i=0; i < x.size(); i++) {
+      x[i] += this->mean;
+    }
+  }
+  void rescale_w_sd(std::vector<U> &x) const {
+    for(size_t i=0; i < x.size(); i++) {
+      x[i] *= this->sd;
+    }
+  }
+  U scale_val( const U x) const {
+    return (x - this->mean)/this->sd;;
+  }
   U rescale_val( const U x ) const {
     return this->mean + (x*this->sd);
+  }
+  U rescale_val_w_mean( const U x ) const {
+    return this->mean + x;
+  }
+  const U get_mean() const {
+    return this->mean;
+  }
+  const U get_sd() const {
+    return this->sd;
   }
 private:
   U mean, sd;

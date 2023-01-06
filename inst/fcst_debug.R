@@ -1,11 +1,12 @@
+remove(list=ls())
 pkgload::load_all(compile = TRUE)
 
-p <- 3
+p <- 2
 d <- 1
-q <- 2
-P <- 3
-D <- 1
-Q <- 1
+q <- 1
+P <- 0
+D <- 0
+Q <- 0
 season <- 10
 
 

@@ -140,6 +140,10 @@ public:
       for (size_t i = arma_coef_size; i < this->coef.size(); i++) {
         this->reg_coef[i - arma_coef_size] = this->coef[i];
       }
+      // rescale sigma2 if scalers were applied
+      // if( scalers.size() > 0) {
+      //   this->sigma2 = scalers[0].rescale_val(this->sigma2);
+      // }
     }
     if( this->method == CSSML) {
       //perform checks on AR coefficients following CSS fit
@@ -217,10 +221,15 @@ public:
     if (this->method != CSS) {
       this->aic = std::nan("");
     } else {
+      // we have to rescale the sigma to be on the same scale as original data
+      auto sigma_2 = this->sigma2;
+      if( scalers.size() > 0 ) {
+        sigma_2 = scalers[0].rescale_val_w_mean(this->sigma2);
+      }
       // 1.837877 is equal to log(2*pi) - log is not standard compliant in a
       // constexpr so we must expand the expression manually, sadly
       constexpr double one_p_log_twopi = 1.0 + 1.837877;
-      this->aic = available_n * (log(this->sigma2) + one_p_log_twopi);
+      this->aic = available_n * (log(sigma_2) + one_p_log_twopi);
     }
     // invert scaling
     if( this->scalers.size() > 0 ) {
@@ -244,7 +253,7 @@ public:
       return forecast_result<U>(0);
     }
     // rescale sigma2 - this is necessary because the original sigma2 is
-    // a conditional sum of squares
+    // a conditional sum of squares, rather than the actual sigma estimate
     double rescaled_sigma2 = exp(0.5 * log(this->sigma2));
     auto res = kalman_forecast(h, this->model, rescaled_sigma2);
     if( reg_coef.has_intercept() ) {
@@ -256,17 +265,21 @@ public:
     if(newxreg.size() > 0) {
       if( scalers.size() > 0 ) {
         for( size_t i = 1; i < newxreg.size(); i++) {
-          scalers[i].rescale(newxreg[i]);
+          scalers[i].scale(newxreg[i]);
         }
       }
       auto xreg_adjusted = predict(h, this->reg_coef, newxreg);
+      // rescale xreg prediction
+      if( scalers.size() > 0 ) {
+        scalers[0].rescale(xreg_adjusted);
+      }
       for (size_t i = 0; i < h; i++) {
         res.forecast[i] += xreg_adjusted[i];
       }
     }
     if( scalers.size() > 0 ) {
         scalers[0].rescale(res.forecast);
-        scalers[0].rescale(res.std_err);
+        scalers[0].rescale_w_sd(res.std_err);
     }
     return res;
   };
