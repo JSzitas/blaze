@@ -1,18 +1,18 @@
 remove(list=ls())
 pkgload::load_all(compile = TRUE)
 
-p <- 2
+p <- 3
 d <- 1
 q <- 1
-P <- 0
-D <- 0
-Q <- 0
+P <- 3
+D <- 1
+Q <- 2
 season <- 10
 
 
 arima_obj <- new( BlazeArima, c(lynx)[1:100], c(p,d,q,P,D,Q,season), list(), "Gardner", c(TRUE,TRUE), 1000000  )
 arima_obj$fit()
-arima_obj$get_coef()
+# arima_obj$get_coef()
 
 arima_obj$forecast(14, list()) -> cpp_fcst
 
