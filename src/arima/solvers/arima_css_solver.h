@@ -92,7 +92,7 @@ public:
       std::vector<double>(kind.q() + (kind.Q() * kind.period()));
   }
   double operator()(const Eigen::VectorXd &x) {
-    for (int i = 0; i < x.size(); i++) {
+    for (size_t i = 0; i < x.size(); i++) {
       this->new_x[i] = x[i];
     }
     if constexpr (has_xreg) {
@@ -166,14 +166,14 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
                       const int n_available, const double kappa,
                       const SSinit ss_init, double &sigma2) {
 
-  auto vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
-  auto arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
+  size_t vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
+  size_t arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
   Eigen::VectorXd x(vec_size);
   for (auto &val : x) {
     val = 0;
   }
   // initialize to all zeroes except for xreg
-  for (int i = arma_size; i < vec_size; i++) {
+  for (size_t i = arma_size; i < vec_size; i++) {
     x[i] = xreg_coef.coef[i - arma_size];
   }
   // initialize solver
@@ -189,7 +189,7 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
 
   css_arima_problem.finalize( model, solution.x, delta, kappa, ss_init);
   // pass fitted coefficients back to the caller
-  for (int i = 0; i < vec_size; i++) {
+  for (size_t i = 0; i < vec_size; i++) {
     coef[i] = solution.x[i];
   }
 }
