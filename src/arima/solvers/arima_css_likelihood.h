@@ -158,9 +158,8 @@ template <const int update_point = 0,
     }
 }
 
-template <class T>
-std::vector<double> arima_likelihood(const T &y,
-                                     structural_model<double> &model) {
+template <class T> double arima_likelihood(const T &y,
+                                           structural_model<double> &model) {
   // define integers needed for further processing - these are mostly used
   // for indexing and offsetting
   const int n = y.size(), rd = model.a.size(), p = model.phi.size(),
@@ -333,9 +332,9 @@ std::vector<double> arima_likelihood(const T &y,
       // if you were updating residuals, here you would put in an 'NA' or NaN
     }
   }
-  // finally, return
-  std::vector<double> res{ssq, sumlog, (double)nu};
-  return res;
+  // finally, compute likelihood and return
+  auto s2 = ssq/(double)nu;
+  return 0.5 * log(s2) + (sumlog/(double)nu);
 }
 
 #endif

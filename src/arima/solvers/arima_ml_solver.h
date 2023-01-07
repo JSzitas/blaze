@@ -33,14 +33,18 @@ private:
   std::vector<double> residual;
   std::vector<double> transform_temp_phi;
   std::vector<double> transform_temp_theta;
+  structural_model<double> &model;
+  const SSinit ss_init;
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
   ARIMA_ML_PROBLEM(std::vector<double> &y,
                    const arima_kind &kind,
                     lm_coef<double> &xreg_pars,
-                    std::vector<std::vector<double>> &xreg, int n_cond)
-    : kind(kind), n_cond(n_cond), xreg_pars(xreg_pars) {
+                    std::vector<std::vector<double>> &xreg,
+                    structural_model<double> &model,
+                    SSinit ss_init = Gardner)
+    : kind(kind), n_cond(n_cond), xreg_pars(xreg_pars), ss_init(ss_init) {
     // initialize an xreg matrix
     size_t n = y.size();
     std::vector<double> _xreg = flatten_vec(xreg);
@@ -57,22 +61,6 @@ public:
     Eigen::VectorXd y_temp(n);
     for (size_t i = 0; i < n; i++) {
       y_temp[i] = y[i];
-    }
-    if constexpr (!has_xreg) {
-      // if you have no intercept, you can do differencing
-      // regular differencing
-      for (int i = 0; i < kind.d(); i++) {
-        for (int l = n - 1; l > 0; l--) {
-          y_temp[l] -= y_temp[l - 1];
-        }
-      }
-      // seasonal differencing
-      int ns = kind.period();
-      for (int i = 0; i < kind.D(); i++) {
-        for (int l = n - 1; l >= ns; l--) {
-          y_temp[l] -= y_temp[l - ns];
-        }
-      }
     }
     this->y = y;
     this->y_temp = y_temp;
@@ -91,6 +79,7 @@ public:
       std::vector<double>(kind.p() + (kind.P() * kind.period()));
     this->transform_temp_theta =
       std::vector<double>(kind.q() + (kind.Q() * kind.period()));
+    this->model = model;
   }
   double operator()(const Eigen::VectorXd &x) {
     for (int i = 0; i < x.size(); i++) {
@@ -103,21 +92,6 @@ public:
       }
       this->y_temp =
         this->y_temp - this->xreg * x.tail(x.size() - this->arma_pars);
-      // do differencing here
-      if (!xreg_pars.has_intercept()) {
-        for (int i = 0; i < kind.d(); i++) {
-          for (size_t l = n - 1; l > 0; l--) {
-            this->y_temp[l] -= this->y_temp[l - 1];
-          }
-        }
-        // seasonal differencing
-        int ns = kind.period();
-        for (int i = 0; i < kind.D(); i++) {
-          for (size_t l = n - 1; l >= ns; l--) {
-            this->y_temp[l] -= this->y_temp[l - ns];
-          }
-        }
-      }
     }
     /* I figured out that I can basically expand this out altogether for non-seasonal
      * models - the compiler should insert an empty function anyways, but just to
@@ -129,32 +103,11 @@ public:
                                                   this->transform_temp_phi,
                                                   this->transform_temp_theta);
     }
-    // call arima css function
-    double res = arima_css_ssq(this->y_temp, this->new_x, this->kind,
-                               this->n_cond, this->residual);
-    return 0.5 * log(res);
-  }
-  void finalize( structural_model<double> &model,
-                 const Eigen::VectorXd & final_pars,
-                 std::vector<double> & delta,
-                 double kappa,
-                 SSinit ss_init) {
-    // this function creates state space representation and expands it
-    // I found out it is easier and cheaper (computationally) to do here
-    // do the same for model coefficients
-    // finally, make state space model
-    structural_model<double> arima_ss = make_arima( this->new_x,
-                                                    delta, this->kind,
-                                                    kappa, ss_init);
-    model.set(arima_ss);
-    // modify y_temp to acount for xreg
-    for (size_t i = 0; i < this->n; i++) {
-      this->y_temp[i] = this->y[i];
-    }
-    this->y_temp = this->y_temp -
-      this->xreg * final_pars.tail(final_pars.size() - this->arma_pars);
-    // get arima steady state values
-    arima_steady_state(this->y_temp, model);
+    // update arima
+    update_arima(this->model, this->new_x, this->ss_init);
+    // return likelihood - check if this updated model or not (it ideally
+    // should not, not here)
+    return arima_likelihood(this->y_temp, this->model);
   }
 };
 
@@ -180,17 +133,15 @@ void arima_solver_ml(std::vector<double> &y,
     x[i] = xreg_coef.coef[i - arma_size];
   }
   // initialize solver
-  using Solver = cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal>>;
+  using Solver = cppoptlib::solver::Bfgs<ARIMA_ML_PROBLEM<has_xreg, seasonal>>;
   Solver solver;
   // and arima problem
-  ARIMA_CSS_PROBLEM<has_xreg, seasonal> css_arima_problem(y, kind, xreg_coef,
+  ARIMA_ML_PROBLEM<has_xreg, seasonal> ml_arima_problem(y, kind, xreg_coef,
                                                           xreg, n_cond);
   // and finally, minimize
-  auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
+  auto [solution, solver_state] = solver.Minimize(ml_arima_problem, x);
   // update variance estimate for the arima model - this was passed by reference
   sigma2 = exp(2 * solution.value);
-
-  css_arima_problem.finalize( model, solution.x, delta, kappa, ss_init);
   // pass fitted coefficients back to the caller
   for (int i = 0; i < vec_size; i++) {
     coef[i] = solution.x[i];
@@ -204,8 +155,6 @@ void arima_solver_ml(std::vector<double> &y,
 //     if (ncxreg > 0)
 //       x <- x - xreg %*% par[narma + (1L:ncxreg)]
 //     res <- .Call(stats:::C_ARIMA_Like, x, Z, 0L, FALSE)
-//       s2 <- res[1L]/res[3L]
-//     0.5 * (log(s2) + res[2L]/res[3L])
 // }
 
 

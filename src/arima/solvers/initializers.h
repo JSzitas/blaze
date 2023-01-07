@@ -33,8 +33,8 @@ std::vector<U> solve_mat_vec(std::vector<U> &mat,
  * (ie completeOrthogonalDecomposition **should** be a better approach than the
  * regular solver)
  */
-std::vector<double> get_Q0_rossignol(std::vector<double> &phi_coef,
-                                     std::vector<double> &theta_coef) {
+std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
+                                     const std::vector<double> &theta_coef) {
   const int p = phi_coef.size(), q = theta_coef.size();
   int i, j, r = max(p, q + 1);
   // in the original, you create a pointer to the result, which is this,
@@ -195,8 +195,8 @@ inline static void inclu2(int np, std::vector<double> &xnext,
   }
 }
 
-std::vector<double> get_Q0(std::vector<double> &phi_coef,
-                           std::vector<double> &theta_coef) {
+std::vector<double> get_Q0(const std::vector<double> &phi_coef,
+                           const std::vector<double> &theta_coef) {
 
   const int p = phi_coef.size(), q = theta_coef.size();
   int i, j, r = max(p, q + 1);
