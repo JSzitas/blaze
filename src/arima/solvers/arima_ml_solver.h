@@ -22,10 +22,9 @@ template <const bool has_xreg, const bool seasonal>
 class ARIMA_ML_PROBLEM : public FunctionXd {
 private:
   arima_kind kind;
-  int n_cond;
   lm_coef<double> xreg_pars;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
-  int arma_pars;
+  size_t arma_pars;
   std::vector<double> y;
   Eigen::VectorXd y_temp;
   size_t n;
@@ -40,11 +39,13 @@ public:
   // initialize with a given arima structure
   ARIMA_ML_PROBLEM(std::vector<double> &y,
                    const arima_kind &kind,
-                    lm_coef<double> &xreg_pars,
-                    std::vector<std::vector<double>> &xreg,
-                    structural_model<double> &model,
-                    SSinit ss_init = Gardner)
-    : kind(kind), n_cond(n_cond), xreg_pars(xreg_pars), ss_init(ss_init) {
+                   lm_coef<double> &xreg_pars,
+                   std::vector<std::vector<double>> &xreg,
+                   structural_model<double> &model,
+                   std::vector<double> & delta,
+                   double kappa,
+                   SSinit ss_init = Gardner)
+    : kind(kind), xreg_pars(xreg_pars), ss_init(ss_init) {
     // initialize an xreg matrix
     size_t n = y.size();
     std::vector<double> _xreg = flatten_vec(xreg);
@@ -80,6 +81,11 @@ public:
     this->transform_temp_theta =
       std::vector<double>(kind.q() + (kind.Q() * kind.period()));
     this->model = model;
+    // initialize state space model
+    structural_model<double> arima_ss = make_arima( this->new_x,
+                                                    delta, this->kind,
+                                                    kappa, ss_init);
+    this->model.set(arima_ss);
   }
   double operator()(const Eigen::VectorXd &x) {
     for (int i = 0; i < x.size(); i++) {
@@ -114,13 +120,12 @@ public:
 template <const bool has_xreg, const bool seasonal>
 void arima_solver_ml(std::vector<double> &y,
                      structural_model<double> &model,
-                      lm_coef<double> xreg_coef,
-                      std::vector<std::vector<double>> xreg,
-                      const arima_kind &kind,
-                      std::vector<double> &coef,
-                      std::vector<double> &delta, const int n_cond,
-                      const int n_available, const double kappa,
-                      const SSinit ss_init, double &sigma2) {
+                     lm_coef<double> xreg_coef,
+                     std::vector<std::vector<double>> xreg,
+                     const arima_kind &kind,
+                     std::vector<double> &coef,
+                     std::vector<double> &delta, const double kappa,
+                     const SSinit ss_init, double &sigma2) {
 
   auto vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
   auto arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
@@ -129,7 +134,7 @@ void arima_solver_ml(std::vector<double> &y,
     val = 0;
   }
   // initialize to all zeroes except for xreg
-  for (int i = arma_size; i < vec_size; i++) {
+  for (size_t i = arma_size; i < vec_size; i++) {
     x[i] = xreg_coef.coef[i - arma_size];
   }
   // initialize solver
@@ -137,25 +142,17 @@ void arima_solver_ml(std::vector<double> &y,
   Solver solver;
   // and arima problem
   ARIMA_ML_PROBLEM<has_xreg, seasonal> ml_arima_problem(y, kind, xreg_coef,
-                                                          xreg, n_cond);
+                                                          xreg, model,
+                                                          delta, kappa,
+                                                          ss_init);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(ml_arima_problem, x);
   // update variance estimate for the arima model - this was passed by reference
   sigma2 = exp(2 * solution.value);
   // pass fitted coefficients back to the caller
-  for (int i = 0; i < vec_size; i++) {
+  for (size_t i = 0; i < vec_size; i++) {
     coef[i] = solution.x[i];
   }
 }
-// armafn <- function(p, trans) {
-//   par <- coef
-//   par[mask] <- p
-//   trarma <- .Call(stats:::C_ARIMA_transPars, par, arma, trans)
-//   Z <- upARIMA(mod, trarma[[1L]], trarma[[2L]])
-//     if (ncxreg > 0)
-//       x <- x - xreg %*% par[narma + (1L:ncxreg)]
-//     res <- .Call(stats:::C_ARIMA_Like, x, Z, 0L, FALSE)
-// }
-
 
 #endif

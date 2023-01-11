@@ -22,10 +22,10 @@ template <const bool has_xreg, const bool seasonal>
 class ARIMA_CSS_PROBLEM : public FunctionXd {
 private:
   arima_kind kind;
-  int n_cond;
+  size_t n_cond;
   lm_coef<double> xreg_pars;
   Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
-  int arma_pars;
+  size_t arma_pars;
   std::vector<double> y;
   Eigen::VectorXd y_temp;
   size_t n;
@@ -38,7 +38,7 @@ public:
   // initialize with a given arima structure
   ARIMA_CSS_PROBLEM(std::vector<double> &y, const arima_kind &kind,
                     lm_coef<double> &xreg_pars,
-                    std::vector<std::vector<double>> &xreg, int n_cond)
+                    std::vector<std::vector<double>> &xreg, size_t n_cond)
       : kind(kind), n_cond(n_cond), xreg_pars(xreg_pars) {
     // initialize an xreg matrix
     size_t n = y.size();
@@ -60,15 +60,15 @@ public:
     if constexpr (!has_xreg) {
       // if you have no intercept, you can do differencing
       // regular differencing
-      for (int i = 0; i < kind.d(); i++) {
-        for (int l = n - 1; l > 0; l--) {
+      for (size_t i = 0; i < kind.d(); i++) {
+        for (size_t l = n - 1; l > 0; l--) {
           y_temp[l] -= y_temp[l - 1];
         }
       }
       // seasonal differencing
-      int ns = kind.period();
-      for (int i = 0; i < kind.D(); i++) {
-        for (int l = n - 1; l >= ns; l--) {
+      size_t ns = kind.period();
+      for (size_t i = 0; i < kind.D(); i++) {
+        for (size_t l = n - 1; l >= ns; l--) {
           y_temp[l] -= y_temp[l - ns];
         }
       }
@@ -104,14 +104,14 @@ public:
           this->y_temp - this->xreg * x.tail(x.size() - this->arma_pars);
       // do differencing here
       if (!xreg_pars.has_intercept()) {
-        for (int i = 0; i < kind.d(); i++) {
+        for (size_t i = 0; i < kind.d(); i++) {
           for (size_t l = n - 1; l > 0; l--) {
             this->y_temp[l] -= this->y_temp[l - 1];
           }
         }
         // seasonal differencing
-        int ns = kind.period();
-        for (int i = 0; i < kind.D(); i++) {
+        size_t ns = kind.period();
+        for (size_t i = 0; i < kind.D(); i++) {
           for (size_t l = n - 1; l >= ns; l--) {
             this->y_temp[l] -= this->y_temp[l - ns];
           }
@@ -150,8 +150,10 @@ public:
     for (size_t i = 0; i < this->n; i++) {
       this->y_temp[i] = this->y[i];
     }
-    this->y_temp = this->y_temp -
-      this->xreg * final_pars.tail(final_pars.size() - this->arma_pars);
+    if constexpr(has_xreg) {
+      this->y_temp = this->y_temp -
+        this->xreg * final_pars.tail(final_pars.size() - this->arma_pars);
+    }
     // get arima steady state values
     arima_steady_state(this->y_temp, model);
   }
@@ -187,6 +189,22 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
   // update variance estimate for the arima model - this was passed by reference
   sigma2 = exp(2 * solution.value);
 
+  // if we are to return standard errors as well
+  // if constexpr(return_hessian) {
+  //   // first get the computed numerical hessian
+  //   auto state = css_arima_problem.Eval(solution.x);
+  //   //std::cout << *(state.hessian) << std::endl;
+  //   // available under state.hessian
+  //   // next multiply by -1 and the number of available observations
+  //   auto est_hessian = state.hessian * -1 * (double)n_available;
+  //   // next, invert this
+  //   // the result is the variance covariance matrix of coefficient estimates, except
+  //   // for the fact that xreg coefficients (including intercept) have significantly
+  //   // understated effects
+  //   // since for typical use (e.g. coefficient standard errors) you only want the
+  //   // diagonal elements anyways, you can simply multiply the diagonal entries
+  //   // on those elements by the sample variance used in originally scaling the data
+  // }
   css_arima_problem.finalize( model, solution.x, delta, kappa, ss_init);
   // pass fitted coefficients back to the caller
   for (size_t i = 0; i < vec_size; i++) {
