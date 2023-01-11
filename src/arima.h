@@ -95,7 +95,7 @@ public:
     // as it can have an impact on the result, it has to be jointly optimized
     // ncond is the number of parameters we are effectively estimating thanks to
     // seasonal parameters
-    int ncond = 0;
+    size_t ncond = 0;
     if (this->method == CSS || this->method == CSSML) {
       ncond += this->kind.d() + (this->kind.D() * this->kind.period());
       ncond += this->kind.p() + (this->kind.P() * this->kind.period());
@@ -105,7 +105,7 @@ public:
       return;
     }
     // allocate coef vector
-    const int arma_coef_size = this->kind.p() + this->kind.q() + this->kind.P() + this->kind.Q();
+    const size_t arma_coef_size = this->kind.p() + this->kind.q() + this->kind.P() + this->kind.Q();
     this->coef = std::vector<U>(arma_coef_size + reg_coef.size());
     if (this->method == CSS || CSSML) {
       // is using conditional sum of squares, just directly optimize and
@@ -147,6 +147,8 @@ public:
     }
     if( this->method == CSSML) {
       //perform checks on AR coefficients following CSS fit
+      // diagnostic struct that carries codes for unstable fits?
+      // would allow us to have nothrow all over these :)
 
       // if( !ar_check() )
       //             if (!arCheck(init[1L:arma[1L]]))

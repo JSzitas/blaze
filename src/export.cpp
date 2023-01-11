@@ -9,7 +9,7 @@ using namespace Rcpp;
 class BlazeArima {
 public:
   BlazeArima( std::vector<double> y,
-              std::vector<int> orders_period = {1,0,1,0,0,0,1},
+              std::vector<size_t> orders_period = {1,0,1,0,0,0,1},
               std::vector<std::vector<double>> xreg = {{}},
               std::string ss_init = std::string("Gardner"),
               std::vector<bool> intercept_transform = {true, true},
@@ -45,7 +45,7 @@ public:
                         Named("h") = res.h,
                         Named("Pn") = res.Pn);
   }
-  Rcpp::List forecast( int h = 10, std::vector<std::vector<double>> newxreg = {{}} ){
+  Rcpp::List forecast( size_t h = 10, std::vector<std::vector<double>> newxreg = {{}} ){
     forecast_result<double> result = this->model.forecast(h, newxreg );
     return List::create(Named("forecast") = result.forecast, Named("std.err.") = result.std_err);
   };
@@ -59,7 +59,7 @@ RCPP_MODULE(BlazeArima) {
 
   Rcpp::class_<BlazeArima>("BlazeArima")
   .constructor< std::vector<double>,
-                std::vector<int>,
+                std::vector<size_t>,
                 std::vector<std::vector<double>>,
                 std::string,
                 std::vector<bool>,
