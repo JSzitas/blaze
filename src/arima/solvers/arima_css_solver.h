@@ -45,7 +45,7 @@ public:
     std::vector<double> _xreg = flatten_vec(xreg);
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_mat =
         Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>(
-            _xreg.data(), n, xreg.size() / n);
+            _xreg.data(), n, xreg.size());
     if (xreg_pars.has_intercept()) {
       new_mat.conservativeResize(Eigen::NoChange, new_mat.cols() + 1);
       new_mat.col(new_mat.cols() - 1) =
