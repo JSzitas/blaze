@@ -39,14 +39,6 @@ template <class T, class F> T map(T &x, F &fun) {
   return result;
 }
 
-template <typename T> T mean(std::vector<T> &x) {
-  T result = 0;
-  for (auto &item : x) {
-    result += item;
-  }
-  return result / (T)x.size();
-}
-
 template <class T> void print_vector(T &a) {
   if( a.size() < 1 ) {
     return;
@@ -56,19 +48,6 @@ template <class T> void print_vector(T &a) {
   }
   std::cout << " " << std::endl;
 }
-
-// template <class T> void print_vec_as_sqr_mat(T &a) {
-//
-//   int nrow = sqrt(a.size());
-//   int ncol = nrow;
-//
-//   for (int i = 0; i < nrow; i++) {
-//     for (int j = 0; j < ncol; j++) {
-//       std::cout << a[i + (ncol * j)] << ", ";
-//     }
-//     std::cout << "|" << std::endl;
-//   }
-// }
 
 template <typename T> T max(T &a, T &b) { return a < b ? b : a; }
 template <typename T> T max(T a, T b) { return a < b ? b : a; }
@@ -177,7 +156,7 @@ std::vector<U> flatten_vec(std::vector<std::vector<U>> x) {
   }
   size_t p = 0;
   std::vector<U> result(size);
-  for (size_t i = 0; i < size; i++) {
+  for (size_t i = 0; i < x.size(); i++) {
     for (size_t j = 0; j < x[i].size(); j++) {
       result[p] = x[i][j];
       p++;
@@ -192,15 +171,16 @@ template <typename U=double> struct StandardScaler{
     this->sd = 0;
   }
   StandardScaler<U>(std::vector<U> &x) {
-    U mean_val = 0;
+    U mean_val = 0.0;
     size_t i = 0;
     for(; i < x.size(); i++) {
       mean_val += x[i];
+      i++;
     }
     mean_val /= (U)i;
     i = 0;
-    U sd_val = 0;
-    for(;i <x.size();i++) {
+    U sd_val = 0.0;
+    for(;i <x.size(); i++) {
       sd_val += pow(x[i] - mean_val,2);
     }
     sd_val /= (U)(i-1);
