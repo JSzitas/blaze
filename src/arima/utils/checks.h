@@ -2,6 +2,7 @@
 #define CHECKS
 
 #include "utils/poly.h"
+#include "arima/structures/arima_kind.h"
 
 bool ar_check(
     const std::vector<double> &ar_coef,
@@ -39,6 +40,34 @@ bool ar_check(
   }
   // otherwise all coefficients are ok >> return true
   return true;
+}
+
+template <class C> std::array<bool,2> check_all_ar(
+    const C & coef,
+    const arima_kind & kind,
+    const double tol = 0.0000001) {
+  // preallocate result
+  std::array<bool,2> result;
+  const size_t p = kind.p(), P = kind.P();
+  // first check for the non-seasonal coef
+  std::vector<double> temp(p);
+  for(size_t i = 0; i < p; i++) {
+    temp[i] = coef[i];
+  }
+  result[0] = ar_check(temp);
+  // if P is 0, this passes
+  if( P == 0 ) {
+    result[1] = true;
+    return result;
+  }
+  // otherwise resize temp, fill with seasonal coef, and repeat
+  temp.resize(P);
+  const size_t q = kind.q();
+  for(size_t i = 0; i < P; i++) {
+    temp[i] = coef[p + q + i];
+  }
+  result[1] = ar_check(temp);
+  return result;
 }
 
 std::complex<double> operator/(
