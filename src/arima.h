@@ -10,6 +10,9 @@
 
 #include "arima/solvers/arima_css_solver.h"
 
+#include "arima/utils/checks.h"
+
+
 template <typename U = double, class Scaler = StandardScaler<U>> class Arima {
 public:
   Arima<U, Scaler>(){};
@@ -30,6 +33,7 @@ public:
     this->scalers = std::vector<Scaler>( standardize * (1 + xreg.size()) );
     this->model = structural_model<U>();
     this->fitted = false;
+    this->ar_stationary = {true,true};
   };
   void fit() {
     // this should just proceed with fitting, not do things which can be done in
@@ -42,9 +46,11 @@ public:
       // first scaler used for target
       this->scalers[0] = Scaler(this->y);
       this->scalers[0].scale(this->y);
-      for( size_t i = 1; i < this->scalers.size(); i++ ) {
-        this->scalers[i] = Scaler(this->xreg[i]);
-        this->scalers[i].scale(this->xreg[i]);
+      size_t i = 1;
+      for( auto & xreg_val:this->xreg ) {
+        this->scalers[i] = Scaler(xreg_val);
+        this->scalers[i].scale(xreg_val);
+        i++;
       }
     }
     // get number of available observations
@@ -149,14 +155,7 @@ public:
       //perform checks on AR coefficients following CSS fit
       // diagnostic struct that carries codes for unstable fits?
       // would allow us to have nothrow all over these :)
-
-      // if( !ar_check() )
-      //             if (!arCheck(init[1L:arma[1L]]))
-      //               stop("non-stationary AR part from CSS")
-      //               if (arma[3L] > 0)
-      //                 if (!arCheck(init[sum(arma[1L:2L]) + 1L:arma[3L]]))
-      //                   stop("non-stationary seasonal AR part from CSS")
-      //                   ncond <- 0L
+      this->ar_stationary = check_all_ar(this->coef, this->kind);
     }
     if( this->method == ML || this->method == CSSML) {
             // if (this->transform_parameters) {
@@ -177,10 +176,6 @@ public:
             //   res <- optim(init[mask], armafn, method = "BFGS",
             //                hessian = TRUE, control = optim.control, trans =
             //                as.logical(transform.pars))
-            //   if (res$convergence > 0)
-            //     warning(gettextf("possible convergence problem: optim gave
-            //     code = %d",
-            //                      res$convergence), domain = NA)
             //     coef[mask] <- res$par
             //     if (transform.pars) {
             //       if (arma[2L] > 0L) {
@@ -194,14 +189,12 @@ public:
             //           coef[ind] <- maInvert(coef[ind])
             //       }
             //       if (any(coef[mask] != res$par)) {
-            //         oldcode <- res$convergence
             //         res <- optim(coef[mask], armafn, method = "BFGS",
             //                      hessian = TRUE, control = list(maxit = 0L,
             //                                                     parscale =
             //                                                     optim.control$parscale),
             //                                                     trans =
             //                                                     TRUE)
-            //         res$convergence <- oldcode
             //         coef[mask] <- res$par
             //       }
             //       A <- .Call(stats:::C_ARIMA_Gradtrans, as.double(coef),
@@ -237,12 +230,15 @@ public:
     if( this->scalers.size() > 0 ) {
       // first scaler used for target
       this->scalers[0].rescale(this->y);
-      for( size_t i = 1; i < this->scalers.size(); i++ ) {
-        this->scalers[i].rescale(this->xreg[i]);
+      size_t i = 1;
+      for( auto & xreg_val:this->xreg ) {
+        U temp = this->scalers[i].rescale_val(coef[arma_coef_size+i-1]);
+        this->coef[arma_coef_size+i-1] = temp;
+        i++;
       }
       if( this->intercept ) {
         // the intercept also has to be rescaled to have any meaning
-        U temp = scalers.back().rescale_val(this->coef.back());
+        U temp = scalers[0].rescale_val(this->coef.back());
         this->coef.back() = temp;
       }
     }
@@ -258,23 +254,15 @@ public:
     // a conditional sum of squares, rather than the actual sigma estimate
     double rescaled_sigma2 = exp(0.5 * log(this->sigma2));
     auto res = kalman_forecast(h, this->model, rescaled_sigma2);
-    if( reg_coef.has_intercept() ) {
-      // handle intercept
-      for (size_t i = 0; i < h; i++) {
-        res.forecast[i] += this->reg_coef.get_intercept();
-      }
-    }
-    if(newxreg.size() > 0) {
+    if( newxreg.size() > 0 || reg_coef.has_intercept() ) {
       if( scalers.size() > 0 ) {
-        for( size_t i = 1; i < newxreg.size(); i++) {
-          scalers[i].scale(newxreg[i]);
+        size_t i = 1;
+        for( auto & xreg_val:newxreg ) {
+          scalers[i].scale(xreg_val);
+          i++;
         }
       }
       auto xreg_adjusted = predict(h, this->reg_coef, newxreg);
-      // rescale xreg prediction
-      if( scalers.size() > 0 ) {
-        scalers[0].rescale(xreg_adjusted);
-      }
       for (size_t i = 0; i < h; i++) {
         res.forecast[i] += xreg_adjusted[i];
       }
@@ -305,6 +293,7 @@ private:
   U kappa;
   std::vector<Scaler> scalers;
   U aic;
+  std::array<bool, 2> ar_stationary;
   bool fitted;
 };
 
