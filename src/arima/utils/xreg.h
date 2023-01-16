@@ -23,7 +23,6 @@ template <typename U = double> struct lm_coef {
   const bool has_intercept() const { return this->intercept; };
   U &operator[](int i) { return coef[i]; }
   const U get_intercept() const { return coef.back(); }
-
   // private:
   std::vector<U> coef;
   bool intercept = false;
@@ -143,12 +142,17 @@ template<typename U=double> std::vector<U> predict(
   std::vector<U> _xreg = flatten_vec(xreg);
   Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat =
     Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>>(
-      _xreg.data(), n, xreg.size() / n);
+      _xreg.data(), n, xreg.size());
+  if (coef.has_intercept()) {
+    new_mat.conservativeResize(Eigen::NoChange, new_mat.cols() + 1);
+    new_mat.col(new_mat.cols() - 1) =
+      Eigen::Matrix<U, Eigen::Dynamic, 1>::Constant(n, 1, 1);
+  }
 
   Eigen::Matrix<U, Eigen::Dynamic, 1> _coef =
     Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>( coef.data().data(), coef.size(), 1);
 
-  Eigen::Matrix<U, Eigen::Dynamic, 1> res = _coef.head(new_mat.cols()) * new_mat;
+  Eigen::Matrix<U, Eigen::Dynamic, 1> res = new_mat * _coef;
   std::vector<U> result(res.size());
   for(int i=0; i< result.size(); i++) {
     result[i] = res[i];
