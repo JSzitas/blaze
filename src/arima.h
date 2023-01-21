@@ -113,6 +113,7 @@ public:
     // allocate coef vector
     const size_t arma_coef_size = this->kind.p() + this->kind.q() + this->kind.P() + this->kind.Q();
     this->coef = std::vector<U>(arma_coef_size + reg_coef.size());
+    bool optimization_failed = false;
     if (this->method == CSS || CSSML) {
       // is using conditional sum of squares, just directly optimize and
       const bool is_seasonal = this->kind.P() + this->kind.Q();
@@ -146,10 +147,6 @@ public:
       for (size_t i = arma_coef_size; i < this->coef.size(); i++) {
         this->reg_coef[i - arma_coef_size] = this->coef[i];
       }
-      // rescale sigma2 if scalers were applied
-      // if( scalers.size() > 0) {
-      //   this->sigma2 = scalers[0].rescale_val(this->sigma2);
-      // }
     }
     if( this->method == CSSML) {
       //perform checks on AR coefficients following CSS fit
@@ -158,17 +155,6 @@ public:
       this->ar_stationary = check_all_ar(this->coef, this->kind);
     }
     if( this->method == ML || this->method == CSSML) {
-            // if (this->transform_parameters) {
-            //   init <- .Call(stats:::C_ARIMA_Invtrans, init, arma)
-            //   if (this->kind.q()) {
-            //     ind <- arma[1L] + 1L:arma[2L]
-            //     init[ind] <- maInvert(init[ind])
-            //   }
-            //   if (this->kind.Q()) {
-            //     ind <- sum(arma[1L:3L]) + 1L:arma[4L]
-            //     init[ind] <- maInvert(init[ind])
-            //   }
-            // }
             // trarma <- .Call(stats:::C_ARIMA_transPars, init, arma,
             // transform.pars)
             //   mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
@@ -197,13 +183,8 @@ public:
             //                                                     TRUE)
             //         coef[mask] <- res$par
             //       }
-            //       A <- .Call(stats:::C_ARIMA_Gradtrans, as.double(coef),
-            //       arma)
-            //         A <- A[mask, mask]
-            //       var <- crossprod(A, solve(res$hessian * n.used, A))
             //         coef <- .Call(stats:::C_ARIMA_undoPars, coef, arma)
             //     }
-            //     else var <- solve(res$hessian * n.used)
             //       trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma,
             //       FALSE) mod <- makeARIMA(trarma[[1L]], trarma[[2L]],
             //       Delta, kappa,

@@ -51,7 +51,7 @@ public:
     std::vector<double> _xreg = flatten_vec(xreg);
     Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_mat =
       Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>(
-          _xreg.data(), n, xreg.size() / n);
+          _xreg.data(), n, xreg.size());
     if (xreg_pars.has_intercept()) {
       new_mat.conservativeResize(Eigen::NoChange, new_mat.cols() + 1);
       new_mat.col(new_mat.cols() - 1) =
@@ -81,6 +81,12 @@ public:
     this->transform_temp_theta =
       std::vector<double>(kind.q() + (kind.Q() * kind.period()));
     this->model = model;
+    if constexpr(seasonal) {
+      // the expansion of arima parameters is only necessary for seasonal models
+      arima_transform_parameters<seasonal, false>(this->new_x, this->kind,
+                                                  this->transform_temp_phi,
+                                                  this->transform_temp_theta);
+    }
     // initialize state space model
     structural_model<double> arima_ss = make_arima( this->new_x,
                                                     delta, this->kind,

@@ -34,6 +34,9 @@ private:
   std::vector<double> transform_temp_phi;
   std::vector<double> transform_temp_theta;
 public:
+  // debug only:
+  size_t f_evals;
+
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
   ARIMA_CSS_PROBLEM(std::vector<double> &y, const arima_kind &kind,
@@ -90,6 +93,8 @@ public:
       std::vector<double>(kind.p() + (kind.P() * kind.period()));
     this->transform_temp_theta =
       std::vector<double>(kind.q() + (kind.Q() * kind.period()));
+    // debug only:
+    this->f_evals = 0;
   }
   double operator()(const Eigen::VectorXd &x) {
     for (size_t i = 0; i < x.size(); i++) {
@@ -131,6 +136,8 @@ public:
     // call arima css function
     double res = arima_css_ssq(this->y_temp, this->new_x, this->kind,
                                this->n_cond, this->residual);
+    // debug only
+    this->f_evals++;
     return 0.5 * log(res);
   }
   void finalize( structural_model<double> &model,
@@ -188,7 +195,22 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // update variance estimate for the arima model - this was passed by reference
   sigma2 = exp(2 * solution.value);
+  // std::cout << " Function evaluations taken: " << css_arima_problem.f_evals << std::endl;
+  // std::cout << " Solver iterations: " << solver_state.num_iterations << std::endl;
+  // solver_state.Status == IterationLimit ||      GradientNormViolation,  // Minimum norm in gradient vector has been reached.
+  //     HessianConditionViolation  // Maximum condition number of hessian_t has been reached.
+  // };
 
+  // enum class Status {
+  //   NotStarted = -1,
+  //     Continue = 0,     // Optimization should continue.
+  //     IterationLimit,   // Maximum of allowed iterations has been reached.
+  //     XDeltaViolation,  // Minimum change in parameter vector has been reached.
+  //     FDeltaViolation,  // Minimum chnage in cost function has been reached.
+  //     GradientNormViolation,  // Minimum norm in gradient vector has been reached.
+  //     HessianConditionViolation  // Maximum condition number of hessian_t has been
+  //   // reached.
+  // };
   // if we are to return standard errors as well
   // if constexpr(return_hessian) {
   //   // first get the computed numerical hessian
