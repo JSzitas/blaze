@@ -8,7 +8,8 @@
 
 #include "arima/utils/xreg.h"
 
-#include "arima/solvers/arima_css_solver.h"
+// #include "arima/solvers/arima_css_solver.h"
+#include "arima/solvers/arima_css_autodiff_solver.h"
 
 #include "arima/utils/checks.h"
 
@@ -20,7 +21,7 @@ public:
            std::vector<std::vector<U>> xreg = {{}}, bool intercept = true,
            bool transform_parameters = true, SSinit ss_init = Gardner,
            fitting_method method = ML, U kappa = 1000000,
-           bool standardize = true) {
+           bool standardize = false) {
     this->y = y;
     // initialize xreg coef and data
     this->xreg = xreg;
