@@ -121,14 +121,15 @@ void inv_parameter_transform2(std::vector<double> &phi) {
 }
 
 // this just directly modifies coef
-template <const bool seasonal, const bool transform>
-void arima_transform_parameters(Eigen::VectorXd &coef, const arima_kind &arma,
-                                std::vector<double> &phi,
-                                std::vector<double> &theta) {
+template <typename VectorType, const bool seasonal, const bool transform>
+void arima_transform_parameters( VectorType &coef,
+                                 const arima_kind &arma,
+                                 VectorType &phi,
+                                 VectorType &theta) {
   // the coefficients are all 'packed in' inside coef - so we have
   // different types of coefficients. this tells us basically how many
   // of each type there are
-  const int mp = arma.p(), msp = arma.P(), mq = arma.q();
+  const size_t mp = arma.p(), msp = arma.P(), mq = arma.q();
   if constexpr (transform) {
     if (mp > 0) {
       parameter_transform(coef, 0, mp);
@@ -138,43 +139,43 @@ void arima_transform_parameters(Eigen::VectorXd &coef, const arima_kind &arma,
     }
   }
   if constexpr (seasonal) {
-    const int msq = arma.Q(), ns = arma.period();
-    const int p = mp + ns * msp;
-    const int q = mq + ns * msq;
-    int i, j;
+    const size_t msq = arma.Q(), ns = arma.period();
+    const size_t p = mp + ns * msp;
+    const size_t q = mq + ns * msq;
+    size_t i, j;
     /* expand out seasonal ARMA models
      * note that the offsetting here is crucial - the original indexing was
      * into two data structures of the same combined size as our coef */
     for (i = 0; i < mp; i++) {
-      phi[i] = coef[i];
+      phi(i) = coef(i);
     }
     for (i = 0; i < mq; i++) {
-      theta[i] = coef[i + mp];
+      theta(i) = coef(i + mp);
     }
     for (i = mp; i < p; i++) {
-      phi[i] = 0.0;
+      phi(i) = 0.0;
     }
     for (i = mq; i < q; i++) {
-      theta[i] = 0.0;
+      theta(i) = 0.0;
     }
     for (j = 0; j < msp; j++) {
-      phi[(j + 1) * ns - 1] += coef[j + mp + mq];
+      phi((j + 1) * ns - 1) += coef(j + mp + mq);
       for (i = 0; i < mp; i++) {
-        phi[(j + 1) * ns + i] -= coef[i] * coef[j + mp + mq];
+        phi((j + 1) * ns + i) -= coef(i) * coef(j + mp + mq);
       }
     }
     for (j = 0; j < msq; j++) {
-      theta[(j + 1) * ns - 1] += coef[j + mp + mq + msp];
+      theta((j + 1) * ns - 1) += coef(j + mp + mq + msp);
       for (i = 0; i < mq; i++) {
-        theta[(j + 1) * ns + i] += coef[i + mp] * coef[j + mp + mq + msp];
+        theta((j + 1) * ns + i) += coef(i + mp) * coef(j + mp + mq + msp);
       }
     }
     // the output is written back to coef
     for (i = 0; i < p; i++) {
-      coef[i] = phi[i];
+      coef(i) = phi(i);
     }
     for (i = p; i < p + q; i++) {
-      coef[i] = theta[i - p];
+      coef(i) = theta(i - p);
     }
   }
 }
