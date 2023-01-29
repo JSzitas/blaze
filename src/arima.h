@@ -74,13 +74,13 @@ public:
         y_d = diff(this->y, this->kind.period(), this->kind.D());
         xreg_d = diff(this->xreg, this->kind.period(), this->kind.D());
       }
-      // fit coefficients and adjust y for fitted coefficients -
-      // the original R code does this repeatedly, but it can be done only once
-      // - the fitted effects from external regressors are never refitted
-      if (y_d.size() <= xreg_d.size()) {
-        reg_coef = xreg_coef(this->y, this->xreg, this->intercept);
+      // fit coefficients to initialize fitting
+      if (this->kind.d() || this->kind.D()) {
+        // in case we have any differences, we do not fit with an intercept
+        reg_coef = xreg_coef(y_d, xreg_d, false);
       } else {
-        reg_coef = xreg_coef(y_d, xreg_d);
+        // otherwise intercept is optional
+        reg_coef = xreg_coef(this->y, this->xreg, this->intercept);
       }
       // find na cases across xreg
       for (size_t i = 0; i < this->xreg.size(); i++) {
