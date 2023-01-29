@@ -787,7 +787,7 @@ std::vector<std::complex<double>> polyroot(std::vector<double> &x) {
   for (size_t i = 1; i < size; i++) {
     result.push_back(std::complex<double>(real_part[i], complex_part[i]));
   }
-  // remember to clean up what you allocated
+  // clean up what you we allocated to interface with the polyroot computation
   delete[] real_part;
   delete[] complex_part;
   delete[] coef_vector;
