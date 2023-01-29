@@ -55,14 +55,14 @@ public:
     double operator()(const EigVec &x) {
       return this->Grad.loss(x);
     }
-    // StateXd Eval(const Eigen::VectorXd &x,
-    //              const int order = 1) {
-    //
-    //   this->state.x = x;
-    //   this->state.gradient = this->Grad.Gradient(x);
-    //   this->state.value = this->Grad.loss(x);
-    //   return this->state;
-    // }
+    StateXd Eval(const Eigen::VectorXd &x,
+                 const int order = 1) {
+
+      this->state.x = x;
+      this->state.gradient = this->Grad.Gradient(x);
+      this->state.value = this->Grad.loss(x);
+      return this->state;
+    }
     void finalize( structural_model<double> &model,
                    const Eigen::VectorXd & final_pars,
                    std::vector<double> & delta,
