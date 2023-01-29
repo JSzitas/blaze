@@ -5,6 +5,7 @@
 
 #include "arima/structures/structural_model.h"
 #include "arima/structures/fitting_method.h"
+#include "arima/structures/arima_kind.h"
 
 #include "arima/solvers/arima_css_likelihood.h"
 #include "arima/solvers/state_space.h"
