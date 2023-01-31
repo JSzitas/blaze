@@ -4,9 +4,9 @@ pkgload::load_all(compile = TRUE)
 p <- 2
 d <- 1
 q <- 1
-P <- 1
-D <- 1
-Q <- 1
+P <- 0
+D <- 0
+Q <- 0
 season <- 5
 use_mean <- TRUE
 

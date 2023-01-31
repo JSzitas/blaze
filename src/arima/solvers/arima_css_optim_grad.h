@@ -51,6 +51,11 @@ public:
         y, kind, xreg_pars.has_intercept(), new_mat, n_cond, 1);
       this->state = StateXd(kind.p() + kind.P() + kind.q() + kind.Q() +
         new_mat.cols(), 1);
+      this->state.gradient = EigVec(kind.p() + kind.P() + kind.q() + kind.Q() +
+        new_mat.cols());
+      for(auto & val:this->state.gradient) {
+        val = 0;
+      }
     }
     double operator()(const EigVec &x) {
       return this->Grad.loss(x);
@@ -59,7 +64,8 @@ public:
                  const int order = 1) {
 
       this->state.x = x;
-      this->state.gradient = this->Grad.Gradient(x);
+      // directly modify gradient
+      this->Grad.Gradient(x, this->state.gradient);
       this->state.value = this->Grad.loss(x);
       return this->state;
     }

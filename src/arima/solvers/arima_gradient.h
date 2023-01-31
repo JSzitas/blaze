@@ -109,14 +109,14 @@ public:
     // update theta part of the model and return loss
     return this->update_ma_loss();
   }
-  EigVec Gradient(const EigVec & x) {
+  void Gradient(const EigVec & x, EigVec & grad) {
     // possibly this is something we store and just return a reference to
     // but right now I would like to return it by value so its easier to work with
     // and debug
 
     EigVec &pars = const_cast<EigVec &>(x);
-    EigVec grad(pars.size());
-    grad.setZero();
+    // EigVec grad(pars.size());
+    // grad.setZero();
     // carry out xreg evaluation once at the start since we are iterating from ar coefficients
     this->apply_xreg(pars);
     // expand phi and update arpart of model
@@ -132,6 +132,7 @@ public:
      * hence we start with MA terms
      */
     for( size_t i = this->mp; i < this->mp + this->mq; i++ ) {
+      grad[i] = 0;
       for (size_t s = 0; s < this->inner_steps; ++s) {
         scalar_t tmp = pars[i];
         // update eps value
@@ -148,6 +149,7 @@ public:
     }
     // expand out seasonal MA
     for( size_t i = this->mp + this->mq + this->msp; i < arma_pars; i++ ) {
+      grad[i] = 0;
       for (size_t s = 0; s < this->inner_steps; ++s) {
         scalar_t tmp = pars[i];
         // update eps value
@@ -164,6 +166,7 @@ public:
     }
     // now, update AR part of the model
     for( size_t i = 0; i < this->mp; i++ ) {
+      grad[i] = 0;
       for (size_t s = 0; s < this->inner_steps; ++s) {
         scalar_t tmp = pars[i];
         // update eps value
@@ -180,6 +183,7 @@ public:
     // procceed to seasonal AR
     for( size_t i = this->mp + this->mq;
          i < this->mp + this->mq + this->msp; i++ ) {
+      grad[i] = 0;
       for (size_t s = 0; s < this->inner_steps; ++s) {
         scalar_t tmp = pars[i];
         // update eps value
@@ -198,6 +202,7 @@ public:
     this->expand_theta(pars);
     // finally, get to the xreg part of the model
     for( size_t i = this->arma_pars; i < pars.size(); i++ ) {
+      grad[i] = 0;
       for (size_t s = 0; s < this->inner_steps; ++s) {
         scalar_t tmp = pars[i];
         // update eps value
@@ -211,7 +216,7 @@ public:
       }
       grad[i] /= dd_val;
     }
-    return grad;
+    // return grad;
   }
   const EigVec & get_y_temp(const EigVec & x) {
     // modify y_temp to acount for xreg
