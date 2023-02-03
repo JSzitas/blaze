@@ -926,3 +926,135 @@ forecast.Arima <- function (object, h = ifelse(object$arma[5] > 1, 2 * object$ar
                    class = "forecast"))
 }
 
+search.arima <- function(x, d=NA, D=NA, max.p=5, max.q=5,
+                         max.P=2, max.Q=2, max.order=5, stationary=FALSE, ic=c("aic", "aicc", "bic"),
+                         trace=FALSE, approximation=FALSE, xreg=NULL, offset=offset, allowdrift=TRUE,
+                         allowmean=TRUE, parallel=FALSE, num.cores=2, ...) {
+  # dataname <- substitute(x)
+  ic <- match.arg(ic)
+  m <- frequency(x)
+
+  allowdrift <- allowdrift & (d + D) == 1
+  allowmean <- allowmean & (d + D) == 0
+
+  maxK <- (allowdrift | allowmean)
+
+  # Choose model orders
+  # Serial - technically could be combined with the code below
+  if (parallel == FALSE) {
+    best.ic <- Inf
+    for (i in 0:max.p) {
+      for (j in 0:max.q) {
+        for (I in 0:max.P) {
+          for (J in 0:max.Q) {
+            if (i + j + I + J <= max.order) {
+              for (K in 0:maxK) {
+                fit <- myarima(
+                  x, order = c(i, d, j), seasonal = c(I, D, J),
+                  constant = (K == 1), trace = trace, ic = ic, approximation = approximation,
+                  offset = offset, xreg = xreg, ...
+                )
+                if (fit$ic < best.ic) {
+                  best.ic <- fit$ic
+                  bestfit <- fit
+                  constant <- (K == 1)
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  } else if (parallel == TRUE) {
+    to.check <- WhichModels(max.p, max.q, max.P, max.Q, maxK)
+
+    par.all.arima <- function(l, max.order) {
+      .tmp <- UndoWhichModels(l)
+      i <- .tmp[1]
+      j <- .tmp[2]
+      I <- .tmp[3]
+      J <- .tmp[4]
+      K <- .tmp[5] == 1
+      if (i + j + I + J <= max.order) {
+        fit <- myarima(
+          x, order = c(i, d, j), seasonal = c(I, D, J), constant = (K == 1),
+          trace = trace, ic = ic, approximation = approximation, offset = offset, xreg = xreg,
+          ...
+        )
+      }
+      if (exists("fit")) {
+        return(cbind(fit, K))
+      } else {
+        return(NULL)
+      }
+    }
+
+    if (is.null(num.cores)) {
+      num.cores <- detectCores()
+    }
+
+    all.models <- mclapply(X = to.check, FUN = par.all.arima, max.order=max.order, mc.cores = num.cores)
+
+    # Removing null elements
+    all.models <- all.models[!sapply(all.models, is.null)]
+
+    # Choosing best model
+    best.ic <- Inf
+    for (i in 1:length(all.models)) {
+      if (!is.null(all.models[[i]][, 1]$ic) && all.models[[i]][, 1]$ic < best.ic) {
+        bestfit <- all.models[[i]][, 1]
+        best.ic <- bestfit$ic
+        constant <- unlist(all.models[[i]][1, 2])
+      }
+    }
+    class(bestfit) <- c("forecast_ARIMA", "ARIMA", "Arima")
+  }
+
+  if (exists("bestfit")) {
+    # Refit using ML if approximation used for IC
+    if (approximation) {
+      if (trace) {
+        cat("\n\n Now re-fitting the best model(s) without approximations...\n")
+      }
+      # constant <- length(bestfit$coef) - ncol(xreg) > sum(bestfit$arma[1:4])
+      newbestfit <- myarima(
+        x, order = bestfit$arma[c(1, 6, 2)],
+        seasonal = bestfit$arma[c(3, 7, 4)], constant = constant, ic,
+        trace = FALSE, approximation = FALSE, xreg = xreg, ...
+      )
+      if (newbestfit$ic == Inf) {
+        # Final model is lousy. Better try again without approximation
+        # warning("Unable to fit final model using maximum likelihood. AIC value approximated")
+        bestfit <- search.arima(
+          x, d = d, D = D, max.p = max.p, max.q = max.q,
+          max.P = max.P, max.Q = max.Q, max.order = max.order, stationary = stationary,
+          ic = ic, trace = trace, approximation = FALSE, xreg = xreg, offset = offset,
+          allowdrift = allowdrift, allowmean = allowmean,
+          parallel = parallel, num.cores = num.cores, ...
+        )
+        bestfit$ic <- switch(ic, bic = bestfit$bic, aic = bestfit$aic, aicc = bestfit$aicc)
+      }
+      else {
+        bestfit <- newbestfit
+      }
+    }
+  }
+  else {
+    stop("No ARIMA model able to be estimated")
+  }
+
+  bestfit$x <- x
+  bestfit$series <- deparse(substitute(x))
+  bestfit$ic <- NULL
+  bestfit$call <- match.call()
+
+  if (trace) {
+    cat("\n\n")
+  }
+
+  return(bestfit)
+}
+
+
+
+
