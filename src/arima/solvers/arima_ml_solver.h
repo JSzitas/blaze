@@ -1,5 +1,5 @@
-#ifndef ARIMA_CSS_SOLVER
-#define ARIMA_CSS_SOLVER
+#ifndef ARIMA_ML_SOLVER
+#define ARIMA_ML_SOLVER
 
 #include "utils/utils.h"
 
@@ -18,7 +18,7 @@
 
 using FunctionXd = cppoptlib::function::Function<double>;
 
-template <const bool has_xreg, const bool seasonal>
+template <const bool has_xreg, const bool seasonal, const bool transform>
 class ARIMA_ML_PROBLEM : public FunctionXd {
 private:
   arima_kind kind;
@@ -81,9 +81,9 @@ public:
     this->transform_temp_theta =
       std::vector<double>(kind.q() + (kind.Q() * kind.period()));
     this->model = model;
-    if constexpr(seasonal) {
+    if constexpr(seasonal || transform) {
       // the expansion of arima parameters is only necessary for seasonal models
-      arima_transform_parameters<seasonal, false>(this->new_x, this->kind,
+      arima_transform_parameters<seasonal, transform>(this->new_x, this->kind,
                                                   this->transform_temp_phi,
                                                   this->transform_temp_theta);
     }
@@ -109,11 +109,12 @@ public:
      * models - the compiler should insert an empty function anyways, but just to
      * make sure that this gets compiled away - we can make sure its a dead branch
      */
-    if constexpr(seasonal) {
+    if constexpr(seasonal || transform) {
       // the expansion of arima parameters is only necessary for seasonal models
-      arima_transform_parameters<seasonal, false>(this->new_x, this->kind,
-                                                  this->transform_temp_phi,
-                                                  this->transform_temp_theta);
+      arima_transform_parameters<seasonal, transform>(
+          this->new_x, this->kind,
+          this->transform_temp_phi,
+          this->transform_temp_theta);
     }
     // update arima
     update_arima(this->model, this->new_x, this->ss_init);
@@ -123,7 +124,7 @@ public:
   }
 };
 
-template <const bool has_xreg, const bool seasonal>
+template <const bool has_xreg, const bool seasonal, const bool transform>
 void arima_solver_ml(std::vector<double> &y,
                      structural_model<double> &model,
                      lm_coef<double> xreg_coef,
@@ -147,10 +148,11 @@ void arima_solver_ml(std::vector<double> &y,
   using Solver = cppoptlib::solver::Bfgs<ARIMA_ML_PROBLEM<has_xreg, seasonal>>;
   Solver solver;
   // and arima problem
-  ARIMA_ML_PROBLEM<has_xreg, seasonal> ml_arima_problem(y, kind, xreg_coef,
-                                                          xreg, model,
-                                                          delta, kappa,
-                                                          ss_init);
+  ARIMA_ML_PROBLEM<has_xreg, seasonal, transform> ml_arima_problem(
+      y, kind, xreg_coef,
+      xreg, model,
+      delta, kappa,
+      ss_init);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(ml_arima_problem, x);
   // update variance estimate for the arima model - this was passed by reference

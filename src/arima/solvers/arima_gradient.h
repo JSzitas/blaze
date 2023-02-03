@@ -29,7 +29,7 @@ template <const bool seasonal, const bool has_xreg, typename scalar_t = double> 
   p, q, d, D, ns, mp, mq, msp, msq, arma_pars;
   bool has_intercept;
   EigMat xreg;
-  EigVec phi, theta, ar_resid, y_temp;
+  EigVec phi, theta, resid, y_temp;
   // finite difference approximation parameters
   size_t inner_steps;
   scalar_t dd_val;
@@ -67,23 +67,21 @@ public:
     // the xreg fixed matrix
     this->xreg = xreg;
     // helper vectors for holding and updating parts of the model
-    this->phi = EigVec(this->p);
-    this->theta = EigVec(this->q);
+    // only used for seasonal models
+    if constexpr(seasonal) {
+      this->phi = EigVec(this->p);
+      this->theta = EigVec(this->q);
+    }
     // residuals from running the ar part of the model
-    this->ar_resid = EigVec(this->n);
-    this->ar_resid.setZero();
+    this->resid = EigVec(this->n).setZero();
     // temporary y values
     this->y_temp = EigVec(this->n);
+    for (size_t i = 0; i < n; i++) this->y_temp(i) = this->y[i];
     // inner gradient approximation steps
     this->inner_steps = 2 * (this->accuracy + 1);
 
-    for (size_t i = 0; i < n; i++) {
-      this->y_temp(i) = this->y[i];
-    }
     // only if you have no xreg can you do differencing here
     if constexpr(!has_xreg) this->diff_y_temp();
-
-    // this->eps = 2.2204e-6;
     this->coeff = { {{1, -1},
                      {1, -8, 8, -1},
                      {-1, 9, -45, 45, -9, 1},
@@ -102,26 +100,31 @@ public:
     // apply xreg
     this->apply_xreg(x);
     // expand phi and theta
-    this->expand_phi(x);
-    this->expand_theta(x);
+    if constexpr(seasonal) {
+      this->expand_phi(x);
+      this->expand_theta(x);
+    }
     // update ar part of the model
-    this->update_ar();
+    // this->update_ar(x);
     // update theta part of the model and return loss
-    return this->update_ma_loss();
+    // return this->update_ma_loss(x);
+    return this->arma_loss(x);
   }
-  void Gradient(const EigVec & x, EigVec & grad) {
-    // possibly this is something we store and just return a reference to
-    // but right now I would like to return it by value so its easier to work with
-    // and debug
+  EigVec Gradient(const EigVec & x) {
+    // get rid of const - the interface is const, and we do not actually
+    // modify the underlying parameters at the end, but it is more efficient
+    // for us to modify them here
 
+    EigVec grad(x.size());
+    grad.setZero();
     EigVec &pars = const_cast<EigVec &>(x);
-    // EigVec grad(pars.size());
-    // grad.setZero();
     // carry out xreg evaluation once at the start since we are iterating from ar coefficients
     this->apply_xreg(pars);
     // expand phi and update arpart of model
-    this->expand_phi(pars);
-    this->update_ar();
+    if constexpr(seasonal) {
+      this->expand_phi(pars);
+      this->update_ar(pars);
+    }
     /* run operations based on current iteration block - i.e. it is kind of
      * smart to run them from back to front:
      * MA operations first => only require MA updates
@@ -131,147 +134,187 @@ public:
      * whereas AR only updates ar_res and xreg requires evaluation of everything.
      * hence we start with MA terms
      */
-    for( size_t i = this->mp; i < this->mp + this->mq; i++ ) {
-      grad[i] = 0;
-      for (size_t s = 0; s < this->inner_steps; ++s) {
-        scalar_t tmp = pars[i];
-        // update eps value
-        pars[i] += coeff2[accuracy][s] * eps;
-        // expand theta with new parameter value
-        this->expand_theta(pars);
-        grad[i] += coeff[accuracy][s] * this->update_ma_loss();
-        pars[i] = tmp;
-        // rerun ar update to update residuals to correct values
-        // - still saves on xreg and expansion (coefficients do not change)
-        this->update_ar();
-      }
-      grad[i] /= dd_val;
-    }
-    // expand out seasonal MA
-    for( size_t i = this->mp + this->mq + this->msp; i < arma_pars; i++ ) {
-      grad[i] = 0;
-      for (size_t s = 0; s < this->inner_steps; ++s) {
-        scalar_t tmp = pars[i];
-        // update eps value
-        pars[i] += coeff2[accuracy][s] * eps;
-        // expand theta with new parameter value
-        this->expand_theta(pars);
-        grad[i] += coeff[accuracy][s] * this->update_ma_loss();
-        pars[i] = tmp;
-        // rerun ar update to update residuals to correct values
-        // - still saves on xreg and expansion (coefficients do not change)
-        this->update_ar();
-      }
-      grad[i] /= dd_val;
-    }
-    // now, update AR part of the model
-    for( size_t i = 0; i < this->mp; i++ ) {
-      grad[i] = 0;
-      for (size_t s = 0; s < this->inner_steps; ++s) {
-        scalar_t tmp = pars[i];
-        // update eps value
-        pars[i] += coeff2[accuracy][s] * eps;
-        // expand both phi and theta with new parameter value
-        this->expand_phi(pars);
-        // this->expand_theta(pars);
-        this->update_ar();
-        grad[i] += coeff[accuracy][s] * this->update_ma_loss();
-        pars[i] = tmp;
-      }
-      grad[i] /= dd_val;
-    }
-    // procceed to seasonal AR
-    for( size_t i = this->mp + this->mq;
-         i < this->mp + this->mq + this->msp; i++ ) {
-      grad[i] = 0;
-      for (size_t s = 0; s < this->inner_steps; ++s) {
-        scalar_t tmp = pars[i];
-        // update eps value
-        pars[i] += coeff2[accuracy][s] * eps;
-        // expand phi with new parameter value
-        // note that since theta does not change, we do not need to expand it
-        this->expand_phi(pars);
-        this->update_ar();
-        grad[i] += coeff[accuracy][s] * this->update_ma_loss();
-        pars[i] = tmp;
-      }
-      grad[i] /= dd_val;
-    }
-    // update both expansions to unchanged coefficients
-    this->expand_phi(pars);
-    this->expand_theta(pars);
-    // finally, get to the xreg part of the model
-    for( size_t i = this->arma_pars; i < pars.size(); i++ ) {
-      grad[i] = 0;
-      for (size_t s = 0; s < this->inner_steps; ++s) {
-        scalar_t tmp = pars[i];
-        // update eps value
-        pars[i] += coeff2[accuracy][s] * eps;
-        // apply xreg and refilter the series - note that there is no need
-        // to expand
-        this->apply_xreg(pars);
-        this->update_ar();
-        grad[i] += coeff[accuracy][s] * this->update_ma_loss();
-        pars[i] = tmp;
-      }
-      grad[i] /= dd_val;
-    }
-    // return grad;
+     for( size_t i = this->mp; i < this->mp + this->mq; i++ ) {
+       for (size_t s = 0; s < this->inner_steps; ++s) {
+         scalar_t tmp = pars[i];
+         // update eps value
+         pars[i] += this->coeff2[accuracy][s] * this->eps;
+         // expand theta with new parameter value
+         if constexpr(seasonal) this->expand_theta(pars);
+         grad[i] += this->coeff[accuracy][s] * arma_loss(pars);
+         pars[i] = tmp;
+       }
+     }
+     // expand out seasonal MA
+     for( size_t i = this->mp + this->mq + this->msp; i < arma_pars; i++) {
+       for (size_t s = 0; s < this->inner_steps; ++s) {
+         scalar_t tmp = pars[i];
+         // update eps value
+         pars[i] += this->coeff2[accuracy][s] * this->eps;
+         // expand theta with new parameter value
+         if constexpr(seasonal) this->expand_theta(pars);
+         grad[i] += this->coeff[accuracy][s] * this->arma_loss(pars);
+         pars[i] = tmp;
+       }
+     }
+     // now, update AR part of the model
+     for( size_t i = 0; i < this->mp; i++ ) {
+       for (size_t s = 0; s < this->inner_steps; ++s) {
+         scalar_t tmp = pars[i];
+         // update eps value
+         pars[i] += this->coeff2[accuracy][s] * this->eps;
+         // expand both phi and theta with new parameter value
+         if constexpr(seasonal) this->expand_phi(pars);
+         grad[i] += this->coeff[accuracy][s] * this->arma_loss(pars);
+         pars[i] = tmp;
+       }
+     }
+     // procceed to seasonal AR
+     for( size_t i = this->mp + this->mq;
+          i < this->mp + this->mq + this->msp; i++ ) {
+       for (size_t s = 0; s < this->inner_steps; ++s) {
+         scalar_t tmp = pars[i];
+         // update eps value
+         pars[i] += this->coeff2[accuracy][s] * this->eps;
+         // expand phi with new parameter value
+         // note that since theta does not change, we do not need to expand it
+         if constexpr(seasonal) this->expand_phi(pars);
+         // update all arma coefficients
+         grad[i] += this->coeff[accuracy][s] * this->arma_loss(pars);
+         pars[i] = tmp;
+       }
+     }
+     // update both expansions to unchanged coefficients
+     if constexpr(seasonal) {
+       this->expand_phi(pars);
+       this->expand_theta(pars);
+     }
+     // finally, get to the xreg part of the model
+     for( size_t i = this->arma_pars; i < pars.size(); i++ ) {
+       for (size_t s = 0; s < this->inner_steps; ++s) {
+         scalar_t tmp = pars[i];
+         // update eps value
+         pars[i] += this->coeff2[accuracy][s] * this->eps;
+         // apply xreg and refilter the series - note that there is no need
+         // to expand
+         this->apply_xreg(pars);
+         grad[i] += this->coeff[accuracy][s] * this->arma_loss(pars);
+         pars[i] = tmp;
+       }
+     }
+     // rescale gradient
+     for( auto &val : grad) {
+       val /= dd_val;
+     }
+     return grad;
   }
   const EigVec & get_y_temp(const EigVec & x) {
     // modify y_temp to acount for xreg
-    for (size_t i = 0; i < this->n; i++) {
-      this->y_temp[i] = this->y[i];
-    }
+    for (size_t i = 0; i < this->n; i++) this->y_temp[i] = this->y[i];
     if constexpr(has_xreg) {
       this->y_temp -= this->xreg * x.tail(x.size() - this->arma_pars);
     }
     return this->y_temp;
   }
   const EigVec get_expanded_coef(const EigVec & x) {
-    expand_phi(x);
-    expand_theta(x);
-    EigVec res(this->phi.size() + this->theta.size());
-    for(size_t i = 0; i < phi.size(); i++) {
-      res[i] = this->phi[i];
+    if constexpr( seasonal ) {
+      this->expand_phi(x);
+      this->expand_theta(x);
+      EigVec res(this->phi.size() + this->theta.size());
+      for(size_t i = 0; i < phi.size(); i++) {
+        res[i] = this->phi[i];
+      }
+      for(size_t i = this->phi.size(); i < this->phi.size() + this->theta.size(); i++ ) {
+        res[i] = this->theta[i - this->phi.size()];
+      }
+      return res;
     }
-    for(size_t i = this->phi.size(); i < this->phi.size() + this->theta.size(); i++ ) {
-      res[i] = this->theta[i - this->phi.size()];
-    }
-    return res;
+    // otherwise no expansion is necessary
+    return x;
   }
 private:
   // for this we need a vector that exists for after applying AR to the
   // current series, since we can run updates to the MA part using just that
-  void update_ar() {
+  void update_ar(const EigVec & x) {
     for (size_t l = this->n_cond; l < this->n; l++) {
       // notice how the p parameters only impact tmp at that point and do not
       // interact with the q parameters - this means the likelihood (or CSS)
       // is separable here - so for updates of q parameters, if you have pre-saved
       // values of this tmp somewhere, you can just fetch them :)
-      this->ar_resid(l) = y_temp(l);
+      scalar_t tmp = y_temp(l);
       for (size_t j = 0; j < this->p; j++) {
-        this->ar_resid(l) -= this->phi(j) * y_temp(l - j - 1);
+        // for seasonal models we had to expand
+        if constexpr( seasonal ) {
+          tmp -= this->phi(j) * y_temp(l - j - 1);
+        }
+        // for non-seasonal models we can just use unexpanded coefficients
+        if constexpr( !seasonal ) {
+          tmp -= x(j) * y_temp(l - j - 1);
+        }
       }
+      this->resid(l) = tmp;
     }
   }
-  scalar_t update_ma_loss() {
+  scalar_t update_ma_loss(const EigVec & x) {
     // this will be responsible for updating the residuals from ma coefficients
-    size_t nu = 0;
-    double ssq = 0.0, tmp = 0.0;
+    size_t nu = this->n - this->n_cond;
+    scalar_t ssq = 0.0;
     for (size_t l = this->n_cond; l < this->n; l++) {
       const size_t ma_offset = min(l - this->n_cond, this->q);
-      // however, also notice that this holds not at all for the values of the
-      // p parameters - if you update them, your residuals change, so you have to
-      // rerun this whole loop :/
-      tmp = this->ar_resid(l);
+      scalar_t tmp = this->resid(l);
       for (size_t j = 0; j < ma_offset; j++) {
-        tmp -= this->theta(j) * this->ar_resid(l - j - 1);
+        // see above for why this works
+        if constexpr(seasonal) {
+          tmp -= this->theta(j) * this->resid(l - j - 1);
+        }
+        if constexpr(!seasonal) {
+          tmp -= x(this->p + j) * this->resid(l - j - 1);
+        }
       }
-      this->ar_resid(l) = tmp;
+      this->resid(l) = tmp;
       if (!isnan(tmp)) {
-        nu++;
         ssq += tmp * tmp;
+      }
+      else {
+        nu--;
+      }
+    }
+    return 0.5 * log(ssq / nu);
+  }
+  scalar_t arma_loss(const EigVec & x) {
+    // if no nans are met, this nu does not need to be changed
+    size_t nu = this->n - this->n_cond;
+    scalar_t ssq = 0.0;
+    for (size_t l = this->n_cond; l < this->n; l++) {
+      const size_t ma_offset = min(l - this->n_cond, this->q);
+      scalar_t tmp = y_temp(l);
+      for (size_t j = 0; j < this->p; j++) {
+        // for seasonal models we had to expand
+        if constexpr( seasonal ) {
+          tmp -= this->phi(j) * y_temp(l - j - 1);
+        }
+        // for non-seasonal models we can just use unexpanded coefficients
+        if constexpr( !seasonal ) {
+          tmp -= x(j) * y_temp(l - j - 1);
+        }
+      }
+      for (size_t j = 0; j < ma_offset; j++) {
+        // see above for why this works
+        if constexpr(seasonal) {
+          tmp -= this->theta(j) * this->resid(l - j - 1);
+        }
+        if constexpr(!seasonal) {
+          tmp -= x(this->p + j) * this->resid(l - j - 1);
+        }
+      }
+      this->resid(l) = tmp;
+      if (!isnan(tmp)) {
+        ssq += tmp * tmp;
+      }
+      // potential optimization - if this branch is reached,
+      // (which should be rare) decrement the preallocated nu
+      else{
+        nu--;
       }
     }
     return 0.5 * log(ssq / nu);
@@ -289,30 +332,28 @@ private:
   // these expansions do not operate on coef but use the temporaries
   // stored within the class (i.e. phi and theta)
   void expand_phi(const EigVec & coef) {
-    for (size_t i = 0; i < this->mp; i++) this->phi(i) = coef(i);
+    // non-seasonal models are no-ops
     if constexpr(seasonal) {
+      const size_t phi_offset = this->mp + this->mq;
+      for (size_t i = 0; i < this->mp; i++) this->phi(i) = coef(i);
       for (size_t i = this->mp; i < this->p; i++) this->phi(i) = 0.0;
       for (size_t j = 0; j < this->msp; j++) {
-        this->phi((j + 1) * this->ns - 1) +=
-          coef(j + this->mp + this->mq);
+        this->phi((j + 1) * this->ns - 1) += coef(phi_offset + j);
         for (size_t i = 0; i < this->mp; i++) {
-          this->phi((j + 1) * this->ns + i) -=
-            coef(i) * coef(j + this->mp + this->mq);
+          this->phi((j + 1) * this->ns + i) -= coef(i) * coef(phi_offset + j);
         }
       }
     }
   }
   void expand_theta(const EigVec & coef) {
-    for (size_t i = 0; i < this->mq; i++) this->theta(i) = coef(i + this->mp);
     if constexpr(seasonal) {
-      // we can in principle precompute all of these and hold them in the class
+      const size_t theta_offset = this->mp + this->mq + this->msp;
+      for (size_t i = 0; i < this->mq; i++) this->theta(i) = coef(i + this->mp);
       for (size_t i = this->mq; i < this->q; i++) theta(i) = 0.0;
       for (size_t j = 0; j < this->msq; j++) {
-        this->theta((j + 1) * ns - 1) +=
-          coef(j + this->mp + this->mq + this->msp);
+        this->theta((j + 1) * ns - 1) += coef(theta_offset + j);
         for (size_t i = 0; i < this->mq; i++) {
-          this->theta((j + 1) * this->ns + i) +=
-            coef(i + this->mp) * coef(j + this->mp + this->mq + this->msp);
+          this->theta((j + 1) * this->ns + i) += coef(i + this->mp) * coef(theta_offset + j);
         }
       }
     }

@@ -28,7 +28,7 @@ class ARIMA_CSS_PROBLEM : public FunctionXd {
 private:
   arima_kind kind;
   ArimaLossGradient<seasonal, has_xreg, double> Grad;
-  StateXd state;
+  // StateXd state;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -49,13 +49,13 @@ public:
       }
       this->Grad = ArimaLossGradient<seasonal, has_xreg>(
         y, kind, xreg_pars.has_intercept(), new_mat, n_cond, 1);
-      this->state = StateXd(kind.p() + kind.P() + kind.q() + kind.Q() +
-        new_mat.cols(), 1);
-      this->state.gradient = EigVec(kind.p() + kind.P() + kind.q() + kind.Q() +
-        new_mat.cols());
-      for(auto & val:this->state.gradient) {
-        val = 0;
-      }
+      // this->state = StateXd(kind.p() + kind.P() + kind.q() + kind.Q() +
+      //   new_mat.cols(), 1);
+      // this->state.gradient = EigVec(kind.p() + kind.P() + kind.q() + kind.Q() +
+      //   new_mat.cols());
+      // for(auto & val:this->state.gradient) {
+      //   val = 0;
+      // }
     }
     double operator()(const EigVec &x) {
       return this->Grad.loss(x);
@@ -63,11 +63,12 @@ public:
     StateXd Eval(const Eigen::VectorXd &x,
                  const int order = 1) {
 
-      this->state.x = x;
-      // directly modify gradient
-      this->Grad.Gradient(x, this->state.gradient);
-      this->state.value = this->Grad.loss(x);
-      return this->state;
+      StateXd state(x.size(), 1);
+      state.x = x;
+      // this->Grad.Gradient(x, state.gradient);
+      state.gradient = this->Grad.Gradient(x);
+      state.value = this->Grad.loss(x);
+      return state;
     }
     void finalize( structural_model<double> &model,
                    const Eigen::VectorXd & final_pars,

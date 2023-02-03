@@ -257,9 +257,11 @@ void update_arima(structural_model<U> &model, std::vector<U> &phi,
     };
     int mat_p = 0;
     /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
-     * matrix, and r == 3, then we update the highlighted parts: (input)
-     * (updated) x x x x x   =>    y y y|x x x x x x x   =>    y y y|x x x x x x
-     * x   =>    y y y|x x
+     * matrix, and r == 3, then we update the highlighted parts:
+     *   (input)           (updated)
+     *   x x x x x   =>    y y y|x x
+     *   x x x x x   =>    y y y|x x
+     *   x x x x x   =>    y y y|x x
      *                     _____
      *   x x x x x   =>    x x x x x
      *   x x x x x   =>    x x x x x
@@ -284,9 +286,7 @@ void update_arima(structural_model<U> &model,
                   SSinit state_init = Gardner) {
   const size_t p = kind.p(), q = kind.q(), r = max(p, q + 1), rd = model.Z.size();
 
-  // std::vector<U> phi(p);
-  // std::vector<U> theta(q + max(r - 1 - q, 0));
-  // copz out elements of coef into phi and theta
+  // copy out elements of coef into phi and theta
   for( size_t i = 0; i < p; i++) {
     model.phi[i] = coef[i];
   }
@@ -313,9 +313,11 @@ void update_arima(structural_model<U> &model,
     };
     size_t mat_p = 0;
     /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
-     * matrix, and r == 3, then we update the highlighted parts: (input)
-     * (updated) x x x x x   =>    y y y|x x x x x x x   =>    y y y|x x x x x x
-     * x   =>    y y y|x x
+     * matrix, and r == 3, then we update the highlighted parts:
+     *   (input)           (updated)
+     *   x x x x x   =>    y y y|x x
+     *   x x x x x   =>    y y y|x x
+     *   x x x x x   =>    y y y|x x
      *                     _____
      *   x x x x x   =>    x x x x x
      *   x x x x x   =>    x x x x x
@@ -347,8 +349,7 @@ template <typename U = double> std::vector<U> make_delta(
       // the array extend is always 2, hence we can always just do these two
       // operations first this is temp[i+0] += a[i] * 1;
       temp[i] += a[i]; // * 1
-      // and this is the other operation
-      // a[i] * -1 == -= a[i];
+      // and this is the other operation, e.g. a[i] * -1 == -= a[i];
       temp[i + 1] -= a[i];
     }
     // move all of the elements of temp to a - but temp has constant size,
