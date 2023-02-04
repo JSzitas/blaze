@@ -12,19 +12,26 @@ public:
               std::vector<size_t> orders_period = {1,0,1,0,0,0,1},
               std::vector<std::vector<double>> xreg = {{}},
               std::string ss_init = std::string("Gardner"),
+              std::string method = std::string("CSS"),
               std::vector<bool> intercept_transform = {true, true},
               double kappa = 1000000) {
 
     arima_kind kind = arima_kind(orders_period);
-    // the map is certainly nicer than if else statements and switches
-    std::map<std::string, SSinit> init_map;
-    init_map["Gardner"] = SSinit::Gardner;
-    init_map["Rossignol"] = SSinit::Rossignol;
-    this->model = Arima<double>( y, kind, xreg, intercept_transform[0],
-                                intercept_transform[1],
-                                init_map[ss_init],
-                                CSS,
-                                kappa);
+    // map is certainly nicer than if else statements and switches
+    static std::map<std::string, SSinit> ss_method_map{
+      {"Gardner", SSinit::Gardner},
+      {"Rossignol", SSinit::Rossignol}
+      };
+    static std::map<std::string, fitting_method> fitting_method_map = {
+      {"CSS", fitting_method::CSS},
+      {"CSS-ML", fitting_method::CSSML},
+      {"ML", fitting_method::ML}
+      };
+
+    this->model = Arima<double>(
+      y, kind, xreg, intercept_transform[0],
+      intercept_transform[1], ss_method_map[ss_init],
+      fitting_method_map[method], kappa);
   }
   void fit(){
     this->model.fit();
@@ -61,6 +68,7 @@ RCPP_MODULE(BlazeArima) {
   .constructor< std::vector<double>,
                 std::vector<size_t>,
                 std::vector<std::vector<double>>,
+                std::string,
                 std::string,
                 std::vector<bool>,
                 double>("basic contructor")
