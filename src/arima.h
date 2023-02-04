@@ -8,9 +8,9 @@
 
 #include "arima/utils/xreg.h"
 
-#include "arima/solvers/arima_css_solver.h"
-// #include "arima/solvers/arima_css_optim_grad.h"
-// #include "arima/solvers/arima_ml_solver.h"
+// #include "arima/solvers/arima_css_solver.h"
+#include "arima/solvers/arima_css_optim_grad.h"
+#include "arima/solvers/arima_ml_solver.h"
 
 #include "arima/utils/checks.h"
 
@@ -18,11 +18,12 @@
 template <typename U = double, class Scaler = StandardScaler<U>> class Arima {
 public:
   Arima<U, Scaler>(){};
-  Arima<U, Scaler>(std::vector<U> &y, arima_kind kind,
-           std::vector<std::vector<U>> xreg = {{}}, bool intercept = true,
-           bool transform_parameters = true, SSinit ss_init = Gardner,
-           fitting_method method = ML, U kappa = 1000000,
-           bool standardize = true) {
+  Arima<U, Scaler>(
+      const std::vector<U> &y, const arima_kind kind,
+      const std::vector<std::vector<U>> xreg = {{}}, const bool intercept = true,
+      const bool transform_parameters = true, const SSinit ss_init = Gardner,
+      const fitting_method method = ML, const U kappa = 1000000,
+      const bool standardize = true) {
     this->y = y;
     // initialize xreg coef and data
     this->xreg = xreg;
@@ -114,7 +115,7 @@ public:
     }
     // allocate coef vector
     const size_t arma_coef_size = this->kind.p() + this->kind.q() + this->kind.P() + this->kind.Q();
-    this->coef = std::vector<U>(arma_coef_size + reg_coef.size());
+    this->coef = std::vector<U>(arma_coef_size + reg_coef.size(), 0);
     // yet unused flag for optimizer - maybe we use this in the future
     // bool optimization_failed = false;
     const bool is_seasonal = this->kind.P() + this->kind.Q();
@@ -150,10 +151,6 @@ public:
                                          this->ss_init, this->sigma2);
         }
       }
-      // load xreg coefficients from coef as necessary
-      for (size_t i = arma_coef_size; i < this->coef.size(); i++) {
-        this->reg_coef[i - arma_coef_size] = this->coef[i];
-      }
     }
     if( this->method == CSSML) {
       //perform checks on AR coefficients following CSS fit
@@ -162,71 +159,83 @@ public:
       this->ar_stationary = check_all_ar(this->coef, this->kind);
     }
     if( this->method == ML || this->method == CSSML) {
+      // if (transform.pars) {
+      //   init <- .Call(stats:::C_ARIMA_Invtrans, init, arma)
+      //   if (arma[2L] > 0) {
+      //     ind <- arma[1L] + 1L:arma[2L]
+      //     init[ind] <- maInvert(init[ind])
+      //   }
+      //   if (arma[4L] > 0) {
+      //     ind <- sum(arma[1L:3L]) + 1L:arma[4L]
+      //     init[ind] <- maInvert(init[ind])
+      //   }
+      // }
       /* again, ugly tower, all calls are the same and differ only in template
        * parameters - this is the (sadly) easiest way to do it :/
        */
-      // if (this->reg_coef.size() > 0) {
-      //   if (is_seasonal) {
-      //     if(this->transform_parameters) {
-      //       arima_solver_ml<true, true, true>(
-      //           this->y, this->model, this->reg_coef,
-      //           this->xreg, this->kind, this->coef,
-      //           deltas, ncond, available_n, this->kappa,
-      //           this->ss_init, this->sigma2);
-      //     }
-      //     else{
-      //       arima_solver_ml<true, true, false>(
-      //           this->y, this->model, this->reg_coef,
-      //           this->xreg, this->kind, this->coef,
-      //           deltas, ncond, available_n, this->kappa,
-      //           this->ss_init, this->sigma2);
-      //     }
-      //   } else {
-      //     if(this->transform_parameters) {
-      //       arima_solver_ml<true, false, true>(
-      //           this->y, this->model, this->reg_coef,
-      //           this->xreg, this->kind, this->coef,
-      //           deltas, ncond, available_n, this->kappa,
-      //           this->ss_init, this->sigma2);
-      //     }
-      //     else{
-      //       arima_solver_ml<true, false, false>(
-      //           this->y, this->model, this->reg_coef,
-      //           this->xreg, this->kind, this->coef,
-      //           deltas, ncond, available_n, this->kappa,
-      //           this->ss_init, this->sigma2);
-      //     }
-      //   }
-      // } else {
-      //   if (is_seasonal) {
-      //     if(this->transform_parameters) {
-      //       arima_solver_ml<false, true, true>(
-      //           this->y, this->model, this->reg_coef,
-      //           this->xreg, this->kind, this->coef,
-      //           deltas, ncond, available_n, this->kappa,
-      //           this->ss_init, this->sigma2);
-      //     } else{
-      //       arima_solver_ml<false, true, false>(
-      //           this->y, this->model, this->reg_coef,
-      //           this->xreg, this->kind, this->coef,
-      //           deltas, ncond, available_n, this->kappa,
-      //           this->ss_init, this->sigma2);
-      //     }
-      //   } else {
-      //     if(this->transform_parameters) {
-      //       arima_solver_ml<false, false, true>(
-      //           this->y, this->model, this->reg_coef,
-      //           this->xreg, this->kind, this->coef,
-      //           deltas, ncond, available_n, this->kappa,
-      //           this->ss_init, this->sigma2);
-      //     } else{
-      //       arima_solver_ml<false, false, false>(
-      //           this->y, this->model, this->reg_coef,
-      //           this->xreg, this->kind, this->coef,
-      //           deltas, ncond, available_n, this->kappa,
-      //           this->ss_init, this->sigma2);
-      //     }
-      // }
+      if (this->reg_coef.size() > 0) {
+        if (is_seasonal) {
+          if(this->transform_parameters) {
+            arima_solver_ml<true, true, true>(
+                this->y, this->model, this->reg_coef,
+                this->xreg, this->kind, this->coef,
+                deltas, this->kappa, this->ss_init,
+                this->sigma2);
+          }
+          else{
+            arima_solver_ml<true, true, false>(
+                this->y, this->model, this->reg_coef,
+                this->xreg, this->kind, this->coef,
+                deltas, this->kappa, this->ss_init,
+                this->sigma2);
+          }
+        } else {
+          if(this->transform_parameters) {
+            arima_solver_ml<true, false, true>(
+                this->y, this->model, this->reg_coef,
+                this->xreg, this->kind, this->coef,
+                deltas, this->kappa, this->ss_init,
+                this->sigma2);
+          }
+          else{
+            arima_solver_ml<true, false, false>(
+                this->y, this->model, this->reg_coef,
+                this->xreg, this->kind, this->coef,
+                deltas, this->kappa, this->ss_init,
+                this->sigma2);
+          }
+        }
+      } else {
+        if (is_seasonal) {
+          if(this->transform_parameters) {
+            arima_solver_ml<false, true, true>(
+                this->y, this->model, this->reg_coef,
+                this->xreg, this->kind, this->coef,
+                deltas, this->kappa, this->ss_init,
+                this->sigma2);
+          } else{
+            arima_solver_ml<false, true, false>(
+                this->y, this->model, this->reg_coef,
+                this->xreg, this->kind, this->coef,
+                deltas, this->kappa, this->ss_init,
+                this->sigma2);
+          }
+        } else {
+          if(this->transform_parameters) {
+            arima_solver_ml<false, false, true>(
+                this->y, this->model, this->reg_coef,
+                this->xreg, this->kind, this->coef,
+                deltas, this->kappa, this->ss_init,
+                this->sigma2);
+          } else{
+            arima_solver_ml<false, false, false>(
+                this->y, this->model, this->reg_coef,
+                this->xreg, this->kind, this->coef,
+                deltas, this->kappa, this->ss_init,
+                this->sigma2);
+          }
+        }
+      }
             // trarma <- .Call(stats:::C_ARIMA_transPars, init, arma,
             // transform.pars)
             //   mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
@@ -265,6 +274,10 @@ public:
             //         arimaSS(x - xreg %*% coef[narma + (1L:ncxreg)], mod)
             //       } else arimaSS(x, mod)
             //         sigma2 <- val[[1L]][1L]/n.used
+    }
+    // load xreg coefficients from coef as necessary
+    for (size_t i = arma_coef_size; i < this->coef.size(); i++) {
+      this->reg_coef[i - arma_coef_size] = this->coef[i];
     }
     if (this->method != CSS) {
       this->aic = std::nan("");
