@@ -21,105 +21,78 @@ using FunctionXd = cppoptlib::function::Function<double>;
 
 template <const bool has_xreg, const bool seasonal>
 class ARIMA_CSS_PROBLEM : public FunctionXd {
+
+  using EigVec = Eigen::VectorXd;
+  using EigMat = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
 private:
-  arima_kind kind;
-  size_t n_cond;
-  lm_coef<double> xreg_pars;
-  Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> xreg;
+  const arima_kind kind;
+  const bool intercept;
+  const size_t n_cond, n;
+  const std::vector<double> y;
+  EigMat xreg;
   size_t arma_pars;
-  std::vector<double> y;
-  Eigen::VectorXd y_temp;
-  size_t n;
-  Eigen::VectorXd new_x;
-  std::vector<double> residual;
-  std::vector<double> transform_temp_phi;
-  std::vector<double> transform_temp_theta;
+  EigVec y_temp, new_x;
+  std::vector<double> residual, temp_phi, temp_theta;
 public:
   // debug only:
   size_t f_evals;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
-  ARIMA_CSS_PROBLEM(std::vector<double> &y, const arima_kind &kind,
-                    lm_coef<double> &xreg_pars,
-                    std::vector<std::vector<double>> &xreg, size_t n_cond)
-      : kind(kind), n_cond(n_cond), xreg_pars(xreg_pars) {
-    // initialize an xreg matrix
-    size_t n = y.size();
-    std::vector<double> _xreg = flatten_vec(xreg);
-    Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic> new_mat =
-        Eigen::Map<Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>>(
-            _xreg.data(), n, xreg.size());
-    if (xreg_pars.has_intercept()) {
-      new_mat.conservativeResize(Eigen::NoChange, new_mat.cols() + 1);
-      new_mat.col(new_mat.cols() - 1) =
-          Eigen::Matrix<double, Eigen::Dynamic, 1>::Constant(n, 1, 1);
-    }
-    this->xreg = new_mat;
+  ARIMA_CSS_PROBLEM(const std::vector<double> &y, const arima_kind &kind,
+                    std::vector<std::vector<double>> &xreg,
+                    const bool intercept, const size_t n_cond)
+      : kind(kind), intercept(intercept), n_cond(n_cond), n(y.size()), y(y) {
+    this->xreg = vec_to_mat<double>(xreg, y.size(), intercept);
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
-    Eigen::VectorXd y_temp(n);
-    for (size_t i = 0; i < n; i++) {
-      y_temp[i] = y[i];
-    }
+    this->y_temp = EigVec(n);
+    for (size_t i = 0; i < n; i++) this->y_temp(i) = y[i];
     if constexpr (!has_xreg) {
       // if you have no intercept, you can do differencing
       // regular differencing
       for (size_t i = 0; i < kind.d(); i++) {
         for (size_t l = n - 1; l > 0; l--) {
-          y_temp[l] -= y_temp[l - 1];
+          this->y_temp(l) -= this->y_temp(l - 1);
         }
       }
       // seasonal differencing
       size_t ns = kind.period();
       for (size_t i = 0; i < kind.D(); i++) {
         for (size_t l = n - 1; l >= ns; l--) {
-          y_temp[l] -= y_temp[l - ns];
+          this->y_temp(l) -= this->y_temp(l - ns);
         }
       }
     }
-    this->y = y;
-    this->y_temp = y_temp;
-    this->n = n;
-    this->xreg = new_mat;
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
     // pre-allocate new_x
-    this->new_x =
-        Eigen::VectorXd(kind.p() + (kind.P() * kind.period()) + kind.q() +
-                        (kind.Q() * kind.period()) + this->xreg.cols());
+    this->new_x = Eigen::VectorXd(
+      kind.p() + (kind.P() * kind.period()) + kind.q() +
+        (kind.Q() * kind.period()) + this->xreg.cols());
     // pre-allocate model residuals
-    this->residual = std::vector<double>(n);
+    this->residual = std::vector<double>(n, 0.0);
     // pre-allocate transformation helper vector - this is only necessary
     // for expanding seasonal models
-    this->transform_temp_phi =
-      std::vector<double>(kind.p() + (kind.P() * kind.period()));
-    this->transform_temp_theta =
-      std::vector<double>(kind.q() + (kind.Q() * kind.period()));
-    // debug only:
-    this->f_evals = 0;
+    this->temp_phi = std::vector<double>(kind.p() + (kind.P() * kind.period()));
+    this->temp_theta = std::vector<double>(kind.q() + (kind.Q() * kind.period()));
   }
   double operator()(const Eigen::VectorXd &x) {
-    for (size_t i = 0; i < x.size(); i++) {
-      this->new_x[i] = x[i];
-    }
+    for (size_t i = 0; i < x.size(); i++) this->new_x(i) = x(i);
     if constexpr (has_xreg) {
       // refresh y_temp and load it with original y data
-      for (size_t i = 0; i < this->n; i++) {
-        this->y_temp[i] = this->y[i];
-      }
-      this->y_temp =
-          this->y_temp - this->xreg * x.tail(x.size() - this->arma_pars);
+      for (size_t i = 0; i < this->n; i++) this->y_temp(i) = this->y[i];
+      this->y_temp -= this->xreg * x.tail(x.size() - this->arma_pars);
       // do differencing here
-      if (!xreg_pars.has_intercept()) {
+      if (this->intercept) {
         for (size_t i = 0; i < kind.d(); i++) {
           for (size_t l = n - 1; l > 0; l--) {
-            this->y_temp[l] -= this->y_temp[l - 1];
+            this->y_temp(l) -= this->y_temp(l - 1);
           }
         }
         // seasonal differencing
         size_t ns = kind.period();
         for (size_t i = 0; i < kind.D(); i++) {
           for (size_t l = n - 1; l >= ns; l--) {
-            this->y_temp[l] -= this->y_temp[l - ns];
+            this->y_temp(l) -= this->y_temp(l - ns);
           }
         }
       }
@@ -130,9 +103,10 @@ public:
      */
     if constexpr(seasonal) {
       // the expansion of arima parameters is only necessary for seasonal models
-      arima_transform_parameters<seasonal, false>(this->new_x, this->kind,
-                                                  this->transform_temp_phi,
-                                                  this->transform_temp_theta);
+      arima_transform_parameters<seasonal, false>(
+          this->new_x, this->kind,
+          this->temp_phi,
+          this->temp_theta);
     }
     // call arima css function
     double res = arima_css_ssq(this->y_temp, this->new_x, this->kind,
@@ -179,60 +153,22 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
   size_t vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
   size_t arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
   Eigen::VectorXd x(vec_size);
-  for (auto &val : x) {
-    val = 0;
-  }
-  // initialize to all zeroes except for xreg
-  for (size_t i = arma_size; i < vec_size; i++) {
+  for(size_t i = 0; i < coef.size(); i++) x(i) = coef[i];
+  // using xreg
+  for (size_t i = arma_size; i < vec_size; i++)
     x[i] = xreg_coef.coef[i - arma_size];
-  }
   // initialize solver
-  using Solver = cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal>>;
-  Solver solver;
+  cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal>> solver;
   // and arima problem
-  ARIMA_CSS_PROBLEM<has_xreg, seasonal> css_arima_problem(y, kind, xreg_coef,
-                                                          xreg, n_cond);
+  ARIMA_CSS_PROBLEM<has_xreg, seasonal> css_arima_problem(
+      y, kind, xreg, xreg_coef.has_intercept(), n_cond);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // update variance estimate for the arima model - this was passed by reference
   sigma2 = exp(2 * solution.value);
-  // std::cout << " Function evaluations taken: " << css_arima_problem.f_evals << std::endl;
-  // std::cout << " Solver iterations: " << solver_state.num_iterations << std::endl;
-  // solver_state.Status == IterationLimit ||      GradientNormViolation,  // Minimum norm in gradient vector has been reached.
-  //     HessianConditionViolation  // Maximum condition number of hessian_t has been reached.
-  // };
-
-  // enum class Status {
-  //   NotStarted = -1,
-  //     Continue = 0,     // Optimization should continue.
-  //     IterationLimit,   // Maximum of allowed iterations has been reached.
-  //     XDeltaViolation,  // Minimum change in parameter vector has been reached.
-  //     FDeltaViolation,  // Minimum chnage in cost function has been reached.
-  //     GradientNormViolation,  // Minimum norm in gradient vector has been reached.
-  //     HessianConditionViolation  // Maximum condition number of hessian_t has been
-  //   // reached.
-  // };
-  // if we are to return standard errors as well
-  // if constexpr(return_hessian) {
-  //   // first get the computed numerical hessian
-  //   auto state = css_arima_problem.Eval(solution.x);
-  //   //std::cout << *(state.hessian) << std::endl;
-  //   // available under state.hessian
-  //   // next multiply by -1 and the number of available observations
-  //   auto est_hessian = state.hessian * -1 * (double)n_available;
-  //   // next, invert this
-  //   // the result is the variance covariance matrix of coefficient estimates, except
-  //   // for the fact that xreg coefficients (including intercept) have significantly
-  //   // understated effects
-  //   // since for typical use (e.g. coefficient standard errors) you only want the
-  //   // diagonal elements anyways, you can simply multiply the diagonal entries
-  //   // on those elements by the sample variance used in originally scaling the data
-  // }
   css_arima_problem.finalize( model, solution.x, delta, kappa, ss_init);
   // pass fitted coefficients back to the caller
-  for (size_t i = 0; i < vec_size; i++) {
-    coef[i] = solution.x[i];
-  }
+  for (size_t i = 0; i < vec_size; i++) coef[i] = solution.x[i];
 }
 
 #endif

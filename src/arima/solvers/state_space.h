@@ -93,9 +93,12 @@ forecast_result<U> kalman_forecast(const size_t n_ahead,
  * and theta are embedded in a single vector(std::vector/Eigen::Vector)
  */
 template <class C, typename U = double>
-structural_model<U> make_arima( C &coef, std::vector<U> &delta,
-                               const arima_kind &kind, U kappa = 1000000,
-                               SSinit state_init = Gardner, U tol = 1e-9) {
+structural_model<U> make_arima( const C &coef,
+                                const std::vector<U> &delta,
+                                const arima_kind &kind,
+                                const U kappa = 1000000,
+                                const SSinit state_init = Gardner,
+                                const U tol = 1e-9) {
   const size_t p = kind.p() + (kind.P() * kind.period());
   const size_t q = kind.q() + (kind.Q() * kind.period());
   const size_t r = max(p, q + 1), d = delta.size(), rd = r + d;

@@ -312,7 +312,7 @@ private:
         ssq += tmp * tmp;
       }
       // potential optimization - if this branch is reached,
-      // (which should be rare) decrement the preallocated nu
+      // (which should be rare) decrement the pre-allocated nu
       else{
         nu--;
       }
