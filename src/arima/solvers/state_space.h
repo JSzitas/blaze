@@ -32,8 +32,7 @@ template <typename U = double> struct forecast_result {
  */
 template < typename U = double>
 forecast_result<U> kalman_forecast(const size_t n_ahead,
-                                   structural_model<U> &model,
-                                   U sigma2 = 1.0) {
+                                   structural_model<U> &model) {
   size_t p = model.a.size();
   std::vector<double> anew = model.a;
   std::vector<double> a = model.a;
@@ -83,7 +82,7 @@ forecast_result<U> kalman_forecast(const size_t n_ahead,
         P[i + j * p] = Pnew[i + j * p];
       }
     }
-    standard_errors[l] = sqrt(tmp) * sigma2;
+    standard_errors[l] = tmp;
   }
   return forecast_result<U>( forecasts, standard_errors );
 }
@@ -258,7 +257,7 @@ void update_arima(structural_model<U> &model, std::vector<U> &phi,
       temp = std::move(get_Q0_rossignol(phi, theta));
       break;
     };
-    int mat_p = 0;
+    size_t mat_p = 0;
     /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
      * matrix, and r == 3, then we update the highlighted parts:
      *   (input)           (updated)
@@ -269,8 +268,8 @@ void update_arima(structural_model<U> &model, std::vector<U> &phi,
      *   x x x x x   =>    x x x x x
      *   x x x x x   =>    x x x x x
      */
-    for (int j = 0; j < r; j++) {
-      for (int i = 0; i < r; i++) {
+    for (size_t j = 0; j < r; j++) {
+      for (size_t i = 0; i < r; i++) {
         model.Pn[(j * rd) + i] = std::move(temp[mat_p]);
         mat_p++;
       }
@@ -287,7 +286,9 @@ void update_arima(structural_model<U> &model,
                   T &coef,
                   const arima_kind kind,
                   SSinit state_init = Gardner) {
-  const size_t p = kind.p(), q = kind.q(), r = max(p, q + 1), rd = model.Z.size();
+  const size_t p = kind.p() + kind.period() * kind.P(),
+    q = kind.q() + kind.period() * kind.Q(),
+    r = max(p, q + 1), rd = model.Z.size();
 
   // copy out elements of coef into phi and theta
   for( size_t i = 0; i < p; i++) {
@@ -337,6 +338,28 @@ void update_arima(structural_model<U> &model,
   // set a to all zero:
   std::fill(model.a.begin(), model.a.end(), 0);
 }
+
+template <typename U = double> void recompute_v(structural_model<U> & model) {
+  // reexpand V for an already existing structural model
+
+  size_t i, j;
+  std::vector<U> R(1 + model.theta.size() + model.delta.size());
+  R[0] = 1;
+  for (i = 1; i < model.theta.size() + 1; i++) {
+    R[i] = model.theta[i - 1];
+  }
+  std::vector<U> V(R.size() * R.size());
+  // here we do an outer product, ie: V <- R %o% R
+  size_t mat_p = 0;
+  for (i = 0; i < R.size(); i++) {
+    for (j = 0; j < R.size(); j++) {
+      V[mat_p] = R[i] * R[j];
+      mat_p++;
+    }
+  }
+  model.V = V;
+}
+
 
 template <typename U = double> std::vector<U> make_delta(
   const size_t n_diff,
