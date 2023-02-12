@@ -4,8 +4,8 @@
 
 #include <utility>
 
-// #include "../linesearch/more_thuente.h"
-#include "../linesearch/armijo.h"
+#include "../linesearch/more_thuente.h"
+// #include "../linesearch/armijo.h"
 // #include "Eigen/Core"
 #include "solver.h"  // NOLINT
 
@@ -50,10 +50,10 @@ class Bfgs : public Solver<function_t> {
       search_direction = -current.gradient;
     }
 
-    // const scalar_t rate = linesearch::MoreThuente<function_t, 1>::Search(
-    //     current, search_direction, function);
-    const scalar_t rate = linesearch::Armijo<function_t, 1>::Search(
+    const scalar_t rate = linesearch::MoreThuente<function_t, 1>::Search(
         current, search_direction, function);
+    // const scalar_t rate = linesearch::Armijo<function_t, 1>::Search(
+    //     current, search_direction, function);
 
     function_state_t next =
         function.Eval(current.x + rate * search_direction, 1);

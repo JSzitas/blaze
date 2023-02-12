@@ -1,5 +1,5 @@
-#ifndef UTILS
-#define UTILS
+#ifndef ARIMA_TRANSFORM
+#define ARIMA_TRANSFORM
 
 // included mainly for isnan()
 #include <math.h>
