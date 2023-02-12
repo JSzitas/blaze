@@ -34,6 +34,7 @@ private:
   EigVec y_temp, new_x;
   std::vector<double> residual, temp_phi, temp_theta;
   structural_model<double> model;
+  double sigma2;
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
@@ -61,15 +62,16 @@ public:
     this->temp_theta = std::vector<double>(kind.q() + (kind.Q() * kind.period()));
     if constexpr(seasonal || transform) {
       // the expansion of arima parameters is only necessary for seasonal models
-      arima_transform_parameters<seasonal, transform>(
+      arima_transform_parameters<EigVec, seasonal, transform>(
           this->new_x, this->kind, this->temp_phi, this->temp_theta
       );
     }
     // // initialize state space model
     this->model = make_arima( this->new_x, delta, this->kind, kappa, ss_init);
+    this->sigma2 = 0;
   }
   double operator()(const Eigen::VectorXd &x) {
-    for (int i = 0; i < x.size(); i++) this->new_x(i) = x(i);
+    for (size_t i = 0; i < x.size(); i++) this->new_x(i) = x(i);
     if constexpr (has_xreg) {
       // refresh y_temp and load it with original y data
       for (size_t i = 0; i < this->n; i++) this->y_temp(i) = this->y[i];
@@ -81,7 +83,7 @@ public:
      */
     if constexpr(seasonal || transform) {
       // the expansion of arima parameters is only necessary for seasonal models
-      arima_transform_parameters<seasonal, transform>(
+      arima_transform_parameters<EigVec, seasonal, transform>(
           this->new_x, this->kind, this->temp_phi, this->temp_theta
       );
     }
@@ -89,11 +91,17 @@ public:
     update_arima(this->model, this->new_x, this->kind, this->ss_init);
     // return likelihood - check if this updated model or not (it ideally
     // should not, not here)
-    return arima_likelihood(this->y_temp, this->model);
+    const std::array<double,2> res = arima_likelihood(this->y_temp, this->model);
+    this->sigma2 = res[0];
+    return res[1];
   }
-  structural_model<double> get_structural_model() const {
-    return this->model;
+  void finalize() {
+    // recompute  and replace V as this has not been updated
+    // since initialization in make_arima
+    recompute_v(this->model);
   }
+  double get_sigma() const { return this->sigma2; }
+  structural_model<double> get_structural_model() const { return this->model; }
 };
 
 template <const bool has_xreg, const bool seasonal, const bool transform>
@@ -106,14 +114,13 @@ void arima_solver_ml(std::vector<double> &y,
                      std::vector<double> &delta, const double kappa,
                      const SSinit ss_init, double &sigma2) {
 
-  auto vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
-  auto arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
+  const auto vec_size = coef.size();
+  const auto arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
   Eigen::VectorXd x(vec_size);
-  for (size_t i = 0; i < coef.size(); i++) x(i) = coef[i];
+  for (size_t i = 0; i < vec_size; i++) x(i) = coef[i];
   // initialize to all zeroes except for xreg
-  for (size_t i = arma_size; i < vec_size; i++) {
-    x[i] = xreg_coef.coef[i - arma_size];
-  }
+  for (size_t i = arma_size;
+       i < vec_size; i++) x[i] = xreg_coef.coef[i - arma_size];
   // initialize solver
   cppoptlib::solver::Bfgs<
     ARIMA_ML_PROBLEM<has_xreg, seasonal, transform>> solver;
@@ -122,12 +129,15 @@ void arima_solver_ml(std::vector<double> &y,
       y, kind, xreg_coef.has_intercept(), xreg, delta, kappa, ss_init);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(ml_arima_problem, x);
-  // update variance estimate for the arima model - this was passed by reference
-  sigma2 = exp(2 * solution.value);
+  // replace model V
+  ml_arima_problem.finalize();
+  // update variance estimate for the arima model
+  sigma2 = ml_arima_problem.get_sigma();
   // pass fitted coefficients back to the caller
   for (size_t i = 0; i < vec_size; i++) coef[i] = solution.x[i];
   // write back structural model
   model = ml_arima_problem.get_structural_model();
+  for (size_t i = 0; i < vec_size; i++) coef[i] = solution.x[i];
 }
 
 #endif
