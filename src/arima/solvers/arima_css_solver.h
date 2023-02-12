@@ -34,8 +34,6 @@ private:
   EigVec y_temp, new_x;
   std::vector<double> residual, temp_phi, temp_theta;
 public:
-  // debug only:
-  size_t f_evals;
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
@@ -103,7 +101,7 @@ public:
      */
     if constexpr(seasonal) {
       // the expansion of arima parameters is only necessary for seasonal models
-      arima_transform_parameters<seasonal, false>(
+      arima_transform_parameters<EigVec, seasonal, false>(
           this->new_x, this->kind,
           this->temp_phi,
           this->temp_theta);
@@ -111,8 +109,6 @@ public:
     // call arima css function
     double res = arima_css_ssq(this->y_temp, this->new_x, this->kind,
                                this->n_cond, this->residual);
-    // debug only
-    this->f_evals++;
     return 0.5 * log(res);
   }
   void finalize( structural_model<double> &model,
