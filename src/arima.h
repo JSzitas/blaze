@@ -109,10 +109,6 @@ public:
       ncond += this->kind.d() + (this->kind.D() * this->kind.period());
       ncond += this->kind.p() + (this->kind.P() * this->kind.period());
     }
-    if (ncond <= 0) {
-      // too few non missing observations - alternatively we can throw
-      return;
-    }
     // allocate coef vector
     const size_t arma_coef_size = this->kind.p() + this->kind.q() + this->kind.P() + this->kind.Q();
     this->coef = std::vector<U>(arma_coef_size + reg_coef.size(), 0);
@@ -120,7 +116,7 @@ public:
     // bool optimization_failed = false;
     const bool is_seasonal = this->kind.P() + this->kind.Q();
     const bool has_xreg = this->reg_coef.size() > 0;
-    if (this->method == CSS || CSSML) {
+    if (this->method != ML) {
       /* this is an ugly tower of specializations, but as far as I can tell,
        * it is the simplest (if ugliest) way to do it
        * to reassure you if you are reading this, all calls are the same,
@@ -159,17 +155,9 @@ public:
       this->ar_stationary = check_all_ar(this->coef, this->kind);
     }
     if( this->method == ML || this->method == CSSML) {
-      // if (transform.pars) {
-      //   init <- .Call(stats:::C_ARIMA_Invtrans, init, arma)
-      //   if (arma[2L] > 0) {
-      //     ind <- arma[1L] + 1L:arma[2L]
-      //     init[ind] <- maInvert(init[ind])
-      //   }
-      //   if (arma[4L] > 0) {
-      //     ind <- sum(arma[1L:3L]) + 1L:arma[4L]
-      //     init[ind] <- maInvert(init[ind])
-      //   }
-      // }
+      if(transform_parameters) {
+        arima_inverse_transform_parameters(this->coef, this->kind);
+      }
       /* again, ugly tower, all calls are the same and differ only in template
        * parameters - this is the (sadly) easiest way to do it :/
        */
@@ -236,50 +224,12 @@ public:
           }
         }
       }
-            // trarma <- .Call(stats:::C_ARIMA_transPars, init, arma,
-            // transform.pars)
-            //   mod <- makeARIMA(trarma[[1L]], trarma[[2L]], Delta, kappa,
-            //                    SSinit)
-            //   res <- optim(init[mask], armafn, method = "BFGS",
-            //                hessian = TRUE, control = optim.control, trans =
-            //                as.logical(transform.pars))
-            //     coef[mask] <- res$par
-            //     if (transform.pars) {
-            //       if (arma[2L] > 0L) {
-            //         ind <- arma[1L] + 1L:arma[2L]
-            //         if (all(mask[ind]))
-            //           coef[ind] <- maInvert(coef[ind])
-            //       }
-            //       if (arma[4L] > 0L) {
-            //         ind <- sum(arma[1L:3L]) + 1L:arma[4L]
-            //         if (all(mask[ind]))
-            //           coef[ind] <- maInvert(coef[ind])
-            //       }
-            //       if (any(coef[mask] != res$par)) {
-            //         res <- optim(coef[mask], armafn, method = "BFGS",
-            //                      hessian = TRUE, control = list(maxit = 0L,
-            //                                                     parscale =
-            //                                                     optim.control$parscale),
-            //                                                     trans =
-            //                                                     TRUE)
-            //         coef[mask] <- res$par
-            //       }
-            //         coef <- .Call(stats:::C_ARIMA_undoPars, coef, arma)
-            //     }
-            //       trarma <- .Call(stats:::C_ARIMA_transPars, coef, arma,
-            //       FALSE) mod <- makeARIMA(trarma[[1L]], trarma[[2L]],
-            //       Delta, kappa,
-            //                        SSinit)
-            //       val <- if (ncxreg > 0L) {
-            //         arimaSS(x - xreg %*% coef[narma + (1L:ncxreg)], mod)
-            //       } else arimaSS(x, mod)
-            //         sigma2 <- val[[1L]][1L]/n.used
     }
     // load xreg coefficients from coef as necessary
     for (size_t i = arma_coef_size; i < this->coef.size(); i++) {
       this->reg_coef[i - arma_coef_size] = this->coef[i];
     }
-    if (this->method != CSS) {
+    if (this->method == CSS) {
       this->aic = std::nan("");
     } else {
       // we have to rescale the sigma to be on the same scale as original data
@@ -316,10 +266,7 @@ public:
     if (!this->fitted || newxreg.size() != this->xreg.size()) {
       return forecast_result<U>(0);
     }
-    // rescale sigma2 - this is necessary because the original sigma2 is
-    // a conditional sum of squares, rather than the actual sigma estimate
-    double rescaled_sigma2 = exp(0.5 * log(this->sigma2));
-    auto res = kalman_forecast(h, this->model, rescaled_sigma2);
+    auto res = kalman_forecast(h, this->model);
     if( newxreg.size() > 0 || reg_coef.has_intercept() ) {
       if( scalers.size() > 0 ) {
         size_t i = 1;
@@ -332,6 +279,10 @@ public:
       for (size_t i = 0; i < h; i++) {
         res.forecast[i] += xreg_adjusted[i];
       }
+    }
+    // scale standard errors
+    for( size_t i = 0; i < h; i++ ) {
+      res.std_err[i] = sqrt(res.std_err[i] * this->sigma2);
     }
     if( scalers.size() > 0 ) {
         scalers[0].rescale(res.forecast);
