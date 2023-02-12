@@ -10,7 +10,7 @@ enum SSinit { Gardner = 1, Rossignol = 2 };
 template <typename U = double>
 std::vector<U> solve_mat_vec(std::vector<U> &mat,
                              std::vector<U> &vec) {
-  const int n = vec.size();
+  const size_t n = vec.size();
 
   Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat =
       Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>>(mat.data(),
@@ -35,8 +35,8 @@ std::vector<U> solve_mat_vec(std::vector<U> &mat,
  */
 std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
                                      const std::vector<double> &theta_coef) {
-  const int p = phi_coef.size(), q = theta_coef.size();
-  int i, j, r = max(p, q + 1);
+  const size_t p = phi_coef.size(), q = theta_coef.size();
+  size_t i, j, r = max(p, q + 1);
   // in the original, you create a pointer to the result, which is this,
   // and is a matrix (P),
   // but it makes more sense to me to model it as a std::vector -
@@ -55,7 +55,7 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
   }
 
   if (p > 0) {
-    int r2 = max(p + q, p + 1);
+    size_t r2 = max(p + q, p + 1);
     // initialize phi
     std::vector<double> phi(p + 1);
     // fill with correct values (i.e. a leading 1)
@@ -96,10 +96,10 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
     // (relying on good compiler optimization here:)
     for (i = 0; i < r; ++i) {
       for (j = i; j < r; ++j) {
-        for (int k = 0; i + k < p; ++k) {
-          for (int L = k; L - k < q + 1; ++L) {
-            for (int m = 0; j + m < p; ++m) {
-              for (int n = m; n - m < q + 1; ++n) {
+        for (size_t k = 0; i + k < p; ++k) {
+          for (size_t L = k; L - k < q + 1; ++L) {
+            for (size_t m = 0; j + m < p; ++m) {
+              for (size_t n = m; n - m < q + 1; ++n) {
                 P[r * i + j] += phi[i + k] * phi[j + m] * theta[L - k] *
                                 theta[n - m] * u[abs(L - n)];
               }
@@ -121,7 +121,7 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
         }
       }
     }
-    int k, L;
+    size_t k, L;
     /* Q0 += A1 SXZ A2^T + (A1 SXZ A2^T)^T */
     /* SXZ[i,j] = rrz[j-i-1], j > 0 */
     for (i = 0; i < r; ++i)
@@ -142,7 +142,7 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
   /* Q0 += A2 A2^T */
   for (i = 0; i < r; ++i) {
     for (j = i; j < r; ++j) {
-      for (int k = 0; j + k < q + 1; ++k) {
+      for (size_t k = 0; j + k < q + 1; ++k) {
         P[r * i + j] += theta[i + k] * theta[j + k];
       }
     }
@@ -157,12 +157,14 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
 }
 
 /* based on code from AS154 */
-inline static void inclu2(int np, std::vector<double> &xnext,
-                   std::vector<double> &xrow, double ynext,
-                   std::vector<double> &d, std::vector<double> &rbar,
-                   std::vector<double> &thetab) {
+inline static void inclu2(
+    size_t np,
+    std::vector<double> &xnext,
+    std::vector<double> &xrow, double ynext,
+    std::vector<double> &d, std::vector<double> &rbar,
+    std::vector<double> &thetab) {
   double cbar, sbar, di, xi, xk, rbthis, dpi;
-  int i, k, ithisr;
+  size_t i, k, ithisr;
   /*   This subroutine updates d, rbar, thetab by the inclusion
    of xnext and ynext. */
   for (i = 0; i < np; i++) {
@@ -198,10 +200,10 @@ inline static void inclu2(int np, std::vector<double> &xnext,
 std::vector<double> get_Q0(const std::vector<double> &phi_coef,
                            const std::vector<double> &theta_coef) {
 
-  const int p = phi_coef.size(), q = theta_coef.size();
-  int i, j, r = max(p, q + 1);
-  int np = r * (r + 1) / 2, nrbar = np * (np - 1) / 2, npr, npr1;
-  int indi, indj, indn, ithisr, ind, ind1, ind2, im, jm;
+  const size_t p = phi_coef.size(), q = theta_coef.size();
+  size_t i, j, r = max(p, q + 1);
+  size_t np = r * (r + 1) / 2, nrbar = np * (np - 1) / 2, npr, npr1;
+  size_t indi, indj, indn, ithisr, ind, ind1, ind2, im, jm;
 
   std::vector<double> xnext(np);
   std::vector<double> xrow(np);
