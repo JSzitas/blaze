@@ -18,9 +18,8 @@ double arima_css_ssq(const Eigen::VectorXd &y, const Eigen::VectorXd &pars,
 
   const size_t n = y.size(), p = kind.p() + kind.period() * kind.P(),
             q = kind.q() + kind.period() * kind.Q();
-
   // prepare the residuals - possibly move this out and never allocate here?
-  int ma_offset, nu = 0;
+  int ma_offset, nu = n-n_cond;
   double ssq = 0.0, tmp = 0.0;
   for (size_t l = n_cond; l < n; l++) {
     ma_offset = min(l - n_cond, q);
@@ -35,8 +34,10 @@ double arima_css_ssq(const Eigen::VectorXd &y, const Eigen::VectorXd &pars,
     }
     resid[l] = tmp;
     if (!isnan(tmp)) {
-      nu++;
       ssq += tmp * tmp;
+    }
+    else {
+      nu--;
     }
   }
   return ssq / nu;

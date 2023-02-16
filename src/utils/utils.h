@@ -3,6 +3,7 @@
 
 // included mainly for isnan()
 #include <math.h>
+#include <unordered_set>
 
 template <typename T> T abs(T x) {
   if (x < 0.0) {
@@ -39,15 +40,15 @@ template <class T, class F> T map(T &x, F &fun) {
   return result;
 }
 
-template <class T> void print_vector(T &a) {
-  if( a.size() < 1 ) {
-    return;
-  }
-  for (size_t i = 0; i < a.size(); i++) {
-    std::cout << a[i] << ", ";
-  }
-  std::cout << " " << std::endl;
-}
+// template <class T> void print_vector(T &a) {
+//   if( a.size() < 1 ) {
+//     return;
+//   }
+//   for (size_t i = 0; i < a.size(); i++) {
+//     std::cout << a[i] << ", ";
+//   }
+//   std::cout << " " << std::endl;
+// }
 
 template <typename T> T max(T &a, T &b) { return a < b ? b : a; }
 template <typename T> T max(T a, T b) { return a < b ? b : a; }

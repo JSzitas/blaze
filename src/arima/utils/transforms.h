@@ -174,19 +174,20 @@ template <typename T> void inv_parameter_transform(
 template <typename T, const bool seasonal, const bool transform>
 void arima_transform_parameters(
     T &coef,
-    const arima_kind &arma,
+    const arima_kind &kind,
     std::vector<double> &phi,
     std::vector<double> &theta) {
   // the coefficients are all 'packed in' inside coef - so we have
   // different types of coefficients. this tells us basically how many
   // of each type there are
-  const size_t mp = arma.p(), msp = arma.P(), mq = arma.q();
+  const size_t mp = kind.p(), msp = kind.P(), mq = kind.q();
   if constexpr (transform) {
+    // cast away constness to modify by reference
     if (mp > 0) parameter_transform(coef, 0, mp);
     if (msp > 0) parameter_transform(coef, mp + mq, mp + mq + msp);
   }
   if constexpr (seasonal) {
-    const size_t msq = arma.Q(), ns = arma.period();
+    const size_t msq = kind.Q(), ns = kind.period();
     const size_t p = mp + ns * msp;
     const size_t q = mq + ns * msq;
     size_t i, j;

@@ -16,6 +16,24 @@
 
 
 template <typename U = double, class Scaler = StandardScaler<U>> class Arima {
+private:
+  std::vector<U> y;
+  structural_model<U> model;
+  arima_kind kind;
+  std::vector<U> coef;
+  std::vector<U> residuals;
+  std::vector<std::vector<U>> xreg;
+  lm_coef<U> reg_coef;
+  bool intercept;
+  bool transform_parameters;
+  SSinit ss_init;
+  fitting_method method;
+  U sigma2;
+  U kappa;
+  std::vector<Scaler> scalers;
+  U aic;
+  std::array<bool, 2> ar_stationary;
+  bool fitted;
 public:
   Arima<U, Scaler>(){};
   Arima<U, Scaler>(
@@ -155,7 +173,7 @@ public:
       this->ar_stationary = check_all_ar(this->coef, this->kind);
     }
     if( this->method == ML || this->method == CSSML) {
-      if(transform_parameters) {
+      if(this->transform_parameters) {
         arima_inverse_transform_parameters(this->coef, this->kind);
       }
       /* again, ugly tower, all calls are the same and differ only in template
@@ -293,25 +311,6 @@ public:
   const structural_model<U> get_structural_model() const { return this->model; }
   const std::vector<U> get_coef() const { return this->coef; }
   const bool is_fitted() const { return this->fitted; }
-
-private:
-  std::vector<U> y;
-  structural_model<U> model;
-  arima_kind kind;
-  std::vector<U> coef;
-  std::vector<U> residuals;
-  std::vector<std::vector<U>> xreg;
-  lm_coef<U> reg_coef;
-  bool intercept;
-  bool transform_parameters;
-  SSinit ss_init;
-  fitting_method method;
-  U sigma2;
-  U kappa;
-  std::vector<Scaler> scalers;
-  U aic;
-  std::array<bool, 2> ar_stationary;
-  bool fitted;
 };
 
 #endif

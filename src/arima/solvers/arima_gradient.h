@@ -208,7 +208,7 @@ public:
      }
      return grad;
   }
-  const EigVec & get_y_temp(const EigVec & x) {
+  const EigVec get_y_temp(const EigVec & x) {
     // modify y_temp to acount for xreg
     for (size_t i = 0; i < this->n; i++) this->y_temp[i] = this->y[i];
     if constexpr(has_xreg) {

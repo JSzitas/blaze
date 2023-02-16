@@ -779,281 +779,281 @@ auto.arima <- function (y, d = NA, D = NA, max.p = 5, max.q = 5, max.P = 2,
   return(bestfit)
 }
 
-forecast.Arima <- function (object, h = ifelse(object$arma[5] > 1, 2 * object$arma[5],
-                                               10), level = c(80, 95), fan = FALSE, xreg = NULL, lambda = object$lambda,
-                            bootstrap = FALSE, npaths = 5000, biasadj = NULL, ...)
-{
-  all.args <- names(formals())
-  user.args <- names(match.call())[-1L]
-  check <- user.args %in% all.args
-  if (!all(check)) {
-    error.args <- user.args[!check]
-    warning(sprintf("The non-existent %s arguments will be ignored.",
-                    error.args))
-  }
-  use.drift <- is.element("drift", names(object$coef))
-  x <- object$x <- getResponse(object)
-  usexreg <- (use.drift | is.element("xreg", names(object)))
-  if (!is.null(xreg) && usexreg) {
-    if (!is.numeric(xreg))
-      stop("xreg should be a numeric matrix or a numeric vector")
-    xreg <- as.matrix(xreg)
-    if (is.null(colnames(xreg))) {
-      colnames(xreg) <- if (ncol(xreg) == 1)
-        "xreg"
-      else paste("xreg", 1:ncol(xreg), sep = "")
-    }
-    origxreg <- xreg <- as.matrix(xreg)
-    h <- nrow(xreg)
-  }
-  else {
-    if (!is.null(xreg)) {
-      warning("xreg not required by this model, ignoring the provided regressors")
-      xreg <- NULL
-    }
-    origxreg <- NULL
-  }
-  if (fan) {
-    level <- seq(51, 99, by = 3)
-  }
-  else {
-    if (min(level) > 0 & max(level) < 1) {
-      level <- 100 * level
-    }
-    else if (min(level) < 0 | max(level) > 99.99) {
-      stop("Confidence limit out of range")
-    }
-  }
-  level <- sort(level)
-  if (use.drift) {
-    n <- length(x)
-    if (!is.null(xreg)) {
-      xreg <- `colnames<-`(cbind(drift = (1:h) + n, xreg),
-                           make.unique(c("drift", if (is.null(colnames(xreg)) &&
-                                                      !is.null(xreg)) rep("", NCOL(xreg)) else colnames(xreg))))
-    }
-    else {
-      xreg <- `colnames<-`(as.matrix((1:h) + n), "drift")
-    }
-  }
-  if (!is.null(object$constant)) {
-    if (object$constant) {
-      pred <- list(pred = rep(x[1], h), se = rep(0, h))
-    }
-    else {
-      stop("Strange value of object$constant")
-    }
-  }
-  else if (usexreg) {
-    if (is.null(xreg)) {
-      stop("No regressors provided")
-    }
-    object$call$xreg <- getxreg(object)
-    if (NCOL(xreg) != NCOL(object$call$xreg)) {
-      stop("Number of regressors does not match fitted model")
-    }
-    if (!identical(colnames(xreg), colnames(object$call$xreg))) {
-      warning("xreg contains different column names from the xreg used in training. Please check that the regressors are in the same order.")
-    }
-    pred <- predict(object, n.ahead = h, newxreg = xreg)
-  }
-  else {
-    pred <- predict(object, n.ahead = h)
-  }
-  if (!is.null(x)) {
-    tspx <- tsp(x)
-    nx <- max(which(!is.na(x)))
-    if (nx != length(x) | is.null(tsp(pred$pred)) | is.null(tsp(pred$se))) {
-      tspx[2] <- time(x)[nx]
-      start.f <- tspx[2] + 1/tspx[3]
-      pred$pred <- ts(pred$pred, frequency = tspx[3], start = start.f)
-      pred$se <- ts(pred$se, frequency = tspx[3], start = start.f)
-    }
-  }
-  nint <- length(level)
-  if (bootstrap) {
-    sim <- matrix(NA, nrow = npaths, ncol = h)
-    for (i in 1:npaths) sim[i, ] <- simulate(object, nsim = h,
-                                             bootstrap = TRUE, xreg = origxreg, lambda = lambda)
-    lower <- apply(sim, 2, quantile, 0.5 - level/200, type = 8)
-    upper <- apply(sim, 2, quantile, 0.5 + level/200, type = 8)
-    if (nint > 1L) {
-      lower <- t(lower)
-      upper <- t(upper)
-    }
-    else {
-      lower <- matrix(lower, ncol = 1)
-      upper <- matrix(upper, ncol = 1)
-    }
-  }
-  else {
-    lower <- matrix(NA, ncol = nint, nrow = length(pred$pred))
-    upper <- lower
-    for (i in 1:nint) {
-      qq <- qnorm(0.5 * (1 + level[i]/100))
-      lower[, i] <- pred$pred - qq * pred$se
-      upper[, i] <- pred$pred + qq * pred$se
-    }
-    if (!is.finite(max(upper))) {
-      warning("Upper prediction intervals are not finite.")
-    }
-  }
-  colnames(lower) <- colnames(upper) <- paste(level, "%", sep = "")
-  lower <- ts(lower)
-  upper <- ts(upper)
-  tsp(lower) <- tsp(upper) <- tsp(pred$pred)
-  method <- arima.string(object, padding = FALSE)
-  seriesname <- if (!is.null(object$series)) {
-    object$series
-  }
-  else if (!is.null(object$call$x)) {
-    object$call$x
-  }
-  else {
-    object$call$y
-  }
-  fits <- fitted.Arima(object)
-  if (!is.null(lambda) & is.null(object$constant)) {
-    pred$pred <- InvBoxCox(pred$pred, lambda, biasadj, pred$se^2)
-    if (!bootstrap) {
-      lower <- InvBoxCox(lower, lambda)
-      upper <- InvBoxCox(upper, lambda)
-    }
-  }
-  return(structure(list(method = method, model = object, level = level,
-                        mean = pred$pred, lower = lower, upper = upper, x = x,
-                        series = seriesname, fitted = fits, residuals = residuals.Arima(object)),
-                   class = "forecast"))
-}
+# forecast.Arima <- function (object, h = ifelse(object$arma[5] > 1, 2 * object$arma[5],
+#                                                10), level = c(80, 95), fan = FALSE, xreg = NULL, lambda = object$lambda,
+#                             bootstrap = FALSE, npaths = 5000, biasadj = NULL, ...)
+# {
+#   all.args <- names(formals())
+#   user.args <- names(match.call())[-1L]
+#   check <- user.args %in% all.args
+#   if (!all(check)) {
+#     error.args <- user.args[!check]
+#     warning(sprintf("The non-existent %s arguments will be ignored.",
+#                     error.args))
+#   }
+#   use.drift <- is.element("drift", names(object$coef))
+#   x <- object$x <- getResponse(object)
+#   usexreg <- (use.drift | is.element("xreg", names(object)))
+#   if (!is.null(xreg) && usexreg) {
+#     if (!is.numeric(xreg))
+#       stop("xreg should be a numeric matrix or a numeric vector")
+#     xreg <- as.matrix(xreg)
+#     if (is.null(colnames(xreg))) {
+#       colnames(xreg) <- if (ncol(xreg) == 1)
+#         "xreg"
+#       else paste("xreg", 1:ncol(xreg), sep = "")
+#     }
+#     origxreg <- xreg <- as.matrix(xreg)
+#     h <- nrow(xreg)
+#   }
+#   else {
+#     if (!is.null(xreg)) {
+#       warning("xreg not required by this model, ignoring the provided regressors")
+#       xreg <- NULL
+#     }
+#     origxreg <- NULL
+#   }
+#   if (fan) {
+#     level <- seq(51, 99, by = 3)
+#   }
+#   else {
+#     if (min(level) > 0 & max(level) < 1) {
+#       level <- 100 * level
+#     }
+#     else if (min(level) < 0 | max(level) > 99.99) {
+#       stop("Confidence limit out of range")
+#     }
+#   }
+#   level <- sort(level)
+#   if (use.drift) {
+#     n <- length(x)
+#     if (!is.null(xreg)) {
+#       xreg <- `colnames<-`(cbind(drift = (1:h) + n, xreg),
+#                            make.unique(c("drift", if (is.null(colnames(xreg)) &&
+#                                                       !is.null(xreg)) rep("", NCOL(xreg)) else colnames(xreg))))
+#     }
+#     else {
+#       xreg <- `colnames<-`(as.matrix((1:h) + n), "drift")
+#     }
+#   }
+#   if (!is.null(object$constant)) {
+#     if (object$constant) {
+#       pred <- list(pred = rep(x[1], h), se = rep(0, h))
+#     }
+#     else {
+#       stop("Strange value of object$constant")
+#     }
+#   }
+#   else if (usexreg) {
+#     if (is.null(xreg)) {
+#       stop("No regressors provided")
+#     }
+#     object$call$xreg <- getxreg(object)
+#     if (NCOL(xreg) != NCOL(object$call$xreg)) {
+#       stop("Number of regressors does not match fitted model")
+#     }
+#     if (!identical(colnames(xreg), colnames(object$call$xreg))) {
+#       warning("xreg contains different column names from the xreg used in training. Please check that the regressors are in the same order.")
+#     }
+#     pred <- predict(object, n.ahead = h, newxreg = xreg)
+#   }
+#   else {
+#     pred <- predict(object, n.ahead = h)
+#   }
+#   if (!is.null(x)) {
+#     tspx <- tsp(x)
+#     nx <- max(which(!is.na(x)))
+#     if (nx != length(x) | is.null(tsp(pred$pred)) | is.null(tsp(pred$se))) {
+#       tspx[2] <- time(x)[nx]
+#       start.f <- tspx[2] + 1/tspx[3]
+#       pred$pred <- ts(pred$pred, frequency = tspx[3], start = start.f)
+#       pred$se <- ts(pred$se, frequency = tspx[3], start = start.f)
+#     }
+#   }
+#   nint <- length(level)
+#   if (bootstrap) {
+#     sim <- matrix(NA, nrow = npaths, ncol = h)
+#     for (i in 1:npaths) sim[i, ] <- simulate(object, nsim = h,
+#                                              bootstrap = TRUE, xreg = origxreg, lambda = lambda)
+#     lower <- apply(sim, 2, quantile, 0.5 - level/200, type = 8)
+#     upper <- apply(sim, 2, quantile, 0.5 + level/200, type = 8)
+#     if (nint > 1L) {
+#       lower <- t(lower)
+#       upper <- t(upper)
+#     }
+#     else {
+#       lower <- matrix(lower, ncol = 1)
+#       upper <- matrix(upper, ncol = 1)
+#     }
+#   }
+#   else {
+#     lower <- matrix(NA, ncol = nint, nrow = length(pred$pred))
+#     upper <- lower
+#     for (i in 1:nint) {
+#       qq <- qnorm(0.5 * (1 + level[i]/100))
+#       lower[, i] <- pred$pred - qq * pred$se
+#       upper[, i] <- pred$pred + qq * pred$se
+#     }
+#     if (!is.finite(max(upper))) {
+#       warning("Upper prediction intervals are not finite.")
+#     }
+#   }
+#   colnames(lower) <- colnames(upper) <- paste(level, "%", sep = "")
+#   lower <- ts(lower)
+#   upper <- ts(upper)
+#   tsp(lower) <- tsp(upper) <- tsp(pred$pred)
+#   method <- arima.string(object, padding = FALSE)
+#   seriesname <- if (!is.null(object$series)) {
+#     object$series
+#   }
+#   else if (!is.null(object$call$x)) {
+#     object$call$x
+#   }
+#   else {
+#     object$call$y
+#   }
+#   fits <- fitted.Arima(object)
+#   if (!is.null(lambda) & is.null(object$constant)) {
+#     pred$pred <- InvBoxCox(pred$pred, lambda, biasadj, pred$se^2)
+#     if (!bootstrap) {
+#       lower <- InvBoxCox(lower, lambda)
+#       upper <- InvBoxCox(upper, lambda)
+#     }
+#   }
+#   return(structure(list(method = method, model = object, level = level,
+#                         mean = pred$pred, lower = lower, upper = upper, x = x,
+#                         series = seriesname, fitted = fits, residuals = residuals.Arima(object)),
+#                    class = "forecast"))
+# }
 
-search.arima <- function(x, d=NA, D=NA, max.p=5, max.q=5,
-                         max.P=2, max.Q=2, max.order=5, stationary=FALSE, ic=c("aic", "aicc", "bic"),
-                         trace=FALSE, approximation=FALSE, xreg=NULL, offset=offset, allowdrift=TRUE,
-                         allowmean=TRUE, parallel=FALSE, num.cores=2, ...) {
-  # dataname <- substitute(x)
-  ic <- match.arg(ic)
-  m <- frequency(x)
-
-  allowdrift <- allowdrift & (d + D) == 1
-  allowmean <- allowmean & (d + D) == 0
-
-  maxK <- (allowdrift | allowmean)
-
-  # Choose model orders
-  # Serial - technically could be combined with the code below
-  if (parallel == FALSE) {
-    best.ic <- Inf
-    for (i in 0:max.p) {
-      for (j in 0:max.q) {
-        for (I in 0:max.P) {
-          for (J in 0:max.Q) {
-            if (i + j + I + J <= max.order) {
-              for (K in 0:maxK) {
-                fit <- myarima(
-                  x, order = c(i, d, j), seasonal = c(I, D, J),
-                  constant = (K == 1), trace = trace, ic = ic, approximation = approximation,
-                  offset = offset, xreg = xreg, ...
-                )
-                if (fit$ic < best.ic) {
-                  best.ic <- fit$ic
-                  bestfit <- fit
-                  constant <- (K == 1)
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  } else if (parallel == TRUE) {
-    to.check <- WhichModels(max.p, max.q, max.P, max.Q, maxK)
-
-    par.all.arima <- function(l, max.order) {
-      .tmp <- UndoWhichModels(l)
-      i <- .tmp[1]
-      j <- .tmp[2]
-      I <- .tmp[3]
-      J <- .tmp[4]
-      K <- .tmp[5] == 1
-      if (i + j + I + J <= max.order) {
-        fit <- myarima(
-          x, order = c(i, d, j), seasonal = c(I, D, J), constant = (K == 1),
-          trace = trace, ic = ic, approximation = approximation, offset = offset, xreg = xreg,
-          ...
-        )
-      }
-      if (exists("fit")) {
-        return(cbind(fit, K))
-      } else {
-        return(NULL)
-      }
-    }
-
-    if (is.null(num.cores)) {
-      num.cores <- detectCores()
-    }
-
-    all.models <- mclapply(X = to.check, FUN = par.all.arima, max.order=max.order, mc.cores = num.cores)
-
-    # Removing null elements
-    all.models <- all.models[!sapply(all.models, is.null)]
-
-    # Choosing best model
-    best.ic <- Inf
-    for (i in 1:length(all.models)) {
-      if (!is.null(all.models[[i]][, 1]$ic) && all.models[[i]][, 1]$ic < best.ic) {
-        bestfit <- all.models[[i]][, 1]
-        best.ic <- bestfit$ic
-        constant <- unlist(all.models[[i]][1, 2])
-      }
-    }
-    class(bestfit) <- c("forecast_ARIMA", "ARIMA", "Arima")
-  }
-
-  if (exists("bestfit")) {
-    # Refit using ML if approximation used for IC
-    if (approximation) {
-      if (trace) {
-        cat("\n\n Now re-fitting the best model(s) without approximations...\n")
-      }
-      # constant <- length(bestfit$coef) - ncol(xreg) > sum(bestfit$arma[1:4])
-      newbestfit <- myarima(
-        x, order = bestfit$arma[c(1, 6, 2)],
-        seasonal = bestfit$arma[c(3, 7, 4)], constant = constant, ic,
-        trace = FALSE, approximation = FALSE, xreg = xreg, ...
-      )
-      if (newbestfit$ic == Inf) {
-        # Final model is lousy. Better try again without approximation
-        # warning("Unable to fit final model using maximum likelihood. AIC value approximated")
-        bestfit <- search.arima(
-          x, d = d, D = D, max.p = max.p, max.q = max.q,
-          max.P = max.P, max.Q = max.Q, max.order = max.order, stationary = stationary,
-          ic = ic, trace = trace, approximation = FALSE, xreg = xreg, offset = offset,
-          allowdrift = allowdrift, allowmean = allowmean,
-          parallel = parallel, num.cores = num.cores, ...
-        )
-        bestfit$ic <- switch(ic, bic = bestfit$bic, aic = bestfit$aic, aicc = bestfit$aicc)
-      }
-      else {
-        bestfit <- newbestfit
-      }
-    }
-  }
-  else {
-    stop("No ARIMA model able to be estimated")
-  }
-
-  bestfit$x <- x
-  bestfit$series <- deparse(substitute(x))
-  bestfit$ic <- NULL
-  bestfit$call <- match.call()
-
-  if (trace) {
-    cat("\n\n")
-  }
-
-  return(bestfit)
-}
+# search.arima <- function(x, d=NA, D=NA, max.p=5, max.q=5,
+#                          max.P=2, max.Q=2, max.order=5, stationary=FALSE, ic=c("aic", "aicc", "bic"),
+#                          trace=FALSE, approximation=FALSE, xreg=NULL, offset=offset, allowdrift=TRUE,
+#                          allowmean=TRUE, parallel=FALSE, num.cores=2, ...) {
+#   # dataname <- substitute(x)
+#   ic <- match.arg(ic)
+#   m <- frequency(x)
+#
+#   allowdrift <- allowdrift & (d + D) == 1
+#   allowmean <- allowmean & (d + D) == 0
+#
+#   maxK <- (allowdrift | allowmean)
+#
+#   # Choose model orders
+#   # Serial - technically could be combined with the code below
+#   if (parallel == FALSE) {
+#     best.ic <- Inf
+#     for (i in 0:max.p) {
+#       for (j in 0:max.q) {
+#         for (I in 0:max.P) {
+#           for (J in 0:max.Q) {
+#             if (i + j + I + J <= max.order) {
+#               for (K in 0:maxK) {
+#                 fit <- myarima(
+#                   x, order = c(i, d, j), seasonal = c(I, D, J),
+#                   constant = (K == 1), trace = trace, ic = ic, approximation = approximation,
+#                   offset = offset, xreg = xreg, ...
+#                 )
+#                 if (fit$ic < best.ic) {
+#                   best.ic <- fit$ic
+#                   bestfit <- fit
+#                   constant <- (K == 1)
+#                 }
+#               }
+#             }
+#           }
+#         }
+#       }
+#     }
+#   } else if (parallel == TRUE) {
+#     to.check <- WhichModels(max.p, max.q, max.P, max.Q, maxK)
+#
+#     par.all.arima <- function(l, max.order) {
+#       .tmp <- UndoWhichModels(l)
+#       i <- .tmp[1]
+#       j <- .tmp[2]
+#       I <- .tmp[3]
+#       J <- .tmp[4]
+#       K <- .tmp[5] == 1
+#       if (i + j + I + J <= max.order) {
+#         fit <- myarima(
+#           x, order = c(i, d, j), seasonal = c(I, D, J), constant = (K == 1),
+#           trace = trace, ic = ic, approximation = approximation, offset = offset, xreg = xreg,
+#           ...
+#         )
+#       }
+#       if (exists("fit")) {
+#         return(cbind(fit, K))
+#       } else {
+#         return(NULL)
+#       }
+#     }
+#
+#     if (is.null(num.cores)) {
+#       num.cores <- detectCores()
+#     }
+#
+#     all.models <- mclapply(X = to.check, FUN = par.all.arima, max.order=max.order, mc.cores = num.cores)
+#
+#     # Removing null elements
+#     all.models <- all.models[!sapply(all.models, is.null)]
+#
+#     # Choosing best model
+#     best.ic <- Inf
+#     for (i in 1:length(all.models)) {
+#       if (!is.null(all.models[[i]][, 1]$ic) && all.models[[i]][, 1]$ic < best.ic) {
+#         bestfit <- all.models[[i]][, 1]
+#         best.ic <- bestfit$ic
+#         constant <- unlist(all.models[[i]][1, 2])
+#       }
+#     }
+#     class(bestfit) <- c("forecast_ARIMA", "ARIMA", "Arima")
+#   }
+#
+#   if (exists("bestfit")) {
+#     # Refit using ML if approximation used for IC
+#     if (approximation) {
+#       if (trace) {
+#         cat("\n\n Now re-fitting the best model(s) without approximations...\n")
+#       }
+#       # constant <- length(bestfit$coef) - ncol(xreg) > sum(bestfit$arma[1:4])
+#       newbestfit <- myarima(
+#         x, order = bestfit$arma[c(1, 6, 2)],
+#         seasonal = bestfit$arma[c(3, 7, 4)], constant = constant, ic,
+#         trace = FALSE, approximation = FALSE, xreg = xreg, ...
+#       )
+#       if (newbestfit$ic == Inf) {
+#         # Final model is lousy. Better try again without approximation
+#         # warning("Unable to fit final model using maximum likelihood. AIC value approximated")
+#         bestfit <- search.arima(
+#           x, d = d, D = D, max.p = max.p, max.q = max.q,
+#           max.P = max.P, max.Q = max.Q, max.order = max.order, stationary = stationary,
+#           ic = ic, trace = trace, approximation = FALSE, xreg = xreg, offset = offset,
+#           allowdrift = allowdrift, allowmean = allowmean,
+#           parallel = parallel, num.cores = num.cores, ...
+#         )
+#         bestfit$ic <- switch(ic, bic = bestfit$bic, aic = bestfit$aic, aicc = bestfit$aicc)
+#       }
+#       else {
+#         bestfit <- newbestfit
+#       }
+#     }
+#   }
+#   else {
+#     stop("No ARIMA model able to be estimated")
+#   }
+#
+#   bestfit$x <- x
+#   bestfit$series <- deparse(substitute(x))
+#   bestfit$ic <- NULL
+#   bestfit$call <- match.call()
+#
+#   if (trace) {
+#     cat("\n\n")
+#   }
+#
+#   return(bestfit)
+# }
 
 
 

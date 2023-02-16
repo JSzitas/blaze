@@ -102,13 +102,14 @@ public:
     if constexpr(seasonal) {
       // the expansion of arima parameters is only necessary for seasonal models
       arima_transform_parameters<EigVec, seasonal, false>(
-          this->new_x, this->kind,
+          this->new_x,
+          this->kind,
           this->temp_phi,
-          this->temp_theta);
+          this->temp_theta
+      );
     }
-    // call arima css function
     double res = arima_css_ssq(this->y_temp, this->new_x, this->kind,
-                               this->n_cond, this->residual);
+                          this->n_cond, this->residual);
     return 0.5 * log(res);
   }
   void finalize( structural_model<double> &model,
@@ -121,8 +122,9 @@ public:
     // do the same for model coefficients
     // finally, make state space model
     structural_model<double> arima_ss = make_arima( this->new_x,
-                                                    delta, this->kind,
-                                                    kappa, ss_init);
+                             delta, this->kind,
+                             kappa, ss_init);
+
     model.set(arima_ss);
     // modify y_temp to acount for xreg
     for (size_t i = 0; i < this->n; i++) {

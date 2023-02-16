@@ -15,6 +15,8 @@
 // include optimizer library
 #include "third_party/eigen.h"
 #include "third_party/optim.h"
+// profiler
+// #include "third_party/coz.h"
 
 using FunctionXd = cppoptlib::function::Function<double>;
 
@@ -43,13 +45,16 @@ public:
     }
     double operator()(const EigVec &x) {
       return this->Grad.loss(x);
+      // COZ_PROGRESS_NAMED("Function evaluation");
     }
     StateXd Eval(const Eigen::VectorXd &x,
                  const int order = 1) {
       StateXd state(x.size(), 1);
       state.x = x;
       state.gradient = this->Grad.Gradient(x);
+      // COZ_PROGRESS_NAMED("Gradient evaluation");
       state.value = this->Grad.loss(x);
+      // COZ_PROGRESS_NAMED("State evaluation");
       return state;
     }
     void finalize( structural_model<double> &model,
