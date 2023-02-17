@@ -10,10 +10,23 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
+// test_eigen_segment
+double test_eigen_segment(std::vector<double> x, std::vector<double> phi_vec);
+RcppExport SEXP _blazearima_test_eigen_segment(SEXP xSEXP, SEXP phi_vecSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::vector<double> >::type x(xSEXP);
+    Rcpp::traits::input_parameter< std::vector<double> >::type phi_vec(phi_vecSEXP);
+    rcpp_result_gen = Rcpp::wrap(test_eigen_segment(x, phi_vec));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 RcppExport SEXP _rcpp_module_boot_BlazeArima();
 
 static const R_CallMethodDef CallEntries[] = {
+    {"_blazearima_test_eigen_segment", (DL_FUNC) &_blazearima_test_eigen_segment, 2},
     {"_rcpp_module_boot_BlazeArima", (DL_FUNC) &_rcpp_module_boot_BlazeArima, 0},
     {NULL, NULL, 0}
 };
