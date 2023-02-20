@@ -35,19 +35,19 @@ public:
     ARIMA_CSS_PROBLEM(const std::vector<double> &y,
                       const arima_kind &kind,
                       const bool intercept,
-                      std::vector<std::vector<double>> &xreg,
-                      size_t n_cond) : kind(kind) {
+                      std::vector<std::vector<double>> &xreg) : kind(kind) {
+
       // initialize an xreg matrix
       size_t n = y.size();
       this->Grad = ArimaLossGradient<seasonal, has_xreg>(
         y, kind, intercept,
-        vec_to_mat(xreg, y.size(), intercept), n_cond, 1);
+        vec_to_mat(xreg, y.size(), intercept), 1);
     }
     double operator()(const EigVec &x) {
       return this->Grad.loss(x);
       // COZ_PROGRESS_NAMED("Function evaluation");
     }
-    StateXd Eval(const Eigen::VectorXd &x,
+    StateXd Eval(const EigVec &x,
                  const int order = 1) {
       StateXd state(x.size(), 1);
       state.x = x;
@@ -58,14 +58,13 @@ public:
       return state;
     }
     void finalize( structural_model<double> &model,
-                   const Eigen::VectorXd & final_pars,
-                   std::vector<double> & delta,
+                   const EigVec & final_pars,
                    double kappa,
                    SSinit ss_init) {
       // this function creates state space representation of the ARIMA model
       auto x_temp = this->Grad.get_expanded_coef(final_pars);
       structural_model<double> arima_ss = make_arima( x_temp,
-                                                      delta, this->kind,
+                                                      this->kind,
                                                       kappa, ss_init);
       model.set(arima_ss);
       auto y_temp = this->Grad.get_y_temp(final_pars);
@@ -79,8 +78,7 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
                       lm_coef<double> xreg_coef,
                       std::vector<std::vector<double>> xreg,
                       const arima_kind &kind, std::vector<double> &coef,
-                      std::vector<double> &delta, const int n_cond,
-                      const int n_available, const double kappa,
+                      const double kappa,
                       const SSinit ss_init, double &sigma2) {
 
   size_t vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
@@ -94,12 +92,12 @@ void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
   cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal>> solver;
   // and arima problem
   ARIMA_CSS_PROBLEM<has_xreg, seasonal> css_arima_problem(
-      y, kind, xreg_coef.has_intercept(), xreg, n_cond);
+      y, kind, xreg_coef.has_intercept(), xreg);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // update variance estimate for the arima model - this was passed by reference
   sigma2 = exp(2 * solution.value);
-  css_arima_problem.finalize( model, solution.x, delta, kappa, ss_init);
+  css_arima_problem.finalize( model, solution.x, kappa, ss_init);
   // pass fitted coefficients back to the caller
   for (size_t i = 0; i < vec_size; i++) {
     coef[i] = solution.x[i];

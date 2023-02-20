@@ -48,11 +48,11 @@ public:
       const arima_kind &kind,
       const bool has_intercept,
       EigMat xreg,
-      const size_t n_cond = 0,
       const size_t accuracy = 0) {
 
     this->y = y; this->n = y.size();
-    this->n_cond = n_cond;
+    this->n_cond = kind.d() + (kind.D() * kind.period()) +
+                   kind.p() + (kind.P() * kind.period());
     this->accuracy = accuracy;
     // basically just decompose arima_kind and compute some intermediary values
     this->p = kind.p() + (kind.period() * kind.P());

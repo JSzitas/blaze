@@ -244,7 +244,6 @@ std::vector<double> get_Q0(const std::vector<double> &phi_coef,
      vec(P0).  s is generated row by row in the array xnext.  The
      order of elements in P is changed, so as to bring more leading
      zeros into the rows of s. */
-
     for (i = 0; i < nrbar; i++) {
       rbar[i] = 0.0;
     }

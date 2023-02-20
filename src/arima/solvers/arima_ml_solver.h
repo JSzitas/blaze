@@ -42,7 +42,6 @@ public:
                    const arima_kind &kind,
                    const bool intercept,
                    const std::vector<std::vector<double>> &xreg,
-                   const std::vector<double> & delta,
                    const double kappa,
                    const SSinit ss_init = Gardner)
     : kind(kind), intercept(intercept), ss_init(ss_init), n(y.size()),
@@ -67,10 +66,10 @@ public:
       );
     }
     // // initialize state space model
-    this->model = make_arima( this->new_x, delta, this->kind, kappa, ss_init);
+    this->model = make_arima( this->new_x, this->kind, kappa, ss_init);
     this->sigma2 = 0;
   }
-  double operator()(const Eigen::VectorXd &x) {
+  double operator()(const EigVec &x) {
     for (size_t i = 0; i < x.size(); i++) this->new_x(i) = x(i);
     if constexpr (has_xreg) {
       // refresh y_temp and load it with original y data
@@ -110,8 +109,7 @@ void arima_solver_ml(std::vector<double> &y,
                      lm_coef<double> xreg_coef,
                      std::vector<std::vector<double>> xreg,
                      const arima_kind &kind,
-                     std::vector<double> &coef,
-                     std::vector<double> &delta, const double kappa,
+                     std::vector<double> &coef, const double kappa,
                      const SSinit ss_init, double &sigma2) {
 
   const auto vec_size = coef.size();
@@ -126,7 +124,7 @@ void arima_solver_ml(std::vector<double> &y,
     ARIMA_ML_PROBLEM<has_xreg, seasonal, transform>> solver;
   // and arima problem
   ARIMA_ML_PROBLEM<has_xreg, seasonal, transform> ml_arima_problem(
-      y, kind, xreg_coef.has_intercept(), xreg, delta, kappa, ss_init);
+      y, kind, xreg_coef.has_intercept(), xreg, kappa, ss_init);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(ml_arima_problem, x);
   // replace model V
