@@ -59,9 +59,6 @@ public:
   void fit() {
     // this should just proceed with fitting, not do things which can be done in
     // the constructor
-    // create deltas
-    std::vector<U> deltas =
-        make_delta(this->kind.d(), this->kind.period(), this->kind.D());
     // if we have any scalers, fit them and apply scaling
     if( this->scalers.size() > 0 ) {
       // first scaler used for target
@@ -111,7 +108,9 @@ public:
     this->reg_coef = reg_coef;
     // adjust CSS for missing cases
     size_t missing_cases = na_cases.size();
-    available_n -= (deltas.size() + missing_cases);
+    available_n -= ((this->kind.d() + 1) +
+                    (this->kind.period() * this->kind.D()) +
+                    missing_cases);
     // override method to ML if any cases are missing
     if (this->method == CSSML) {
       if (missing_cases > 0) {
@@ -122,11 +121,6 @@ public:
     // as it can have an impact on the result, it has to be jointly optimized
     // ncond is the number of parameters we are effectively estimating thanks to
     // seasonal parameters
-    size_t ncond = 0;
-    if (this->method == CSS || this->method == CSSML) {
-      ncond += this->kind.d() + (this->kind.D() * this->kind.period());
-      ncond += this->kind.p() + (this->kind.P() * this->kind.period());
-    }
     // allocate coef vector
     const size_t arma_coef_size = this->kind.p() + this->kind.q() + this->kind.P() + this->kind.Q();
     this->coef = std::vector<U>(arma_coef_size + reg_coef.size(), 0);
@@ -144,25 +138,25 @@ public:
         if (is_seasonal) {
           arima_solver_css<true, true>(this->y, this->model, this->reg_coef,
                                        this->xreg, this->kind, this->coef,
-                                       deltas, ncond, available_n, this->kappa,
-                                       this->ss_init, this->sigma2);
+                                       this->kappa, this->ss_init,
+                                       this->sigma2);
         } else {
           arima_solver_css<true, false>(this->y, this->model, this->reg_coef,
                                         this->xreg, this->kind, this->coef,
-                                        deltas, ncond, available_n, this->kappa,
-                                        this->ss_init, this->sigma2);
+                                        this->kappa, this->ss_init,
+                                        this->sigma2);
         }
       } else {
         if (is_seasonal) {
           arima_solver_css<false, true>(this->y, this->model, this->reg_coef,
                                         this->xreg, this->kind, this->coef,
-                                        deltas, ncond, available_n, this->kappa,
-                                        this->ss_init, this->sigma2);
+                                        this->kappa, this->ss_init,
+                                        this->sigma2);
         } else {
           arima_solver_css<false, false>(this->y, this->model, this->reg_coef,
                                          this->xreg, this->kind, this->coef,
-                                         deltas, ncond, available_n, this->kappa,
-                                         this->ss_init, this->sigma2);
+                                         this->kappa,this->ss_init,
+                                         this->sigma2);
         }
       }
     }
@@ -185,14 +179,14 @@ public:
             arima_solver_ml<true, true, true>(
                 this->y, this->model, this->reg_coef,
                 this->xreg, this->kind, this->coef,
-                deltas, this->kappa, this->ss_init,
+                this->kappa, this->ss_init,
                 this->sigma2);
           }
           else{
             arima_solver_ml<true, true, false>(
                 this->y, this->model, this->reg_coef,
                 this->xreg, this->kind, this->coef,
-                deltas, this->kappa, this->ss_init,
+                this->kappa, this->ss_init,
                 this->sigma2);
           }
         } else {
@@ -200,14 +194,14 @@ public:
             arima_solver_ml<true, false, true>(
                 this->y, this->model, this->reg_coef,
                 this->xreg, this->kind, this->coef,
-                deltas, this->kappa, this->ss_init,
+                this->kappa, this->ss_init,
                 this->sigma2);
           }
           else{
             arima_solver_ml<true, false, false>(
                 this->y, this->model, this->reg_coef,
                 this->xreg, this->kind, this->coef,
-                deltas, this->kappa, this->ss_init,
+                this->kappa, this->ss_init,
                 this->sigma2);
           }
         }
@@ -217,13 +211,13 @@ public:
             arima_solver_ml<false, true, true>(
                 this->y, this->model, this->reg_coef,
                 this->xreg, this->kind, this->coef,
-                deltas, this->kappa, this->ss_init,
+                this->kappa, this->ss_init,
                 this->sigma2);
           } else{
             arima_solver_ml<false, true, false>(
                 this->y, this->model, this->reg_coef,
                 this->xreg, this->kind, this->coef,
-                deltas, this->kappa, this->ss_init,
+                this->kappa, this->ss_init,
                 this->sigma2);
           }
         } else {
@@ -231,13 +225,13 @@ public:
             arima_solver_ml<false, false, true>(
                 this->y, this->model, this->reg_coef,
                 this->xreg, this->kind, this->coef,
-                deltas, this->kappa, this->ss_init,
+                this->kappa, this->ss_init,
                 this->sigma2);
           } else{
             arima_solver_ml<false, false, false>(
                 this->y, this->model, this->reg_coef,
                 this->xreg, this->kind, this->coef,
-                deltas, this->kappa, this->ss_init,
+                this->kappa, this->ss_init,
                 this->sigma2);
           }
         }
