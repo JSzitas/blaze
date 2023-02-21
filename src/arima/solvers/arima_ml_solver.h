@@ -104,38 +104,31 @@ public:
 };
 
 template <const bool has_xreg, const bool seasonal, const bool transform>
-void arima_solver_ml(std::vector<double> &y,
+double arima_solver_ml(std::vector<double> &y,
                      structural_model<double> &model,
-                     lm_coef<double> xreg_coef,
+                     const bool intercept,
                      std::vector<std::vector<double>> xreg,
                      const arima_kind &kind,
-                     std::vector<double> &coef, const double kappa,
-                     const SSinit ss_init, double &sigma2) {
-
-  const auto vec_size = coef.size();
-  const auto arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
-  Eigen::VectorXd x(vec_size);
-  for (size_t i = 0; i < vec_size; i++) x(i) = coef[i];
-  // initialize to all zeroes except for xreg
-  for (size_t i = arma_size;
-       i < vec_size; i++) x[i] = xreg_coef.coef[i - arma_size];
+                     std::vector<double> &coef,
+                     const double kappa,
+                     const SSinit ss_init) {
+  Eigen::VectorXd x(coef.size());
+  for (size_t i = 0; i < coef.size(); i++) x(i) = coef[i];
   // initialize solver
   cppoptlib::solver::Bfgs<
     ARIMA_ML_PROBLEM<has_xreg, seasonal, transform>> solver;
   // and arima problem
   ARIMA_ML_PROBLEM<has_xreg, seasonal, transform> ml_arima_problem(
-      y, kind, xreg_coef.has_intercept(), xreg, kappa, ss_init);
+      y, kind, intercept, xreg, kappa, ss_init);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(ml_arima_problem, x);
   // replace model V
   ml_arima_problem.finalize();
-  // update variance estimate for the arima model
-  sigma2 = ml_arima_problem.get_sigma();
-  // pass fitted coefficients back to the caller
-  for (size_t i = 0; i < vec_size; i++) coef[i] = solution.x[i];
   // write back structural model
   model = ml_arima_problem.get_structural_model();
-  for (size_t i = 0; i < vec_size; i++) coef[i] = solution.x[i];
+  for (size_t i = 0; i < coef.size(); i++) coef[i] = solution.x[i];
+  // return variance estimate for the arima model
+  return ml_arima_problem.get_sigma();
 }
 
 #endif

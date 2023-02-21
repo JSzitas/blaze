@@ -2,8 +2,10 @@
 #define ARIMA_CSS_GRAD
 
 #include "arima/structures/arima_kind.h"
+#include "arima/structures/structural_model.h"
+#include "arima/structures/fitting_method.h"
 
-#include "utils/utils.h"
+#include "arima/solvers/state_space.h"
 
 #include <cmath>
 #include <math.h>
@@ -208,29 +210,28 @@ public:
      }
      return grad;
   }
-  const EigVec get_y_temp(const EigVec & x) {
-    // modify y_temp to acount for xreg
-    for (size_t i = 0; i < this->n; i++) this->y_temp[i] = this->y[i];
-    if constexpr(has_xreg) {
-      this->y_temp -= this->xreg * x.tail(x.size() - this->arma_pars);
-    }
-    return this->y_temp;
-  }
-  const EigVec get_expanded_coef(const EigVec & x) {
+  void finalize( structural_model<double> &model,
+                 const EigVec & final_pars,
+                 double kappa,
+                 const SSinit ss_init) {
+    structural_model<double> arima_ss;
+    // this function creates state space representation of the ARIMA model
     if constexpr( seasonal ) {
-      this->expand_phi(x);
-      this->expand_theta(x);
-      EigVec res(this->phi.size() + this->theta.size());
-      for(size_t i = 0; i < phi.size(); i++) {
-        res[i] = this->phi[i];
-      }
-      for(size_t i = this->phi.size(); i < this->phi.size() + this->theta.size(); i++ ) {
-        res[i] = this->theta[i - this->phi.size()];
-      }
-      return res;
+      expand_phi(final_pars);
+      expand_theta(final_pars);
+      arima_ss = make_arima( this->phi,
+                             this->theta,
+                             this->kind,
+                             kappa, ss_init);
     }
-    // otherwise no expansion is necessary
-    return x;
+    else {
+      arima_ss = make_arima( final_pars,
+                             this->kind,
+                             kappa, ss_init);
+    }
+    model.set(arima_ss);
+    // get arima steady state values
+    arima_steady_state(y_temp, model);
   }
 private:
   // for this we need a vector that exists for after applying AR to the
@@ -272,10 +273,9 @@ private:
         }
       }
       this->resid(l) = tmp;
-      if (!isnan(tmp)) {
+      if(!isnan(tmp)) {
         ssq += tmp * tmp;
-      }
-      else {
+      } else{
         nu--;
       }
     }
@@ -308,12 +308,9 @@ private:
         }
       }
       this->resid(l) = tmp;
-      if (!isnan(tmp)) {
+      if(!isnan(tmp)) {
         ssq += tmp * tmp;
-      }
-      // potential optimization - if this branch is reached,
-      // (which should be rare) decrement the pre-allocated nu
-      else{
+      } else{
         nu--;
       }
     }
