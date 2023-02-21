@@ -4,16 +4,16 @@
 // defines the arima structure
 struct arima_kind {
   arima_kind(){};
-  arima_kind(size_t p, size_t d, size_t q, size_t P, size_t D, size_t Q, size_t s_period) {
-    this->arma_p = p;
-    this->diff_d = d;
-    this->arma_q = q;
-    this->sarma_P = P;
-    this->seas_diff_D = D;
-    this->sarma_Q = Q;
-    this->s_period = s_period;
-  }
-  arima_kind(std::vector<size_t> arima_def) {
+  arima_kind(const size_t p,
+             const size_t d,
+             const size_t q,
+             const size_t P,
+             const size_t D,
+             const size_t Q,
+             const size_t s_period) : arma_p(p),
+             diff_d(d), arma_q(q), sarma_P(P),
+             seas_diff_D(D), sarma_Q(Q), s_period(s_period) {}
+  arima_kind(const std::vector<size_t> arima_def) {
     this->arma_p = arima_def[0];
     this->diff_d = arima_def[1];
     this->arma_q = arima_def[2];
