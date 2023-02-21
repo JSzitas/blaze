@@ -28,10 +28,10 @@ public:
       {"ML", fitting_method::ML}
       };
 
-    this->model = Arima<double>(
+    this->model = Arima<double, StandardScaler<double>>(
       y, kind, xreg, intercept_transform[0],
       intercept_transform[1], ss_method_map[ss_init],
-      fitting_method_map[method], kappa);
+      fitting_method_map[method], kappa, true);
   }
   void fit(){
     this->model.fit();
