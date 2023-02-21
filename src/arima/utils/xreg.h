@@ -7,31 +7,9 @@
 template <typename scalar_t> using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
 template <typename scalar_t> using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
 
-template <typename U = double> struct lm_coef {
-  lm_coef<U>() {
-    this->coef = std::vector<U>(0);
-    this->intercept = false;
-  };
-  lm_coef<U>(int xreg_ncol, bool intercept) {
-    this->coef = std::vector<U>(xreg_ncol + intercept);
-    this->intercept = intercept;
-  };
-  // move coefficients when creating, copy intercept
-  lm_coef<U>(std::vector<U> coef, bool intercept)
-      : coef(std::move(coef)), intercept(intercept){};
-  const int size() const { return this->coef.size(); }
-  std::vector<U> data() const { return this->coef; }
-  const bool has_intercept() const { return this->intercept; };
-  U &operator[](int i) { return coef[i]; }
-  const U get_intercept() const { return coef.back(); }
-  // private:
-  std::vector<U> coef;
-  bool intercept = false;
-};
-
-// map 2 vectors to Eigen matrices and call solve
+// map 2 vectors to Eigen matrices and call solve //lm_coef<U>
 template <typename U = double>
-lm_coef<U> xreg_coef(std::vector<U> &y, std::vector<U> &xreg,
+std::vector<U> xreg_coef(std::vector<U> &y, std::vector<U> &xreg,
                      bool use_intercept = true) {
 
   const int n = y.size();
@@ -53,15 +31,15 @@ lm_coef<U> xreg_coef(std::vector<U> &y, std::vector<U> &xreg,
     result.push_back(intercept);
     std::reverse(result.begin(), result.end());
   }
-
-  lm_coef<U> final(result, use_intercept);
-  return final;
+  return result;
 }
 
 // map 2 vectors to Eigen matrices and call solve
 template <typename U = double>
-lm_coef<U> xreg_coef(std::vector<U> &y, std::vector<std::vector<U>> &xreg,
-                     bool use_intercept = true) {
+std::vector<U> xreg_coef(
+    std::vector<U> &y,
+    std::vector<std::vector<U>> &xreg,
+    bool use_intercept = true) {
 
   const int n = y.size();
   const int ncol = xreg.size();
@@ -84,23 +62,22 @@ lm_coef<U> xreg_coef(std::vector<U> &y, std::vector<std::vector<U>> &xreg,
     result.push_back(intercept);
     std::reverse(result.begin(), result.end());
   }
-
-  lm_coef<U> final(result, use_intercept);
-  return final;
+  return result;
 }
 
 template<typename U=double> std::vector<U> predict(
-  const int n,
-  lm_coef<U> coef,
+  const size_t n,
+  std::vector<U> coef,
+  const bool has_intercept,
   std::vector<std::vector<U>> xreg ) {
 
   std::vector<U> _xreg = flatten_vec(xreg);
   EigMat<U> new_mat = Eigen::Map<EigMat<U>>(_xreg.data(), n, xreg.size());
-  if (coef.has_intercept()) {
+  if (has_intercept) {
     new_mat.conservativeResize(Eigen::NoChange, new_mat.cols() + 1);
     new_mat.col(new_mat.cols() - 1) = EigVec<U>::Constant(n, 1, 1);
   }
-  EigVec<U> _coef = Eigen::Map<EigVec<U>>( coef.data().data(), coef.size(), 1);
+  EigVec<U> _coef = Eigen::Map<EigVec<U>>( coef.data(), coef.size(), 1);
   EigVec<U> res = new_mat * _coef;
   std::vector<U> result(res.size());
   for(int i=0; i< result.size(); i++) {
@@ -123,6 +100,5 @@ template < typename U = double> EigMat<U> vec_to_mat(
   }
   return new_mat;
 }
-
 
 #endif
