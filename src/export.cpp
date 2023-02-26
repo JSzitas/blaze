@@ -13,7 +13,7 @@ public:
               std::vector<std::vector<double>> xreg = {{}},
               std::string ss_init = std::string("Gardner"),
               std::string method = std::string("CSS"),
-              std::vector<bool> intercept_transform = {true, true},
+              std::vector<bool> intercept_drift_transform = {true, false, true},
               double kappa = 1000000) {
 
     arima_kind kind = arima_kind(orders_period);
@@ -29,9 +29,9 @@ public:
       };
 
     this->model = Arima<double, StandardScaler<double>>(
-      y, kind, xreg, intercept_transform[0],
-      intercept_transform[1], ss_method_map[ss_init],
-      fitting_method_map[method], kappa, true);
+      y, kind, xreg, intercept_drift_transform[0],
+      intercept_drift_transform[1], intercept_drift_transform[2],
+      ss_method_map[ss_init], fitting_method_map[method], kappa, true);
   }
   void fit(){
     this->model.fit();

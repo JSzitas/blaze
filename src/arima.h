@@ -6,7 +6,7 @@
 #include "arima/structures/fitting_method.h"
 #include "arima/structures/structural_model.h"
 
-#include "arima/utils/xreg.h"
+#include "utils/xreg.h"
 
 // #include "arima/solvers/arima_css_solver.h"
 #include "arima/solvers/arima_css_optim_grad.h"
@@ -22,7 +22,7 @@ private:
   structural_model<U> model;
   arima_kind kind;
   std::vector<std::vector<U>> xreg;
-  bool intercept, transform_parameters;
+  bool intercept, drift, transform_parameters;
   SSinit ss_init;
   fitting_method method;
   U kappa;
@@ -37,11 +37,13 @@ public:
   Arima<U, Scaler>(){};
   Arima<U, Scaler>(
       const std::vector<U> &y, const arima_kind kind,
-      const std::vector<std::vector<U>> xreg = {{}}, const bool intercept = true,
+      const std::vector<std::vector<U>> xreg = {{}},
+      const bool intercept = true, const bool drift = true,
       const bool transform_parameters = true, const SSinit ss_init = Gardner,
       const fitting_method method = ML, const U kappa = 1000000,
       const bool standardize = true) : y(y), kind(kind), xreg(xreg),
       intercept(((kind.d() + kind.D()) == 0) && intercept),
+      drift(((kind.d() + kind.D()) == 1) && drift),
       transform_parameters(transform_parameters),
       ss_init(ss_init), method(method), kappa(kappa) {
     this->scalers = std::vector<Scaler>( standardize * (1 + xreg.size()) );
@@ -69,7 +71,7 @@ public:
     // find na across y
     std::vector<size_t> na_cases = find_na(this->y);
     // initialize xreg
-    std::vector<U> reg_coef( this->xreg.size(), this->intercept );
+    std::vector<U> reg_coef( this->xreg.size() + this->intercept + this->drift );
     // we have to include xreg in full parameter vector when optimizing -
     // as it can have an impact on the result, it has to be jointly optimized
     // ncond is the number of parameters we are effectively estimating thanks to
@@ -93,7 +95,12 @@ public:
         xreg_d = diff(this->xreg, this->kind.period(), this->kind.D());
       }
       // fit coefficients to initialize fitting
-      reg_coef = xreg_coef(this->y, this->xreg, this->intercept);
+      if( kind.d() || kind.D() ) {
+        reg_coef = xreg_coef(y_d, xreg_d, this->intercept, this->drift);
+      }
+      else {
+        reg_coef = xreg_coef(this->y, this->xreg, this->intercept, this->drift);
+      }
       // find na cases across xreg
       for (size_t i = 0; i < this->xreg.size(); i++) {
         na_cases = intersect(na_cases, find_na(this->xreg[i]));
@@ -129,24 +136,28 @@ public:
         if (is_seasonal) {
           this->sigma2 = arima_solver_css<true, true>(
             this->y, this->kind, this->model,
-            this->xreg, this->intercept, this->coef,
+            this->xreg, this->intercept,
+            this->drift, this->coef,
             this->kappa, this->ss_init);
         } else {
           arima_solver_css<true, false>(
               this->y, this->kind, this->model,
-              this->xreg, this->intercept, this->coef,
+              this->xreg, this->intercept,
+              this->drift, this->coef,
               this->kappa, this->ss_init);
         }
       } else {
         if (is_seasonal) {
           arima_solver_css<false, true>(
               this->y, this->kind, this->model,
-              this->xreg, this->intercept, this->coef,
+              this->xreg, this->intercept,
+              this->drift, this->coef,
               this->kappa, this->ss_init);
         } else {
           arima_solver_css<false, false>(
               this->y, this->kind, this->model,
-              this->xreg, this->intercept, this->coef,
+              this->xreg, this->intercept,
+              this->drift, this->coef,
               this->kappa, this->ss_init);
         }
       }
@@ -168,26 +179,26 @@ public:
         if (is_seasonal) {
           if(this->transform_parameters) {
             this->sigma2 = arima_solver_ml<true, true, true>(
-              this->y, this->model, this->intercept,
+              this->y, this->model, this->intercept, this->drift,
               this->xreg, this->kind, this->coef,
               this->kappa, this->ss_init);
           }
           else{
             this->sigma2 = arima_solver_ml<true, true, false>(
-                this->y, this->model, this->intercept,
+                this->y, this->model, this->intercept, this->drift,
                 this->xreg, this->kind, this->coef,
                 this->kappa, this->ss_init);
           }
         } else {
           if(this->transform_parameters) {
             this->sigma2 = arima_solver_ml<true, false, true>(
-                this->y, this->model, this->intercept,
+                this->y, this->model, this->intercept, this->drift,
                 this->xreg, this->kind, this->coef,
                 this->kappa, this->ss_init);
           }
           else{
             this->sigma2 = arima_solver_ml<true, false, false>(
-                this->y, this->model, this->intercept,
+                this->y, this->model, this->intercept, this->drift,
                 this->xreg, this->kind, this->coef,
                 this->kappa, this->ss_init);
           }
@@ -196,24 +207,24 @@ public:
         if (is_seasonal) {
           if(this->transform_parameters) {
             this->sigma2 = arima_solver_ml<false, true, true>(
-                this->y, this->model, this->intercept,
+                this->y, this->model, this->intercept, this->drift,
                 this->xreg, this->kind, this->coef,
                 this->kappa, this->ss_init);
           } else{
             this->sigma2 = arima_solver_ml<false, true, false>(
-                this->y, this->model, this->intercept,
+                this->y, this->model, this->intercept, this->drift,
                 this->xreg, this->kind, this->coef,
                 this->kappa, this->ss_init);
           }
         } else {
           if(this->transform_parameters) {
             this->sigma2 = arima_solver_ml<false, false, true>(
-                this->y, this->model, this->intercept,
+                this->y, this->model, this->intercept, this->drift,
                 this->xreg, this->kind, this->coef,
                 this->kappa, this->ss_init);
           } else{
             this->sigma2 = arima_solver_ml<false, false, false>(
-                this->y, this->model, this->intercept,
+                this->y, this->model, this->intercept, this->drift,
                 this->xreg, this->kind, this->coef,
                 this->kappa, this->ss_init);
           }
@@ -237,7 +248,8 @@ public:
       constexpr double one_p_log_twopi = 1.0 + 1.837877;
       this->aic = available_n * (log(sigma_2) + one_p_log_twopi);
     }
-    // invert scaling
+    // invert scaling - this is probably redundant, we do not care for estimated
+    // coefficients too much (as the main goal of the package is forecasting)
     if( this->scalers.size() > 0 ) {
       // first scaler used for target
       this->scalers[0].rescale(this->y);
@@ -271,7 +283,8 @@ public:
           i++;
         }
       }
-      auto xreg_adjusted = predict(h, this->reg_coef, this->intercept, newxreg);
+      auto xreg_adjusted = predict(h, this->reg_coef, this->intercept,
+                                   this->drift, newxreg);
       for (size_t i = 0; i < h; i++) {
         res.forecast[i] += xreg_adjusted[i];
       }
