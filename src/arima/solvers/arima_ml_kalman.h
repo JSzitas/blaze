@@ -3,17 +3,16 @@
 
 #include "arima/structures/structural_model.h"
 #include "arima/structures/arima_kind.h"
+#include "arima/structures/ss_init.h"
 
 #include "arima/utils/transforms.h"
 #include "arima/utils/xreg.h"
+#include "arima/utils/delta.h"
 
 #include "third_party/eigen.h"
 #include "utils/utils.h"
 
 // main class for doing Kalman filtering of an ARIMA model
-
-enum SSinit { Gardner = 1, Rossignol = 2 };
-
 
 template <const SSinit ss_type, const bool seasonal,
           const bool has_xreg, const bool transform,
@@ -22,10 +21,11 @@ template <const SSinit ss_type, const bool seasonal,
 using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
 using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
 
-const size_t n, arma_pars, p, q, r, rd, d, r2;
+const std::vector<scalar_t> y;
+const size_t n, arma_pars, p, q, r, d, rd, r2;
 const arima_kind kind;
 const bool intercept;
-const std::vector<scalar_t> y;
+scalar_t kappa;
 
 std::vector<scalar_t> anew, M, mm, gam, g, rrz;
 EigVec u;
@@ -43,17 +43,15 @@ public:
                        const arima_kind &kind,
                        const bool intercept,
                        const std::vector<std::vector<scalar_t>> &xreg,
-                       const std::vector<scalar_t> & delta,
-                       const scalar_t kappa ) : n(y.size(),
+                       const scalar_t kappa ) : y(y), n(y.size()),
                        arma_pars(kind.p() + kind.P() + kind.q() + kind.Q()),
                        p(kind.p() + (kind.P() * kind.period())),
                        q(kind.q() + (kind.Q() * kind.period())),
                        r(max(p,q+1)),
-                       rd(model.a.size()),
-                       d(model.delta.size()),
+                       d((kind.d()+1) +(kind.period() * kind.D())),
+                       rd(r+d),
                        r2(max(p + q, p + 1)),
-                       kind(kind), intercept(intercept),
-                       y(y) {
+                       kind(kind), intercept(intercept), kappa(kappa) {
 
     this->anew = std::vector<scalar_t>(rd);
     this->M = std::vector<scalar_t>(rd);
@@ -77,7 +75,7 @@ public:
       this->thetab = std::vector<scalar_t>(this->np);
     }
 
-    this->xreg = vec_to_mat<scalar_t>(xreg, y.size(), intercept);
+    this->xreg = vec_to_mat<scalar_t>(xreg, this->n, this->intercept);
     this->y_temp = EigVec(n);
     for (size_t i = 0; i < n; i++) this->y_temp(i) = y[i];
     // pre-allocate new_x
@@ -96,7 +94,7 @@ public:
       );
     }
     // // initialize state space model
-    this->model = make_arima( this->new_x, delta, this->kind, kappa, ss_init);
+    this->make_arima( this->new_x, this->kind, kappa);
     this->sigma2 = 0;
   };
   scalar_t operator()(const EigVec &x) {
@@ -117,10 +115,10 @@ public:
       );
     }
     // update arima
-    this->update_arima<EigVec, update_P>(this->new_x, this->kind, this->ss_init);
+    this->update_arima(this->new_x);
     // return likelihood - check if this updated model or not (it ideally
     // should not, not here)
-    const std::array<scalar_t,2> res = arima_likelihood(this->y_temp, this->model);
+    const std::array<scalar_t,2> res = this->arima_likelihood(this->y_temp, this->model);
     this->sigma2 = res[0];
     return res[1];
   }
@@ -128,43 +126,31 @@ public:
   structural_model<double> get_structural_model() const { return this->model; }
 private:
   // rewrite
-  template <typename C, typename U = double>
-  structural_model<U> make_arima( const C &coef,
-                                  const arima_kind &kind,
-                                  const U kappa = 1000000,
-                                  const SSinit state_init = Gardner,
-                                  const U tol = 1e-9) {
-    const size_t p = kind.p() + (kind.P() * kind.period());
-    const size_t q = kind.q() + (kind.Q() * kind.period());
-    const size_t r = max(p, q + 1), d = delta.size(), rd = r + d;
+  template <typename C>
+  void make_arima( const C &coef,
+                   const scalar_t tol = 1e-9) {
+    // create empty model
+    this->model = structural_model<scalar_t>();
+    this->model.delta = make_delta(this->kind.d(), kind.D(), kind.period());
 
-    const std::vector<U> &delta;
-
-
-    std::vector<U> phi(p);
-    std::vector<U> theta(q + max(r - 1 - q, 0));
+    this->model.phi(this->p);
+    this->model.theta(this->q + max(this->r - 1 - this->q, 0));
     // copz out elements of coef into phi and theta
-    for( size_t i = 0; i < p; i++) {
-      phi[i] = coef[i];
-    }
-    for( size_t i = p; i < p + q; i++) {
-      theta[i-p] = coef[i];
-    }
+    for( size_t i = 0; i < p; i++) this->model.phi[i] = coef[i];
+    for( size_t i = p; i < p + q; i++) this->model.theta[i-p] = coef[i];
     size_t i, j;
-    std::vector<U> Z(rd);
-    Z[0] = 1;
-    for (i = 1; i < r - 1; i++) {
-      Z[i] = 0;
-    }
+    this->model.Z(rd);
+    this->model.Z[0] = 1;
+    for (i = 1; i < r - 1; i++) this->model.Z[i] = 0;
     j = 0;
     for (i = r; i < rd; i++) {
-      Z[i] = delta[j];
+      this->model.Z[i] = this->model.delta[j];
       j++;
     }
-    std::vector<U> T(rd * rd);
+    this->model.T(rd * rd);
     if (p > 0) {
       for (i = 0; i < p; i++) {
-        T[i] = phi[i];
+        this->model.T[i] = this->model.phi[i];
       }
     }
     if (r > 1L) {
@@ -180,14 +166,14 @@ private:
        *   x x x x x   =>   x x x x x  //  => x x x x x
        */
       for (i = 0; i < r - 1; i++) {
-        T[(rd * (i + 1)) + i] = 1;
+        this->model.T[(rd * (i + 1)) + i] = 1;
       }
     }
     if (d > 0) {
       // replace row r+1 in R (or row r for us)
       // with whatever is in Z
       for (j = 0; j < rd; j++) {
-        T[(j * rd) + r] = Z[j];
+        this->model.T[(j * rd) + r] = this->model.Z[j];
       }
       // if there are more than 1 differences d
       if (d > 1) {
@@ -202,58 +188,44 @@ private:
          * =>   x x 1 x x x x x x x   =>   x x x 1 x
          */
         for (i = r; i < rd - 1; i++) {
-          T[((rd + 1) * i) + 1] = 1;
+          this->model.T[((rd + 1) * i) + 1] = 1;
         }
       }
     }
     // this is R <- c(1, theta, rep.int(0, d))
     // we can skip the d part as vectors are 0 initialized.
-    std::vector<U> R(1 + theta.size() + d);
-    R[0] = 1;
-    for (i = 1; i < theta.size() + 1; i++) {
-      R[i] = theta[i - 1];
+    this->model.R(1 + this->model.theta.size() + d);
+    this->model.R[0] = 1;
+    for (i = 1; i < this->model.theta.size() + 1; i++) {
+      this->model.R[i] = this->model.theta[i - 1];
     }
-    std::vector<U> V(R.size() * R.size());
+
+    const auto r_sz = this->model.R.size();
+    this->model.V(r_sz * r_sz);
     // here we do an outer product, ie: V <- R %o% R
     size_t mat_p = 0;
-    for (i = 0; i < R.size(); i++) {
-      for (j = 0; j < R.size(); j++) {
-        V[mat_p] = R[i] * R[j];
+    for (i = 0; i < r_sz; i++) {
+      for (j = 0; j < r_sz; j++) {
+        this->model.V[mat_p] = this->model.R[i] * this->model.R[j];
         mat_p++;
       }
     }
-    U h = 0;
-    std::vector<U> a(rd);
-    std::vector<U> P(rd * rd);
-    std::vector<U> Pn(rd * rd);
+    this->model.h = 0.0;
+    this->model.a = std::vector<scalar_t>(rd);
+    this->model.P = std::vector<scalar_t>(rd * rd);
+    this->model.Pn = std::vector<scalar_t>(rd * rd);
     if (r > 1) {
       // for storing initialization results
-      std::vector<U> temp(r * r);
-      switch (state_init) {
-      case Gardner:
-        temp = std::move(get_Q0(phi, theta));
-        break;
-      case Rossignol:
-        temp = std::move(get_Q0_rossignol(phi, theta));
-        break;
-      };
-      /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
-       * matrix, and r == 3, then we update the highlighted parts: (input)
-       * (updated) x x x x x   =>    y y y|x x x x x x x   =>    y y y|x x x x x x
-       * x   =>    y y y|x x
-       *                     _____
-       *   x x x x x   =>    x x x x x
-       *   x x x x x   =>    x x x x x
-       */
-      mat_p = 0;
-      for (j = 0; j < r; j++) {
-        for (i = 0; i < r; i++) {
-          Pn[(j * rd) + i] = std::move(temp[mat_p]);
-          mat_p++;
+      if constexpr(update_P) {
+        if constexpr(ss_type == SSinit::Rossignol) {
+          get_Q0_rossignol();
+        }
+        if constexpr(ss_type == SSinit::Gardner) {
+          get_Q0();
         }
       }
     } else {
-      Pn[0] = (p > 0) * (1 / (1 - pow(phi[0], 2))) + (p == 0);
+      this->model.Pn[0] = (p > 0) * (1 / (1 - pow(this->model.phi[0], 2))) + (p == 0);
     }
     if (d > 0L) {
       /* update diagonal elements which come after the coefficients -
@@ -263,12 +235,10 @@ private:
         for (j = r; j < rd; j++) {
           // to only update diagonal elements check that we are on the diagonal
           // otherwise we have a zero - as intended
-          Pn[(j * rd) + i] = (i == j) * kappa;
+          this->model.Pn[(j * rd) + i] = (i == j) * this->kappa;
         }
       }
     }
-    structural_model<U> res(phi, theta, delta, Z, a, P, T, V, h, Pn);
-    return res;
   }
 
   // map 2 vectors to Eigen matrices and call solve
@@ -534,15 +504,12 @@ private:
       }
     }
   }
-  template <class T, const bool update_>
-  void update_arima(T &coef,
-                    const arima_kind kind,
-                    SSinit state_init = Gardner) {
+  template <class T>
+  void update_arima(T &coef) {
     // copy out elements of coef into phi and theta
     for( size_t i = 0; i < p; i++) this->model.phi[i] = coef[i];
     for( size_t i = p; i < p + q; i++) this->model.theta[i-p] = coef[i];
     for (size_t i = 0; i < p; i++) this->model.T[i] = coef[i];
-    // is this r> 1 check necessary?
     if constexpr(update_P) {
       if constexpr(ss_type == SSinit::Rossignol) {
         get_Q0_rossignol();

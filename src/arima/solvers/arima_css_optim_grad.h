@@ -8,7 +8,7 @@
 #include "arima/solvers/arima_gradient.h"
 
 #include "arima/solvers/state_space.h"
-#include "arima/utils/xreg.h"
+#include "utils/xreg.h"
 
 // include optimizer library
 #include "third_party/eigen.h"
@@ -31,10 +31,11 @@ public:
     ARIMA_CSS_PROBLEM(const std::vector<double> &y,
                       const arima_kind &kind,
                       const bool intercept,
+                      const bool drift,
                       std::vector<std::vector<double>> &xreg) {
       this->Grad = ArimaLossGradient<seasonal, has_xreg>(
         y, kind, intercept,
-        vec_to_mat(xreg, y.size(), intercept), 1);
+        vec_to_mat(xreg, y.size(), intercept, drift), 1);
     }
     double operator()(const EigVec &x) {
       return this->Grad.loss(x);
@@ -61,6 +62,7 @@ double arima_solver_css(std::vector<double> &y,
                       structural_model<double> &model,
                       std::vector<std::vector<double>> xreg,
                       const bool intercept,
+                      const bool drift,
                       std::vector<double> &coef,
                       const double kappa,
                       const SSinit ss_init) {
@@ -71,7 +73,7 @@ double arima_solver_css(std::vector<double> &y,
   cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal>> solver;
   // and arima problem
   ARIMA_CSS_PROBLEM<has_xreg, seasonal> css_arima_problem(
-      y, kind, intercept, xreg);
+      y, kind, intercept, drift, xreg);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // create state space representation for model

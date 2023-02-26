@@ -3,8 +3,7 @@
 
 #include "third_party/eigen.h"
 #include "utils/utils.h"
-
-enum SSinit { Gardner = 1, Rossignol = 2 };
+#include "arima/structures/ss_init.h"
 
 // map 2 vectors to Eigen matrices and call solve
 template <typename U = double>

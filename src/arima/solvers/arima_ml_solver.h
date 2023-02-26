@@ -11,7 +11,7 @@
 #include "arima/solvers/state_space.h"
 
 #include "arima/utils/transforms.h"
-#include "arima/utils/xreg.h"
+#include "utils/xreg.h"
 
 // include optimizer library
 #include "third_party/eigen.h"
@@ -35,18 +35,23 @@ private:
   std::vector<double> residual, temp_phi, temp_theta;
   structural_model<double> model;
   double sigma2;
+  // add gradient approximation parameters
+
+  // add gradient expansion functionality
+
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
   ARIMA_ML_PROBLEM(const std::vector<double> &y,
                    const arima_kind &kind,
                    const bool intercept,
+                   const bool drift,
                    const std::vector<std::vector<double>> &xreg,
                    const double kappa,
                    const SSinit ss_init = Gardner)
     : kind(kind), intercept(intercept), ss_init(ss_init), n(y.size()),
       arma_pars(kind.p() + kind.P() + kind.q() + kind.Q()), y(y) {
-    this->xreg = vec_to_mat<double>(xreg, y.size(), intercept);
+    this->xreg = vec_to_mat<double>(xreg, y.size(), intercept, drift);
     this->y_temp = EigVec(n);
     for (size_t i = 0; i < n; i++) this->y_temp(i) = y[i];
     // pre-allocate new_x
@@ -107,6 +112,7 @@ template <const bool has_xreg, const bool seasonal, const bool transform>
 double arima_solver_ml(std::vector<double> &y,
                      structural_model<double> &model,
                      const bool intercept,
+                     const bool drift,
                      std::vector<std::vector<double>> xreg,
                      const arima_kind &kind,
                      std::vector<double> &coef,
@@ -119,7 +125,7 @@ double arima_solver_ml(std::vector<double> &y,
     ARIMA_ML_PROBLEM<has_xreg, seasonal, transform>> solver;
   // and arima problem
   ARIMA_ML_PROBLEM<has_xreg, seasonal, transform> ml_arima_problem(
-      y, kind, intercept, xreg, kappa, ss_init);
+      y, kind, intercept, drift, xreg, kappa, ss_init);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(ml_arima_problem, x);
   // replace model V

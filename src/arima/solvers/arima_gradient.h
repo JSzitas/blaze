@@ -26,12 +26,14 @@ template <const bool seasonal, const bool has_xreg, typename scalar_t = double> 
   using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
 
   std::vector<scalar_t> y;
+  arima_kind kind;
   size_t n, n_cond, accuracy,
   // arima kind size definitions
   p, q, d, D, ns, mp, mq, msp, msq, arma_pars;
   bool has_intercept;
   EigMat xreg;
-  EigVec phi, theta, resid, y_temp;
+  std::vector<scalar_t> phi, theta;
+  EigVec resid, y_temp;
   // finite difference approximation parameters
   size_t inner_steps;
   scalar_t dd_val;
@@ -50,29 +52,19 @@ public:
       const arima_kind &kind,
       const bool has_intercept,
       EigMat xreg,
-      const size_t accuracy = 0) {
-
-    this->y = y; this->n = y.size();
-    this->n_cond = kind.d() + (kind.D() * kind.period()) +
-                   kind.p() + (kind.P() * kind.period());
-    this->accuracy = accuracy;
-    // basically just decompose arima_kind and compute some intermediary values
-    this->p = kind.p() + (kind.period() * kind.P());
-    this->q = kind.q() + (kind.period() * kind.Q());
-    this->d = kind.d(); this->D = kind.D(); this->ns = kind.period();
-    this->mp = kind.p(); this->mq = kind.q(); this->msp = kind.P();
-    this->msq = kind.Q();
-    // the size of the coefficient vector that will be passed to us
-    // if you ignore xreg
-    this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
-    this->has_intercept = has_intercept;
-    // the xreg fixed matrix
-    this->xreg = xreg;
-    // helper vectors for holding and updating parts of the model
+      const size_t accuracy = 0) : y(y), kind(kind), n(y.size()),
+      n_cond(kind.d() + (kind.D() * kind.period()) +
+             kind.p() + (kind.P() * kind.period())),
+      accuracy(accuracy), p(kind.p() + (kind.period() * kind.P())),
+      q(kind.q() + (kind.period() * kind.Q())), d(kind.d()),
+      D(kind.D()), ns(kind.period()), mp(kind.p()),
+      mq(kind.q()), msp(kind.P()), msq(kind.Q()),
+      arma_pars(kind.p() + kind.P() + kind.q() + kind.Q()),
+      has_intercept(has_intercept), xreg(xreg) {
     // only used for seasonal models
     if constexpr(seasonal) {
-      this->phi = EigVec(this->p);
-      this->theta = EigVec(this->q);
+      this->phi = std::vector<scalar_t>(this->p);
+      this->theta = std::vector<scalar_t>(this->q);
     }
     // residuals from running the ar part of the model
     this->resid = EigVec(this->n).setZero();
@@ -210,24 +202,19 @@ public:
      }
      return grad;
   }
-  void finalize( structural_model<double> &model,
+  void finalize( structural_model<scalar_t> &model,
                  const EigVec & final_pars,
-                 double kappa,
+                 const scalar_t kappa,
                  const SSinit ss_init) {
-    structural_model<double> arima_ss;
+    structural_model<scalar_t> arima_ss;
     // this function creates state space representation of the ARIMA model
     if constexpr( seasonal ) {
       expand_phi(final_pars);
       expand_theta(final_pars);
-      arima_ss = make_arima( this->phi,
-                             this->theta,
-                             this->kind,
-                             kappa, ss_init);
+      arima_ss = make_arima<scalar_t>(this->phi, this->theta, this->kind, kappa, ss_init);
     }
     else {
-      arima_ss = make_arima( final_pars,
-                             this->kind,
-                             kappa, ss_init);
+      arima_ss = make_arima<EigVec, scalar_t>(final_pars, this->kind, kappa, ss_init);
     }
     model.set(arima_ss);
     // get arima steady state values
@@ -246,7 +233,7 @@ private:
       for (size_t j = 0; j < this->p; j++) {
         // for seasonal models we had to expand
         if constexpr( seasonal ) {
-          tmp -= this->phi(j) * y_temp(l - j - 1);
+          tmp -= this->phi[j] * y_temp(l - j - 1);
         }
         // for non-seasonal models we can just use unexpanded coefficients
         if constexpr( !seasonal ) {
@@ -266,7 +253,7 @@ private:
       for (size_t j = 0; j < ma_offset; j++) {
         // see above for why this works
         if constexpr(seasonal) {
-          tmp -= this->theta(j) * this->resid(l - j - 1);
+          tmp -= this->theta[j] * this->resid(l - j - 1);
         }
         if constexpr(!seasonal) {
           tmp -= x(this->p + j) * this->resid(l - j - 1);
@@ -291,7 +278,7 @@ private:
       for (size_t j = 0; j < this->p; j++) {
         // for seasonal models we had to expand
         if constexpr( seasonal ) {
-          tmp -= this->phi(j) * y_temp(l - j - 1);
+          tmp -= this->phi[j] * y_temp(l - j - 1);
         }
         // for non-seasonal models we can just use unexpanded coefficients
         if constexpr( !seasonal ) {
@@ -301,7 +288,7 @@ private:
       for (size_t j = 0; j < ma_offset; j++) {
         // see above for why this works
         if constexpr(seasonal) {
-          tmp -= this->theta(j) * this->resid(l - j - 1);
+          tmp -= this->theta[j] * this->resid(l - j - 1);
         }
         if constexpr(!seasonal) {
           tmp -= x(this->p + j) * this->resid(l - j - 1);
@@ -332,12 +319,12 @@ private:
     // non-seasonal models are no-ops
     if constexpr(seasonal) {
       const size_t phi_offset = this->mp + this->mq;
-      for (size_t i = 0; i < this->mp; i++) this->phi(i) = coef(i);
-      for (size_t i = this->mp; i < this->p; i++) this->phi(i) = 0.0;
+      for (size_t i = 0; i < this->mp; i++) this->phi[i] = coef(i);
+      for (size_t i = this->mp; i < this->p; i++) this->phi[i] = 0.0;
       for (size_t j = 0; j < this->msp; j++) {
-        this->phi((j + 1) * this->ns - 1) += coef(phi_offset + j);
+        this->phi[(j + 1) * this->ns - 1] += coef(phi_offset + j);
         for (size_t i = 0; i < this->mp; i++) {
-          this->phi((j + 1) * this->ns + i) -= coef(i) * coef(phi_offset + j);
+          this->phi[(j + 1) * this->ns + i] -= coef(i) * coef(phi_offset + j);
         }
       }
     }
@@ -345,12 +332,12 @@ private:
   void expand_theta(const EigVec & coef) {
     if constexpr(seasonal) {
       const size_t theta_offset = this->mp + this->mq + this->msp;
-      for (size_t i = 0; i < this->mq; i++) this->theta(i) = coef(i + this->mp);
-      for (size_t i = this->mq; i < this->q; i++) theta(i) = 0.0;
+      for (size_t i = 0; i < this->mq; i++) this->theta[i] = coef(i + this->mp);
+      for (size_t i = this->mq; i < this->q; i++) theta[i] = 0.0;
       for (size_t j = 0; j < this->msq; j++) {
-        this->theta((j + 1) * ns - 1) += coef(theta_offset + j);
+        this->theta[(j + 1) * ns - 1] += coef(theta_offset + j);
         for (size_t i = 0; i < this->mq; i++) {
-          this->theta((j + 1) * this->ns + i) += coef(i + this->mp) * coef(theta_offset + j);
+          this->theta[(j + 1) * this->ns + i] += coef(i + this->mp) * coef(theta_offset + j);
         }
       }
     }
