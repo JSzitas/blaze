@@ -1,5 +1,5 @@
-#ifndef ARIMA_TRANSFORM
-#define ARIMA_TRANSFORM
+#ifndef GENERAL_UTILS
+#define GENERAL_UTILS
 
 // included mainly for isnan()
 #include <math.h>
@@ -40,15 +40,15 @@ template <class T, class F> T map(T &x, F &fun) {
   return result;
 }
 
-// template <class T> void print_vector(T &a) {
-//   if( a.size() < 1 ) {
-//     return;
-//   }
-//   for (size_t i = 0; i < a.size(); i++) {
-//     std::cout << a[i] << ", ";
-//   }
-//   std::cout << " " << std::endl;
-// }
+template <class T> void print_vector(T &a) {
+  if( a.size() < 1 ) {
+    return;
+  }
+  for (size_t i = 0; i < a.size(); i++) {
+    std::cout << a[i] << ", ";
+  }
+  std::cout << " " << std::endl;
+}
 
 template <typename T> T max(T &a, T &b) { return a < b ? b : a; }
 template <typename T> T max(T a, T b) { return a < b ? b : a; }
@@ -176,13 +176,12 @@ template <typename U=double> struct StandardScaler{
     size_t i = 0;
     for(; i < x.size(); i++) {
       mean_val += x[i];
-      i++;
     }
     mean_val /= (U)i;
     i = 0;
     U sd_val = 0.0;
     for(;i <x.size(); i++) {
-      sd_val += pow(x[i] - mean_val,2);
+      sd_val += std::pow(x[i] - mean_val,2);
     }
     sd_val /= (U)(i-1);
     sd_val = sqrt(sd_val);
@@ -223,6 +222,9 @@ template <typename U=double> struct StandardScaler{
   }
   const U get_sd() const {
     return this->sd;
+  }
+  const std::pair<U,U> summary() const {
+    return std::pair(this->mean, this->sd);
   }
 private:
   U mean, sd;
