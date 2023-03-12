@@ -12,6 +12,114 @@
 
 #include "third_party/eigen.h"
 
+template <const size_t update_point = 0,
+          class T, typename scalar_t=double>
+void arima_steady_state(const T &y,
+                        structural_model<scalar_t> &model) {
+  const size_t n = y.size(), rd = model.a.size(), p = model.phi.size(),
+    q = model.theta.size(), d = model.delta.size(), r = rd - d;
+
+  std::vector<scalar_t> anew(rd);
+  std::vector<scalar_t> M(rd);
+  std::vector<scalar_t> mm( (d > 0) * rd * rd);
+
+  for (size_t l = 0; l < n; l++) {
+    for (size_t i = 0; i < r; i++) {
+      scalar_t tmp = (i < r - 1) ? model.a[i + 1] : 0.0;
+      if (i < p) tmp += model.phi[i] * model.a[0];
+      anew[i] = tmp;
+    }
+    if (d > 0) {
+      for (size_t i = r + 1; i < rd; i++) anew[i] = model.a[i - 1];
+      scalar_t tmp = model.a[0];
+      for (size_t i = 0; i < d; i++) tmp += model.delta[i] * model.a[r + i];
+      anew[r] = tmp;
+    }
+    if(l > update_point) {
+      if (d == 0) {
+        for (size_t i = 0; i < r; i++) {
+          scalar_t vi = 0.0;
+          if (i == 0) vi = 1.0; else if (i - 1 < q) vi = model.theta[i - 1];
+          for (size_t j = 0; j < r; j++) {
+            scalar_t tmp = 0.0;
+            if (j == 0) tmp = vi; else if (j - 1 < q) tmp = vi * model.theta[j - 1];
+            if (i < p && j < p) tmp += model.phi[i] * model.phi[j] * model.P[0];
+            if (i < r - 1 && j < r - 1) tmp += model.P[i + 1 + r * (j + 1)];
+            if (i < p && j < r - 1) tmp += model.phi[i] * model.P[j + 1];
+            if (j < p && i < r - 1) tmp += model.phi[j] * model.P[i + 1];
+            model.Pn[i + r * j] = tmp;
+          }
+        }
+      } else {
+        /* mm = TP */
+        for (size_t i = 0; i < r; i++)
+          for (size_t j = 0; j < rd; j++) {
+            scalar_t tmp = 0.0;
+            if (i < p) tmp += model.phi[i] * model.P[rd * j];
+            if (i < r - 1) tmp += model.P[i + 1 + rd * j];
+            mm[i + rd * j] = tmp;
+          }
+          for (size_t j = 0; j < rd; j++) {
+            scalar_t tmp = model.P[rd * j];
+            for (size_t k = 0; k < d; k++)
+              tmp += model.delta[k] * model.P[r + k + rd * j];
+            mm[r + rd * j] = tmp;
+          }
+          for (size_t i = 1; i < d; i++)
+            for (size_t j = 0; j < rd; j++)
+              mm[r + i + rd * j] = model.P[r + i - 1 + rd * j];
+
+        /* Pnew = mmT' */
+        for (size_t i = 0; i < r; i++)
+          for (size_t j = 0; j < rd; j++) {
+            scalar_t tmp = 0.0;
+            if (i < p) tmp += model.phi[i] * mm[j];
+            if (i < r - 1) tmp += mm[rd * (i + 1) + j];
+            model.Pn[j + rd * i] = tmp;
+          }
+          for (size_t j = 0; j < rd; j++) {
+            scalar_t tmp = mm[j];
+            for (size_t k = 0; k < d; k++)
+              tmp += model.delta[k] * mm[rd * (r + k) + j];
+            model.Pn[rd * r + j] = tmp;
+          }
+          for (size_t i = 1; i < d; i++)
+            for (size_t j = 0; j < rd; j++)
+              model.Pn[rd * (r + i) + j] = mm[rd * (r + i - 1) + j];
+        /* Pnew <- Pnew + (1 theta) %o% (1 theta) */
+        for (size_t i = 0; i <= q; i++) {
+          scalar_t vi = (i == 0) ? 1. : model.theta[i - 1];
+          for (size_t j = 0; j <= q; j++)
+            model.Pn[i + rd * j] += vi * ((j == 0) ? 1. : model.theta[j - 1]);
+        }
+      }
+    }
+    if (!isnan(y[l])) {
+      scalar_t resid = y[l] - anew[0];
+      for (size_t i = 0; i < d; i++)
+        resid -= model.delta[i] * anew[r + i];
+
+      for (size_t i = 0; i < rd; i++) {
+        scalar_t tmp = model.Pn[i];
+        for (size_t j = 0; j < d; j++)
+          tmp += model.Pn[i + (r + j) * rd] * model.delta[j];
+        M[i] = tmp;
+      }
+
+      scalar_t gain = M[0];
+      for (size_t j = 0; j < d; j++) gain += model.delta[j] * M[r + j];
+      for (size_t i = 0; i < rd; i++)
+        model.a[i] = anew[i] + M[i] * resid / gain;
+      for (size_t i = 0; i < rd; i++)
+        for (size_t j = 0; j < rd; j++)
+          model.P[i + j * rd] = model.Pn[i + j * rd] - M[i] * M[j] / gain;
+    } else {
+      for (size_t i = 0; i < rd; i++) model.a[i] = anew[i];
+      for (size_t i = 0; i < rd * rd; i++) model.P[i] = model.Pn[i];
+    }
+  }
+}
+
 /* Computing the (S)ARIMA(X) gradient can be costly as many operations
  * have to be repeated even when they are potentially unnecessary (e.g.
  * handling of xreg, parameter expansion). To combat this, when computing

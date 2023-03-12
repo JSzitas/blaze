@@ -10,9 +10,78 @@ experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](h
 [![R-CMD-check](https://github.com/JSzitas/fasttbats/workflows/R-CMD-check/badge.svg)](https://github.com/JSzitas/fasttbats/actions)
 <!-- badges: end -->
 
-An intentionally very fast (S)ARIMA(X) implementation. Any major
-difference as compared to the **R** `arima()` function may be considered
-a bug.
+An intentionally very fast (S)ARIMA(X) implementation. This intends to
+be as accurate as possible, overcoming both **R** and **statsforecast**
+implementation of **arima**, while hopefully also being faster, with a
+lower memory footprint.
+<!-- This faster goal seems to have been reached, at least comparing against **R**'s arima:  -->
+On the roadmap is even more refinements to speed, python bindings, and
+auto arima functionality akin to **R**’s **forecast::auto.arima**.
+
+# Currently available functionality
+
+A simple object oriented **R** interface exists:
+
+``` r
+# create a new object 
+arima_obj <- new(BlazeArima, c(lynx[1:100]), c(4, 0, 1, 0, 0, 0, 1), list(), "Gardner", "CSS-ML", c(TRUE, FALSE, TRUE), 1000000)
+# fit model
+arima_obj$fit()
+# create forecasts
+arima_obj$forecast(14, list()) -> cpp_fcst
+# showcase of fitted model - this is not a particularly great fit: 
+plot.ts(c(lynx[91:114]))
+lines(c(rep(NA,10), cpp_fcst$forecast), col = "red")
+# we can compare this to the R arima implementation:
+lines(c(rep(NA,10),predict(arima(c(lynx[1:100]),
+                                 order = c(4,0,1), method = "CSS-ML"), 14)$pred),
+      col = "blue")
+```
+
+<img src="man/figures/README-unnamed-chunk-3-1.png" width="100%" />
+
+There are some cases where our optimizer (we use
+[cppNumericalSolvers](https://github.com/PatWie/CppNumericalSolvers))
+seems to be more accurate than the default R solver:
+
+``` r
+p <- 2
+d <- 1
+q <- 1
+P <- 2
+D <- 1
+Q <- 1
+season <- 10
+use_mean <- TRUE
+
+train <- c(lynx)[1:100]
+test <- lynx[101:114]
+
+arima_obj <- new(BlazeArima, train, c(p, d, q, P, D, Q, season), list(), "Gardner", "CSS-ML", c(use_mean, TRUE), 1000000)
+arima_obj$fit()
+
+arima_obj$forecast(14, list()) -> cpp_fcst
+
+arima_mod <- arima(train,
+  order = c(p, d, q), seasonal = list(order = c(P, D, Q), period = season),
+  include.mean = use_mean,
+  transform.pars = TRUE, kappa = 1000000, method = "CSS-ML"
+)
+predict(arima_mod, 14) -> r_fcst
+
+plot.ts(c(lynx)[91:114])
+lines(c( rep(NA, 10), cpp_fcst$forecast), col = "red")
+lines(c( rep(NA, 10), r_fcst$pred), col = "green")
+```
+
+<img src="man/figures/README-unnamed-chunk-4-1.png" width="100%" />
+
+This could be attributed to numerous factors - R’s **optim** uses
+internal parameter scaling for optimizer line searches, whereas we
+standardize all inputs. **optim** uses, as far as I can tell, a version
+of Armijo line-search(TODO: add refs), whereas cppNumericalSolvers can
+(and is configured here) to use MoreThuente. There are some other
+differences in implementation, but these, I think, are most important.
 
 # Thanks, recognition
 

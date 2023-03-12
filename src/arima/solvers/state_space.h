@@ -229,7 +229,7 @@ structural_model<U> make_arima( const C &coef,
       }
     }
   }
-  structural_model<U> res(phi, theta, delta, Z, a, P, T, V, h, Pn);
+  structural_model<U> res(phi, theta, delta, Z, a, P, T, V, Pn, h);
   return res;
 }
 
@@ -362,7 +362,7 @@ structural_model<U> make_arima( const std::vector<U> &phi,
       }
     }
   }
-  structural_model<U> res(phi, theta, delta, Z, a, P, T, V, h, Pn);
+  structural_model<U> res(phi, theta, delta, Z, a, P, T, V, Pn, h);
   return res;
 }
 
