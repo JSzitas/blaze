@@ -17,10 +17,8 @@
 #include "third_party/eigen.h"
 #include "third_party/optim.h"
 
-using FunctionXd = cppoptlib::function::Function<double>;
-
 template <const bool has_xreg, const bool seasonal, const bool transform>
-class ARIMA_ML_PROBLEM : public FunctionXd {
+class ARIMA_ML_PROBLEM : public cppoptlib::function::Function<double, ARIMA_ML_PROBLEM<has_xreg, seasonal, transform>> {
 
   using EigVec = Eigen::VectorXd;
   using EigMat = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
@@ -98,6 +96,30 @@ public:
     const std::array<double,2> res = arima_likelihood(this->y_temp, this->model);
     this->sigma2 = res[0];
     return res[1];
+  }
+  // add impl of grad, hessian, eval
+  void Gradient(const EigVec &x, EigVec *grad) {
+    cppoptlib::utils::ComputeFiniteGradient(*this, x, grad);
+  }
+  // Computes the Hessian of a function.
+  void Hessian(const EigVec &x, EigMat *hessian) {
+    cppoptlib::utils::ComputeFiniteHessian(*this, x, hessian);
+  }
+  // For improved performance, this function will return the state directly.
+  // Override this method if you can compute the objective value, gradient and
+  // Hessian simultaneously.
+  cppoptlib::function::State<double, EigVec, EigMat> Eval(const EigVec &x,
+                                            const int order = 1) { //const
+    cppoptlib::function::State<double, EigVec, EigMat> state(x.rows(), order);
+    state.value = this->operator()(x);
+    state.x = x;
+    if (order >= 1) {
+      this->Gradient(x, &state.gradient);
+    }
+    if ((order >= 2) && (state.hessian)) {
+      this->Hessian(x, &*(state.hessian));
+    }
+    return state;
   }
   void finalize() {
     // recompute  and replace V as this has not been updated

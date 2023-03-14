@@ -14,10 +14,9 @@
 #include "third_party/eigen.h"
 #include "third_party/optim.h"
 
-using FunctionXd = cppoptlib::function::Function<double>;
 
 template <const bool has_xreg, const bool seasonal>
-class ARIMA_CSS_PROBLEM : public FunctionXd {
+class ARIMA_CSS_PROBLEM : public cppoptlib::function::Function<double, ARIMA_CSS_PROBLEM<has_xreg, seasonal>> {
 
   using EigVec = Eigen::Matrix<double, Eigen::Dynamic, 1>;
   using EigMat = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
@@ -39,6 +38,10 @@ public:
     }
     double operator()(const EigVec &x) {
       return this->Grad.loss(x);
+    }
+    // add impl of grad, hessian, eval
+    void Gradient(const EigVec &x, EigVec *grad) {
+      (*grad) = this->Grad.Gradient(x);
     }
     StateXd Eval(const EigVec &x,
                  const int order = 1) {
