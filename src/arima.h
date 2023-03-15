@@ -8,8 +8,8 @@
 
 #include "utils/xreg.h"
 
-// #include "arima/solvers/arima_css_solver.h"
-#include "arima/solvers/arima_css_optim_grad.h"
+#include "arima/solvers/arima_css_solver.h"
+// #include "arima/solvers/arima_css_optim_grad.h"
 #include "arima/solvers/arima_ml_solver.h"
 
 #include "arima/utils/checks.h"
@@ -140,7 +140,7 @@ public:
             this->drift, this->coef,
             this->kappa, this->ss_init);
         } else {
-          arima_solver_css<true, false>(
+          this->sigma2 = arima_solver_css<true, false>(
               this->y, this->kind, this->model,
               this->xreg, this->intercept,
               this->drift, this->coef,
@@ -148,13 +148,13 @@ public:
         }
       } else {
         if (is_seasonal) {
-          arima_solver_css<false, true>(
+          this->sigma2 = arima_solver_css<false, true>(
               this->y, this->kind, this->model,
               this->xreg, this->intercept,
               this->drift, this->coef,
               this->kappa, this->ss_init);
         } else {
-          arima_solver_css<false, false>(
+          this->sigma2 = arima_solver_css<false, false>(
               this->y, this->kind, this->model,
               this->xreg, this->intercept,
               this->drift, this->coef,

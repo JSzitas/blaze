@@ -42,8 +42,8 @@ public:
                     const bool intercept,
                     const bool drift,
                     std::vector<std::vector<double>> &xreg)
-    : kind(kind), intercept(intercept),
-      n_cond(kind.d() + (kind.D() * kind.period()) +
+      : kind(kind), intercept(intercept),
+        n_cond(kind.d() + (kind.D() * kind.period()) +
         kind.p() + (kind.P() * kind.period())), n(y.size()), y(y) {
     this->xreg = vec_to_mat(xreg, y.size(), intercept, drift);
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
