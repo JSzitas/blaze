@@ -11,19 +11,19 @@
 #include "arima/solvers/state_space.h"
 
 #include "arima/utils/transforms.h"
-#include "arima/utils/xreg.h"
+#include "utils/xreg.h"
 
 // include optimizer library
 #include "third_party/eigen.h"
 #include "third_party/optim.h"
 
-using FunctionXd = cppoptlib::function::Function<double>;
-
 template <const bool has_xreg, const bool seasonal>
-class ARIMA_CSS_PROBLEM : public FunctionXd {
+class ARIMA_CSS_PROBLEM : public cppoptlib::function::Function<double, ARIMA_CSS_PROBLEM<has_xreg, seasonal>> {
 
   using EigVec = Eigen::VectorXd;
   using EigMat = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
+  using StateXd = cppoptlib::function::State<double, Eigen::VectorXd, Eigen::MatrixXd>;
+
 private:
   const arima_kind kind;
   const bool intercept;
@@ -37,11 +37,15 @@ public:
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
-  ARIMA_CSS_PROBLEM(const std::vector<double> &y, const arima_kind &kind,
-                    std::vector<std::vector<double>> &xreg,
-                    const bool intercept, const size_t n_cond)
-      : kind(kind), intercept(intercept), n_cond(n_cond), n(y.size()), y(y) {
-    this->xreg = vec_to_mat<double>(xreg, y.size(), intercept);
+  ARIMA_CSS_PROBLEM(const std::vector<double> &y,
+                    const arima_kind &kind,
+                    const bool intercept,
+                    const bool drift,
+                    std::vector<std::vector<double>> &xreg)
+    : kind(kind), intercept(intercept),
+      n_cond(kind.d() + (kind.D() * kind.period()) +
+        kind.p() + (kind.P() * kind.period())), n(y.size()), y(y) {
+    this->xreg = vec_to_mat(xreg, y.size(), intercept, drift);
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
     this->y_temp = EigVec(n);
     for (size_t i = 0; i < n; i++) this->y_temp(i) = y[i];
@@ -63,9 +67,9 @@ public:
     }
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
     // pre-allocate new_x
-    this->new_x = Eigen::VectorXd(
-      kind.p() + (kind.P() * kind.period()) + kind.q() +
-        (kind.Q() * kind.period()) + this->xreg.cols());
+    this->new_x = EigVec(kind.p() + (kind.P() * kind.period()) +
+                         kind.q() + (kind.Q() * kind.period()) +
+                         this->xreg.cols());
     // pre-allocate model residuals
     this->residual = std::vector<double>(n, 0.0);
     // pre-allocate transformation helper vector - this is only necessary
@@ -73,7 +77,7 @@ public:
     this->temp_phi = std::vector<double>(kind.p() + (kind.P() * kind.period()));
     this->temp_theta = std::vector<double>(kind.q() + (kind.Q() * kind.period()));
   }
-  double operator()(const Eigen::VectorXd &x) {
+  double operator()(const EigVec &x) {
     for (size_t i = 0; i < x.size(); i++) this->new_x(i) = x(i);
     if constexpr (has_xreg) {
       // refresh y_temp and load it with original y data
@@ -109,21 +113,38 @@ public:
       );
     }
     double res = arima_css_ssq(this->y_temp, this->new_x, this->kind,
-                          this->n_cond, this->residual);
+                               this->n_cond, this->residual);
     return 0.5 * log(res);
   }
+  // add impl of grad, hessian, eval
+  void Gradient(const EigVec &x, EigVec *grad) {
+    cppoptlib::utils::ComputeFiniteGradient(*this, x, grad);
+  }
+  void Hessian(const EigVec &x, EigMat *hessian) {
+    cppoptlib::utils::ComputeFiniteHessian(*this, x, hessian);
+  }
+  StateXd Eval(const EigVec &x, const int order = 1) { //const
+    StateXd state(x.rows(), order);
+    state.value = this->operator()(x);
+    state.x = x;
+    if (order >= 1) {
+      this->Gradient(x, &state.gradient);
+    }
+    if ((order >= 2) && (state.hessian)) {
+      this->Hessian(x, &*(state.hessian));
+    }
+    return state;
+  }
   void finalize( structural_model<double> &model,
-                 const Eigen::VectorXd & final_pars,
-                 std::vector<double> & delta,
+                 const EigVec & final_pars,
                  double kappa,
                  SSinit ss_init) {
     // this function creates state space representation and expands it
     // I found out it is easier and cheaper (computationally) to do here
     // do the same for model coefficients
     // finally, make state space model
-    structural_model<double> arima_ss = make_arima( this->new_x,
-                             delta, this->kind,
-                             kappa, ss_init);
+    structural_model<double> arima_ss = make_arima(
+      this->new_x, this->kind, kappa, ss_init);
 
     model.set(arima_ss);
     // modify y_temp to acount for xreg
@@ -140,33 +161,30 @@ public:
 };
 
 template <const bool has_xreg, const bool seasonal>
-void arima_solver_css(std::vector<double> &y, structural_model<double> &model,
-                      lm_coef<double> xreg_coef,
-                      std::vector<std::vector<double>> xreg,
-                      const arima_kind &kind, std::vector<double> &coef,
-                      std::vector<double> &delta, const int n_cond,
-                      const int n_available, const double kappa,
-                      const SSinit ss_init, double &sigma2) {
-
-  size_t vec_size = kind.p() + kind.q() + kind.P() + kind.Q() + xreg_coef.size();
-  size_t arma_size = kind.p() + kind.q() + kind.P() + kind.Q();
-  Eigen::VectorXd x(vec_size);
+double arima_solver_css(std::vector<double> &y,
+                        const arima_kind &kind,
+                        structural_model<double> &model,
+                        std::vector<std::vector<double>> xreg,
+                        const bool intercept,
+                        const bool drift,
+                        std::vector<double> &coef,
+                        const double kappa,
+                        const SSinit ss_init) {
+  Eigen::VectorXd x(coef.size());
   for(size_t i = 0; i < coef.size(); i++) x(i) = coef[i];
-  // using xreg
-  for (size_t i = arma_size; i < vec_size; i++)
-    x[i] = xreg_coef.coef[i - arma_size];
   // initialize solver
   cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal>> solver;
   // and arima problem
   ARIMA_CSS_PROBLEM<has_xreg, seasonal> css_arima_problem(
-      y, kind, xreg, xreg_coef.has_intercept(), n_cond);
+      y, kind, intercept, drift, xreg);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
   // update variance estimate for the arima model - this was passed by reference
-  sigma2 = exp(2 * solution.value);
-  css_arima_problem.finalize( model, solution.x, delta, kappa, ss_init);
+  css_arima_problem.finalize( model, solution.x, kappa, ss_init);
   // pass fitted coefficients back to the caller
-  for (size_t i = 0; i < vec_size; i++) coef[i] = solution.x[i];
+  for (size_t i = 0; i < coef.size(); i++) coef[i] = solution.x[i];
+  return exp(2 * solution.value);
 }
 
 #endif
+
