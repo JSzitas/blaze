@@ -325,6 +325,13 @@ public:
       arima_ss = make_arima<EigVec, scalar_t>(final_pars, this->kind, kappa, ss_init);
     }
     model.set(arima_ss);
+    for (size_t i = 0; i < this->n; i++) {
+      this->y_temp[i] = this->y[i];
+    }
+    if constexpr(has_xreg) {
+      this->y_temp = this->y_temp -
+        this->xreg * final_pars.tail(final_pars.size() - this->arma_pars);
+    }
     // get arima steady state values
     arima_steady_state(y_temp, model);
   }
@@ -385,11 +392,11 @@ private:
       scalar_t tmp = y_temp(l);
       for (size_t j = 0; j < this->p; j++) {
         // for seasonal models we had to expand
-        if constexpr( seasonal ) {
+        if constexpr(seasonal) {
           tmp -= this->phi[j] * y_temp(l - j - 1);
         }
         // for non-seasonal models we can just use unexpanded coefficients
-        if constexpr( !seasonal ) {
+        if constexpr(!seasonal) {
           tmp -= x(j) * y_temp(l - j - 1);
         }
       }
@@ -417,8 +424,8 @@ private:
       for (size_t i = 0; i < this->n; i++) this->y_temp(i) = this->y[i];
       this->y_temp = this->y_temp - this->xreg * x.tail(x.size() - this->arma_pars);
       // differencing only needs to be applied after we reran xreg
-      // and only if we do not have an intercept
-      if( !this->has_intercept ) this->diff_y_temp();
+      // and only if we have an intercept
+      if(this->has_intercept) this->diff_y_temp();
     }
   }
   // these expansions do not operate on coef but use the temporaries

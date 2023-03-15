@@ -8,8 +8,8 @@
 
 #include "utils/xreg.h"
 
-#include "arima/solvers/arima_css_solver.h"
-// #include "arima/solvers/arima_css_optim_grad.h"
+// #include "arima/solvers/arima_css_solver.h"
+#include "arima/solvers/arima_css_optim_grad.h"
 #include "arima/solvers/arima_ml_solver.h"
 
 #include "arima/utils/checks.h"
