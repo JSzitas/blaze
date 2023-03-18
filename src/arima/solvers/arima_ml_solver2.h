@@ -8,11 +8,15 @@
 
 #include "utils/xreg.h"
 
-using FunctionXd = cppoptlib::function::Function<double>;
 
 template <const SSinit ss_type, const bool has_xreg, const bool seasonal, const bool transform>
-class ARIMA_ML_PROBLEM : public FunctionXd {
-  KalmanARIMA<ss_type, seasonal, has_xreg, transform, true, double> MLSolver;
+class ARIMA_ML_PROBLEM : public cppoptlib::function::Function<double,
+                                                     ARIMA_ML_PROBLEM<ss_type, has_xreg, seasonal, transform>> {
+  using EigVec = Eigen::VectorXd;
+  using EigMat = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
+  using StateXd = cppoptlib::function::State<double, Eigen::VectorXd, Eigen::MatrixXd>;
+
+  KalmanARIMA<ss_type, seasonal, has_xreg, transform, double> MLSolver;
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
@@ -26,8 +30,29 @@ public:
       this->MLSolver = KalmanARIMA<ss_type, seasonal, has_xreg, transform
         >(y, kind, vec_to_mat(xreg, y.size(), intercept, drift), kappa);
   }
-  double operator()(const Eigen::VectorXd &x) {
+  double operator()(const EigVec &x) {
+    print_vector(x);
    return this->MLSolver(x);
+  }
+  // add impl of grad, hessian, eval
+  void Gradient(const EigVec &x, EigVec *grad) {
+    cppoptlib::utils::ComputeFiniteGradient(*this, x, grad);
+  }
+  void Hessian(const EigVec &x, EigMat *hessian) {
+    cppoptlib::utils::ComputeFiniteHessian(*this, x, hessian);
+  }
+  StateXd Eval(const EigVec &x,
+               const int order = 1) {
+    StateXd state(x.size(), 1);
+    state.value = this->operator()(x);
+    state.x = x;
+    if (order >= 1) {
+      this->Gradient(x, &state.gradient);
+    }
+    if ((order >= 2) && (state.hessian)) {
+      this->Hessian(x, &*(state.hessian));
+    }
+    return state;
   }
   structural_model<double> get_structural_model() const {
     return this->MLSolver.get_structural_model();

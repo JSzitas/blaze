@@ -154,15 +154,35 @@ template <const size_t update_point = 0,
           typename T> std::array<double,2> arima_likelihood(
               const T &y,
               structural_model<double> &model) {
-  const size_t n = y.size(), rd = model.a.size(), p = model.phi.size(),
-    q = model.theta.size(), d = model.delta.size(), r = rd - d;
+  const size_t rd = model.a.size(), d = model.delta.size();
 
   std::vector<double> anew(rd);
   std::vector<double> M(rd);
   std::vector<double> mm( (d > 0) * rd * rd);
-  double ssq = 0, sumlog = 0;
-  size_t nu = y.size();
+  return arima_likelihood_impl(y, model, anew, M, mm);
+}
 
+template <const size_t update_point = 0,
+          typename T> std::array<double,2> arima_likelihood(
+              const T &y, structural_model<double> &model,
+              std::vector<double> &anew,
+              std::vector<double> &M,
+              std::vector<double> &mm) {
+  return arima_likelihood_impl(y, model, anew, M, mm);
+}
+
+template <const size_t update_point = 0,
+          typename T> std::array<double,2> arima_likelihood_impl(
+              const T &y,
+              structural_model<double> &model,
+              std::vector<double> &anew,
+              std::vector<double> &M,
+              std::vector<double> &mm) {
+  const size_t n = y.size(), rd = model.a.size(), p = model.phi.size(),
+    q = model.theta.size(), d = model.delta.size(), r = rd - d;
+
+  double ssq = 0, sumlog = 0;
+  size_t nu = n;
   for (size_t l = 0; l < n; l++) {
     for (size_t i = 0; i < r; i++) {
       double tmp = (i < r - 1) ? model.a[i + 1] : 0.0;

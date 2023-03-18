@@ -160,7 +160,8 @@ inline static void inclu2(
     size_t np,
     std::vector<double> &xnext,
     std::vector<double> &xrow, double ynext,
-    std::vector<double> &d, std::vector<double> &rbar,
+    std::vector<double> &d,
+    std::vector<double> &rbar,
     std::vector<double> &thetab) {
   double cbar, sbar, di, xi, xk, rbthis, dpi;
   size_t i, k, ithisr;
@@ -196,19 +197,19 @@ inline static void inclu2(
   }
 }
 
-std::vector<double> get_Q0(const std::vector<double> &phi_coef,
-                           const std::vector<double> &theta_coef) {
+std::vector<double> get_Q0_impl(const std::vector<double> &phi_coef,
+                                const std::vector<double> &theta_coef,
+                                std::vector<double> &xnext,
+                                std::vector<double> &xrow,
+                                std::vector<double> &rbar,
+                                std::vector<double> &thetab,
+                                std::vector<double> &V,
+                                std::vector<double> &P) {
 
   const size_t p = phi_coef.size(), q = theta_coef.size();
   size_t i, j, r = max(p, q + 1);
   size_t np = r * (r + 1) / 2, nrbar = np * (np - 1) / 2, npr, npr1;
   size_t indi, indj, indn, ithisr, ind, ind1, ind2, im, jm;
-
-  std::vector<double> xnext(np);
-  std::vector<double> xrow(np);
-  std::vector<double> rbar(nrbar);
-  std::vector<double> thetab(np);
-  std::vector<double> V(np);
 
   double vj, vi, bi, ynext, phii, phij;
   for (ind = 0, j = 0; j < r; j++) {
@@ -229,7 +230,6 @@ std::vector<double> get_Q0(const std::vector<double> &phi_coef,
     }
   }
   // result vector
-  std::vector<double> P(r * r);
   if (r == 1) {
     if (p == 0) {
       P[0] = 1.0;
@@ -332,6 +332,27 @@ std::vector<double> get_Q0(const std::vector<double> &phi_coef,
     }
   }
   return P;
+}
+
+std::vector<double> get_Q0(const std::vector<double> &phi_coef,
+                           const std::vector<double> &theta_coef) {
+  const size_t p = phi_coef.size(), q = theta_coef.size(),
+    r = max(p, q + 1), np = r * (r + 1) / 2, nrbar = np * (np - 1) / 2;
+
+  std::vector<double> xnext(np), xrow(np), rbar(nrbar),
+    thetab(np), V(np), P(r * r);
+  return get_Q0_impl(phi_coef, theta_coef, xnext, xrow, rbar, thetab, V, P);
+}
+
+std::vector<double> get_Q0(const std::vector<double> &phi_coef,
+                           const std::vector<double> &theta_coef,
+                           std::vector<double> &xnext,
+                           std::vector<double> &xrow,
+                           std::vector<double> &rbar,
+                           std::vector<double> &thetab,
+                           std::vector<double> &V,
+                           std::vector<double> &P) {
+  return get_Q0_impl(phi_coef, theta_coef, xnext, xrow, rbar, thetab, V, P);
 }
 
 #endif
