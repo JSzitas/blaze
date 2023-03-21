@@ -474,6 +474,72 @@ void update_arima(structural_model<U> &model,
   std::fill(model.a.begin(), model.a.end(), 0);
 }
 
+template <class T, typename U = double>
+void update_arima(structural_model<U> &model,
+                  T &coef,
+                  const arima_kind kind,
+                  std::vector<double> &xnext,
+                  std::vector<double> &xrow,
+                  std::vector<double> &rbar,
+                  std::vector<double> &thetab,
+                  std::vector<double> &V,
+                  std::vector<double> &P,
+                  SSinit state_init = Gardner) {
+  const size_t p = kind.p() + kind.period() * kind.P(),
+    q = kind.q() + kind.period() * kind.Q(),
+    r = max(p, q + 1), rd = model.Z.size();
+
+  // copy out elements of coef into phi and theta
+  for( size_t i = 0; i < p; i++) {
+    model.phi[i] = coef[i];
+  }
+  for( size_t i = p; i < p + q; i++) {
+    model.theta[i-p] = coef[i];
+  }
+
+  if (p > 0) {
+    for (size_t i = 0; i < p; i++) {
+      model.T[i] = model.phi[i];
+    }
+  }
+
+  if (r > 1) {
+    // for storing initialization results
+    std::vector<U> temp(r * r);
+    switch (state_init) {
+    case Gardner:
+      temp = std::move(get_Q0(model.phi, model.theta, xnext, xrow,
+                              rbar, thetab, V, P));
+      break;
+    case Rossignol:
+      temp = std::move(get_Q0_rossignol(model.phi, model.theta));
+      break;
+    };
+    size_t mat_p = 0;
+    /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
+     * matrix, and r == 3, then we update the highlighted parts:
+     *   (input)           (updated)
+     *   x x x x x   =>    y y y|x x
+     *   x x x x x   =>    y y y|x x
+     *   x x x x x   =>    y y y|x x
+     *                     _____
+     *   x x x x x   =>    x x x x x
+     *   x x x x x   =>    x x x x x
+     */
+    for (size_t j = 0; j < r; j++) {
+      for (size_t i = 0; i < r; i++) {
+        model.Pn[(j * rd) + i] = std::move(temp[mat_p]);
+        mat_p++;
+      }
+    }
+  } else {
+    model.Pn[0] = (p > 0) * (1 / (1 - pow(model.phi[0], 2))) + (p == 0);
+  }
+  // set a to all zero:
+  std::fill(model.a.begin(), model.a.end(), 0);
+}
+
+
 template <typename U = double> void recompute_v(structural_model<U> & model) {
   // reexpand V for an already existing structural model
 

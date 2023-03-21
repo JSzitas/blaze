@@ -126,7 +126,16 @@ public:
       );
     }
     // update arima
-    this->update_arima();
+    // this->update_arima();
+    if constexpr( ss_type == SSinit::Gardner ) {
+      update_arima(this->model, this->new_x, this->kind,
+                   this->xnext, this->xrow, this->rbar,
+                   this->thetab, this->V, this->P,
+                   SSinit::Gardner);
+    }
+    if constexpr( ss_type == SSinit::Rossignol ) {
+      update_arima(this->model, this->new_x, this->kind, SSinit::Rossignol);
+    }
     // return likelihood - check if this updated model or not (it ideally
     // should not, not here)
     const std::array<scalar_t,2> res = arima_likelihood(
@@ -136,48 +145,6 @@ public:
   }
   scalar_t get_sigma() const { return this->sigma2; }
   structural_model<scalar_t> get_structural_model() const { return this->model; }
-private:
-  void update_arima() {
-    // copy out elements of coef into phi and theta
-    for( size_t i = 0; i < p; i++) this->model.phi[i] = this->new_x[i];
-    for( size_t i = p; i < p + q; i++) this->model.theta[i-p] = this->new_x[i];
-    if( p > 0) {
-      for (size_t i = 0; i < p; i++) this->model.T[i] = this->new_x[i];
-    }
-    if(this->r > 1) {
-      std::vector<scalar_t> temp(r * r);
-      if constexpr(ss_type == SSinit::Gardner) {
-        temp = std::move(get_Q0(this->model.phi, this->model.theta,
-                                this->xnext, this->xrow, this->rbar,
-                                this->thetab, this->V, this->P));
-      }
-      if constexpr(ss_type == SSinit::Rossignol) {
-        temp = std::move(get_Q0_rossignol(this->model.phi, this->model.theta));
-      }
-      /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
-       * matrix, and r == 3, then we update the highlighted parts:
-       *   (input)           (updated)
-       *   x x x x x   =>    y y y|x x
-       *   x x x x x   =>    y y y|x x
-       *   x x x x x   =>    y y y|x x
-       *                     _____
-       *   x x x x x   =>    x x x x x
-       *   x x x x x   =>    x x x x x
-       */
-      size_t mat_p = 0;
-      for (size_t j = 0; j < r; j++) {
-        for (size_t i = 0; i < r; i++) {
-          this->model.Pn[(j * rd) + i] = std::move(temp[mat_p]);
-          mat_p++;
-        }
-      }
-    }
-    else {
-      this->model.Pn[0] = (p > 0) * (1 / (1 - pow(this->model.phi[0], 2))) + (p == 0);
-    }
-    // set a to all zero:
-    std::fill(this->model.a.begin(), this->model.a.end(), 0);
-  }
 };
 
 #endif
