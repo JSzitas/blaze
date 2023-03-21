@@ -19,8 +19,9 @@ enum class Status {
   XDeltaViolation,  // Minimum change in parameter vector has been reached.
   FDeltaViolation,  // Minimum chnage in cost function has been reached.
   GradientNormViolation,  // Minimum norm in gradient vector has been reached.
-  HessianConditionViolation  // Maximum condition number of hessian_t has been
+  HessianConditionViolation,  // Maximum condition number of hessian_t has been
                              // reached.
+  NaNLoss // Function loss is NaN - something bad happened.
 };
 
 inline std::ostream &operator<<(std::ostream &stream, const Status &status) {
@@ -45,6 +46,9 @@ inline std::ostream &operator<<(std::ostream &stream, const Status &status) {
       break;
     case Status::HessianConditionViolation:
       stream << "Condition of Hessian/Covariance matrix too large.";
+      break;
+    case Status::NaNLoss:
+      stream << "Loss from  function is NaN";
       break;
   }
   return stream;
@@ -72,6 +76,10 @@ struct State {
               const function::State<scalar_t, vector_t, hessian_t>
                   current_function_state,
               const State &stop_state) {
+    if( std::isnan(current_function_state.value)) {
+      status = Status::NaNLoss;
+      return;
+    }
     num_iterations++;
     f_delta =
         fabs(current_function_state.value - previous_function_state.value);
@@ -79,8 +87,6 @@ struct State {
                   .template lpNorm<Eigen::Infinity>();
     gradient_norm =
         current_function_state.gradient.template lpNorm<Eigen::Infinity>();
-    // std::cout << "Stopping number of iterations:" << stop_state.num_iterations;
-    // std::cout << " Current iter: " << num_iterations << std::endl;
     if ((stop_state.num_iterations > 0) &&
         (num_iterations > stop_state.num_iterations)) {
       status = Status::IterationLimit;
@@ -163,7 +169,7 @@ auto GetEmptyStepCallback() {
 }
 
 // Specifies a solver implementation (of a given order) for a given function
-template <typename function_t, int Ord = 1>
+template <typename function_t, typename DerivedSolver, int Ord = 1>
 class Solver {
  public:
   using state_t = State<typename function_t::scalar_t>;
@@ -189,40 +195,37 @@ class Solver {
                       CustomState<scalar_t>(),
                   callback_t step_callback =
                     GetEmptyStepCallback<scalar_t, vector_t, hessian_t>()
-                      // GetDefaultStepCallback<scalar_t, vector_t, hessian_t>()
                       )
       : stopping_state_(stopping_state),
         step_callback_(std::move(step_callback)) {}
-
-  virtual ~Solver() = default;
 
   // Sets a Callback function which is triggered after each update step.
   void SetStepCallback(callback_t step_callback) {
     step_callback_ = step_callback;
   }
 
-  virtual void InitializeSolver(const function_state_t & /*initial_state*/) {}
-
   // Minimizes a given function and returns the function state
-  virtual std::tuple<function_state_t, state_t> Minimize(
+  // virtual
+  std::tuple<function_state_t, state_t> Minimize(
       function_t &function, const vector_t &x0) {
     return this->Minimize(function, function.Eval(x0, Order));
   }
 
-  virtual std::tuple<function_state_t, state_t> Minimize(
+  // virtual
+  std::tuple<function_state_t, state_t> Minimize(
       function_t &function, const function_state_t &initial_state) {
     // Solver state during the optimization.
     state_t solver_state;
     // Function state during the optimization.
     function_state_t function_state(initial_state);
 
-    this->InitializeSolver(initial_state);
+    static_cast<DerivedSolver*>(this)->InitializeSolver(initial_state);
 
     do {
       // Find next function state.
       function_state_t previous_function_state(function_state);
-      function_state = this->OptimizationStep(function, previous_function_state,
-                                              solver_state);
+      function_state = static_cast<DerivedSolver*>(this)->OptimizationStep(
+        function, previous_function_state, solver_state);
 
       // Update current solver state.
       solver_state.Update(previous_function_state, function_state,
@@ -231,10 +234,6 @@ class Solver {
 
     return {function_state, solver_state};
   }
-
-  virtual function_state_t OptimizationStep(function_t &function,
-                                            const function_state_t &current,
-                                            const state_t &state) = 0;
 
  protected:
   state_t stopping_state_;    // Specifies when to stop.

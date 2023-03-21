@@ -11,9 +11,9 @@
 
 namespace cppoptlib::solver {
 template <typename function_t>
-class Bfgs : public Solver<function_t> {
+class Bfgs : public Solver<function_t, Bfgs<function_t>> {
  private:
-  using Superclass = Solver<function_t>;
+  using Superclass = Solver<function_t, Bfgs<function_t>>;
   using state_t = typename Superclass::state_t;
 
   using scalar_t = typename function_t::scalar_t;
@@ -29,9 +29,9 @@ class Bfgs : public Solver<function_t> {
                     CustomState<scalar_t>(),
                 typename Superclass::callback_t step_callback =
                     GetEmptyStepCallback<scalar_t, vector_t, hessian_t>())
-      : Solver<function_t>{stopping_state, std::move(step_callback)} {}
+      : Solver<function_t, Bfgs<function_t>>{stopping_state, std::move(step_callback)}{};
 
-  void InitializeSolver(const function_state_t &initial_state) override {
+  void InitializeSolver(const function_state_t &initial_state) {
     dim_ = initial_state.x.rows();
     inverse_hessian_ =
         hessian_t::Identity(initial_state.x.rows(), initial_state.x.rows());
@@ -39,7 +39,7 @@ class Bfgs : public Solver<function_t> {
 
   function_state_t OptimizationStep(function_t &function,
                                     const function_state_t &current,
-                                    const state_t & /*state*/) override {
+                                    const state_t & /*state*/) {
     vector_t search_direction = -inverse_hessian_ * current.gradient;
 
     // If not positive definit re-initialize Hessian.
