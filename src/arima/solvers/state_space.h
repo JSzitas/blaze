@@ -8,42 +8,42 @@
 #include "arima/solvers/initializers.h"
 #include "arima/utils/delta.h"
 
-template <typename U = double> struct forecast_result {
-  forecast_result<U>( std::vector<U> &forecasts,
-                      std::vector<U> &std_errs ) :
+template <typename scalar_t = float> struct forecast_result {
+  forecast_result<scalar_t>( std::vector<scalar_t> &forecasts,
+                      std::vector<scalar_t> &std_errs ) :
   forecast(std::move(forecasts)), std_err(std::move(std_errs)){}
-  forecast_result<U>( std::vector<U> &&forecasts,
-                      std::vector<U> &&std_errs ) :
+  forecast_result<scalar_t>( std::vector<scalar_t> &&forecasts,
+                      std::vector<scalar_t> &&std_errs ) :
   forecast(std::move(forecasts)), std_err(std::move(std_errs)){}
-  forecast_result<U>(size_t h) {
-    this->forecast = std::vector<U>(h);
-    this->std_err = std::vector<U>(h);
+  forecast_result<scalar_t>(size_t h) {
+    this->forecast = std::vector<scalar_t>(h);
+    this->std_err = std::vector<scalar_t>(h);
   }
-  void add(size_t i, U fcst, U se) {
+  void add(size_t i, scalar_t fcst, scalar_t se) {
     this->forecast[i] = fcst;
     this->std_err[i] = se;
   }
-  std::vector<U> forecast;
-  std::vector<U> std_err;
+  std::vector<scalar_t> forecast;
+  std::vector<scalar_t> std_err;
 };
 
 /* Forecasts based on state space representation of ARIMA via
  * the kalman filter.
  * TODO: add an option to update model.a and model.P while this runs
  */
-template < typename U = double>
-forecast_result<U> kalman_forecast(const size_t n_ahead,
-                                   structural_model<U> &model) {
+template < typename scalar_t = float>
+forecast_result<scalar_t> kalman_forecast(const size_t n_ahead,
+                                   structural_model<scalar_t> &model) {
   size_t p = model.a.size();
-  std::vector<double> anew = model.a;
-  std::vector<double> a = model.a;
-  std::vector<double> Pnew(p * p);
-  std::vector<double> mm(p * p);
-  std::vector<double> P = model.P;
+  std::vector<scalar_t> anew = model.a;
+  std::vector<scalar_t> a = model.a;
+  std::vector<scalar_t> Pnew(p * p);
+  std::vector<scalar_t> mm(p * p);
+  std::vector<scalar_t> P = model.P;
 
-  std::vector<double> forecasts(n_ahead);
-  std::vector<double> standard_errors(n_ahead);
-  double fc = 0.0, tmp = 0.0;
+  std::vector<scalar_t> forecasts(n_ahead);
+  std::vector<scalar_t> standard_errors(n_ahead);
+  scalar_t fc = 0.0, tmp = 0.0;
   for (size_t l = 0; l < n_ahead; l++) {
     fc = 0.0;
     for (size_t i = 0; i < p; i++) {
@@ -85,26 +85,26 @@ forecast_result<U> kalman_forecast(const size_t n_ahead,
     }
     standard_errors[l] = tmp;
   }
-  return forecast_result<U>( forecasts, standard_errors );
+  return forecast_result<scalar_t>( forecasts, standard_errors );
 }
 
 /* originally an R function - this creates the arima model in state space
  * representation from some values of phi, theta and delta, where phi
  * and theta are embedded in a single vector(std::vector/Eigen::Vector)
  */
-template <typename C, typename U = double>
-structural_model<U> make_arima( const C &coef,
+template <typename C, typename scalar_t = float>
+structural_model<scalar_t> make_arima( const C &coef,
                                 const arima_kind &kind,
-                                const U kappa = 1000000,
+                                const scalar_t kappa = 1000000,
                                 const SSinit state_init = Gardner,
-                                const U tol = 1e-9) {
-  std::vector<U> delta = make_delta<U>(kind.d(), kind.period(), kind.D());
+                                const scalar_t tol = 1e-9) {
+  std::vector<scalar_t> delta = make_delta<scalar_t>(kind.d(), kind.period(), kind.D());
   const size_t p = kind.p() + (kind.P() * kind.period());
   const size_t q = kind.q() + (kind.Q() * kind.period());
   const size_t r = max(p, q + 1), d = delta.size(), rd = r + d;
 
-  std::vector<U> phi(p);
-  std::vector<U> theta(q + max(r - 1 - q, 0));
+  std::vector<scalar_t> phi(p);
+  std::vector<scalar_t> theta(q + max(r - 1 - q, 0));
   // copz out elements of coef into phi and theta
   for( size_t i = 0; i < p; i++) {
     phi[i] = coef[i];
@@ -113,7 +113,7 @@ structural_model<U> make_arima( const C &coef,
     theta[i-p] = coef[i];
   }
   size_t i, j;
-  std::vector<U> Z(rd);
+  std::vector<scalar_t> Z(rd);
   Z[0] = 1;
   for (i = 1; i < r - 1; i++) {
     Z[i] = 0;
@@ -123,7 +123,7 @@ structural_model<U> make_arima( const C &coef,
     Z[i] = delta[j];
     j++;
   }
-  std::vector<U> T(rd * rd);
+  std::vector<scalar_t> T(rd * rd);
   if (p > 0) {
     for (i = 0; i < p; i++) {
       T[i] = phi[i];
@@ -170,12 +170,12 @@ structural_model<U> make_arima( const C &coef,
   }
   // this is R <- c(1, theta, rep.int(0, d))
   // we can skip the d part as vectors are 0 initialized.
-  std::vector<U> R(1 + theta.size() + d);
+  std::vector<scalar_t> R(1 + theta.size() + d);
   R[0] = 1;
   for (i = 1; i < theta.size() + 1; i++) {
     R[i] = theta[i - 1];
   }
-  std::vector<U> V(R.size() * R.size());
+  std::vector<scalar_t> V(R.size() * R.size());
   // here we do an outer product, ie: V <- R %o% R
   size_t mat_p = 0;
   for (i = 0; i < R.size(); i++) {
@@ -184,13 +184,13 @@ structural_model<U> make_arima( const C &coef,
       mat_p++;
     }
   }
-  U h = 0;
-  std::vector<U> a(rd);
-  std::vector<U> P(rd * rd);
-  std::vector<U> Pn(rd * rd);
+  scalar_t h = 0;
+  std::vector<scalar_t> a(rd);
+  std::vector<scalar_t> P(rd * rd);
+  std::vector<scalar_t> Pn(rd * rd);
   if (r > 1) {
     // for storing initialization results
-    std::vector<U> temp(r * r);
+    std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
       temp = std::move(get_Q0(phi, theta));
@@ -229,24 +229,25 @@ structural_model<U> make_arima( const C &coef,
       }
     }
   }
-  structural_model<U> res(phi, theta, delta, Z, a, P, T, V, Pn, h);
+  structural_model<scalar_t> res(phi, theta, delta, Z, a, P, T, V, Pn, h);
   return res;
 }
 
-template <typename C, typename U = double>
-structural_model<U> make_arima( const std::vector<U> &phi,
-                                const std::vector<U> &theta,
-                                const arima_kind &kind,
-                                const U kappa = 1000000,
-                                const SSinit state_init = Gardner,
-                                const U tol = 1e-9) {
-  std::vector<U> delta = make_delta<U>(kind.d(), kind.period(), kind.D());
+template <typename C, typename scalar_t = float>
+structural_model<scalar_t> make_arima(
+    const std::vector<scalar_t> &phi,
+    const std::vector<scalar_t> &theta,
+    const arima_kind &kind,
+    const scalar_t kappa = 1000000,
+    const SSinit state_init = Gardner,
+    const scalar_t tol = 1e-9) {
+  std::vector<scalar_t> delta = make_delta<scalar_t>(kind.d(), kind.period(), kind.D());
   const size_t p = kind.p() + (kind.P() * kind.period());
   const size_t q = kind.q() + (kind.Q() * kind.period());
   const size_t r = max(p, q + 1), d = delta.size(), rd = r + d;
 
   size_t i, j;
-  std::vector<U> Z(rd);
+  std::vector<scalar_t> Z(rd);
   Z[0] = 1;
   for (i = 1; i < r - 1; i++) {
     Z[i] = 0;
@@ -256,7 +257,7 @@ structural_model<U> make_arima( const std::vector<U> &phi,
     Z[i] = delta[j];
     j++;
   }
-  std::vector<U> T(rd * rd);
+  std::vector<scalar_t> T(rd * rd);
   if (p > 0) {
     for (i = 0; i < p; i++) {
       T[i] = phi[i];
@@ -303,12 +304,12 @@ structural_model<U> make_arima( const std::vector<U> &phi,
   }
   // this is R <- c(1, theta, rep.int(0, d))
   // we can skip the d part as vectors are 0 initialized.
-  std::vector<U> R(1 + theta.size() + d);
+  std::vector<scalar_t> R(1 + theta.size() + d);
   R[0] = 1;
   for (i = 1; i < theta.size() + 1; i++) {
     R[i] = theta[i - 1];
   }
-  std::vector<U> V(R.size() * R.size());
+  std::vector<scalar_t> V(R.size() * R.size());
   // here we do an outer product, ie: V <- R %o% R
   size_t mat_p = 0;
   for (i = 0; i < R.size(); i++) {
@@ -317,13 +318,13 @@ structural_model<U> make_arima( const std::vector<U> &phi,
       mat_p++;
     }
   }
-  U h = 0;
-  std::vector<U> a(rd);
-  std::vector<U> P(rd * rd);
-  std::vector<U> Pn(rd * rd);
+  scalar_t h = 0;
+  std::vector<scalar_t> a(rd);
+  std::vector<scalar_t> P(rd * rd);
+  std::vector<scalar_t> Pn(rd * rd);
   if (r > 1) {
     // for storing initialization results
-    std::vector<U> temp(r * r);
+    std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
       temp = std::move(get_Q0(phi, theta));
@@ -362,15 +363,18 @@ structural_model<U> make_arima( const std::vector<U> &phi,
       }
     }
   }
-  structural_model<U> res(phi, theta, delta, Z, a, P, T, V, Pn, h);
+  structural_model<scalar_t> res(phi, theta, delta, Z, a, P, T, V, Pn, h);
   return res;
 }
 
 
-template <typename U = double>
-void update_arima(structural_model<U> &model, std::vector<U> &phi,
-                  std::vector<U> &theta, SSinit state_init = Gardner) {
-  const size_t p = phi.size(), q = theta.size(), r = max(p, q + 1), rd = model.Z.size();
+template <typename scalar_t = float> void update_arima(
+  structural_model<scalar_t> &model,
+  std::vector<scalar_t> &phi,
+  std::vector<scalar_t> &theta,
+  SSinit state_init = Gardner) {
+  const size_t p = phi.size(), q = theta.size(), r = max(p, q + 1),
+    rd = model.Z.size();
 
   model.phi = phi;
   model.theta = theta;
@@ -383,7 +387,7 @@ void update_arima(structural_model<U> &model, std::vector<U> &phi,
 
   if (r > 1) {
     // for storing initialization results
-    std::vector<U> temp(r * r);
+    std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
       temp = std::move(get_Q0(phi, theta));
@@ -416,8 +420,8 @@ void update_arima(structural_model<U> &model, std::vector<U> &phi,
   std::fill(model.a.begin(), model.a.end(), 0);
 }
 
-template <class T, typename U = double>
-void update_arima(structural_model<U> &model,
+template <class T, typename scalar_t = float>
+void update_arima(structural_model<scalar_t> &model,
                   T &coef,
                   const arima_kind kind,
                   SSinit state_init = Gardner) {
@@ -441,7 +445,7 @@ void update_arima(structural_model<U> &model,
 
   if (r > 1) {
     // for storing initialization results
-    std::vector<U> temp(r * r);
+    std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
       temp = std::move(get_Q0(model.phi, model.theta));
@@ -474,16 +478,16 @@ void update_arima(structural_model<U> &model,
   std::fill(model.a.begin(), model.a.end(), 0);
 }
 
-template <class T, typename U = double>
-void update_arima(structural_model<U> &model,
+template <class T, typename scalar_t = float>
+void update_arima(structural_model<scalar_t> &model,
                   T &coef,
                   const arima_kind kind,
-                  std::vector<double> &xnext,
-                  std::vector<double> &xrow,
-                  std::vector<double> &rbar,
-                  std::vector<double> &thetab,
-                  std::vector<double> &V,
-                  std::vector<double> &P,
+                  std::vector<scalar_t> &xnext,
+                  std::vector<scalar_t> &xrow,
+                  std::vector<scalar_t> &rbar,
+                  std::vector<scalar_t> &thetab,
+                  std::vector<scalar_t> &V,
+                  std::vector<scalar_t> &P,
                   SSinit state_init = Gardner) {
   const size_t p = kind.p() + kind.period() * kind.P(),
     q = kind.q() + kind.period() * kind.Q(),
@@ -505,7 +509,7 @@ void update_arima(structural_model<U> &model,
 
   if (r > 1) {
     // for storing initialization results
-    std::vector<U> temp(r * r);
+    std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
       temp = std::move(get_Q0(model.phi, model.theta, xnext, xrow,
@@ -540,16 +544,17 @@ void update_arima(structural_model<U> &model,
 }
 
 
-template <typename U = double> void recompute_v(structural_model<U> & model) {
+template <typename scalar_t = float> void recompute_v(
+  structural_model<scalar_t> & model) {
   // reexpand V for an already existing structural model
 
   size_t i, j;
-  std::vector<U> R(1 + model.theta.size() + model.delta.size());
+  std::vector<scalar_t> R(1 + model.theta.size() + model.delta.size());
   R[0] = 1;
   for (i = 1; i < model.theta.size() + 1; i++) {
     R[i] = model.theta[i - 1];
   }
-  std::vector<U> V(R.size() * R.size());
+  std::vector<scalar_t> V(R.size() * R.size());
   // here we do an outer product, ie: V <- R %o% R
   size_t mat_p = 0;
   for (i = 0; i < R.size(); i++) {

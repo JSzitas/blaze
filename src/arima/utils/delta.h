@@ -1,15 +1,15 @@
 #ifndef DELTA
 #define DELTA
 
-template <typename U = double> std::vector<U> make_delta(
+template <typename scalar_t = float> std::vector<scalar_t> make_delta(
   const size_t n_diff,
   const size_t seas_period = 1,
   const size_t n_seas_diff = 0) {
 
   const size_t diff_size = n_diff + 1;
-  std::vector<U> a(diff_size + (n_seas_diff * seas_period));
+  std::vector<scalar_t> a(diff_size + (n_seas_diff * seas_period));
   a[0] = 1;
-  std::vector<U> temp(diff_size + (n_seas_diff * seas_period));
+  std::vector<scalar_t> temp(diff_size + (n_seas_diff * seas_period));
   for (size_t k = 0; k < n_diff; k++) {
     for (size_t i = 0; i <= k; i++) {
       // the array extend is always 2, hence we can always just do these two

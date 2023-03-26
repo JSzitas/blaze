@@ -120,7 +120,7 @@ class DefaultFunction : public Function<TScalar, DefaultFunction<TScalar, TDim>,
   // Override this method if you can compute the objective value, gradient and
   // Hessian simultaneously.
   State<scalar_t, vector_t, hessian_t> Eval(const vector_t &x,
-                                                    const int order = 2) { //const
+                                            const int order = 2) { //const
     State<scalar_t, vector_t, hessian_t> state(x.rows(), order);
     state.value = this->operator()(x);
     state.x = x;

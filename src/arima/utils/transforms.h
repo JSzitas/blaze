@@ -9,21 +9,31 @@
 #include "arima/structures/arima_kind.h"
 #include "arima/structures/structural_model.h"
 
-std::complex<double> operator/(
-    const double left,
-    const std::complex<double> right) {
-  /* perform /(double,complex), or div(double,complex), ie
+std::complex<float> operator/(
+    const float left,
+    const std::complex<float> right) {
+  /* perform /(float,complex), or div(float,complex), ie
    * div(complex, complex) where the first element has complex part == 0
    * complex division is given by formula:
    * (ac+bd)/(c2 + d2) + (bc-ad)/(c2 + d2)i.
-   * which for first operand double takes b = 0
+   * which for first operand float takes b = 0
    */
-  const double &a = left;
-  const double &c = std::real(right);
-  const double &d = std::imag(right);
+  const float &a = left, c = std::real(right), d = std::imag(right);
   /* Thus the formula simplifies to:
    * (ac)/(c^2 + d^2) + (-ad)/(c^2 + d^2)i
    */
+  std::complex<float> res(
+      // real part
+      (a * c) / (pow(c, 2) + pow(d, 2)),
+      // complex part
+      (-a * d) / (pow(c, 2) + pow(d, 2)));
+  return res;
+}
+
+std::complex<double> operator/(
+  const double left,
+  const std::complex<double> right) {
+  const double &a = left, c = std::real(right), d = std::imag(right);
   std::complex<double> res(
       // real part
       (a * c) / (pow(c, 2) + pow(d, 2)),
@@ -32,9 +42,10 @@ std::complex<double> operator/(
   return res;
 }
 
-template <typename T> void invert_ma(
+
+template <typename T, typename scalar_t=float> void invert_ma(
     T & coef, const size_t start, const size_t end,
-    const double tol = 0.0000001) {
+    const scalar_t tol = 0.0000001) {
   auto q = end - start;
   // analogous to ar_check >> find latest/largest order nonzero coef
   size_t q0 = 0;
@@ -48,7 +59,7 @@ template <typename T> void invert_ma(
     return;
   }
   // otherwise find roots
-  std::vector<double> temp(q0 + 1);
+  std::vector<scalar_t> temp(q0 + 1);
   temp[0] = 1;
   for (size_t i = 1; i < temp.size(); i++) {
     temp[i] = coef[start + i - 1];
@@ -85,13 +96,13 @@ template <typename T> void invert_ma(
   for (size_t i = 0; i < roots.size(); i++) {
     // I made this work for complex numbers :)
     if (indices[i]) {
-      roots[i] = 1 / roots[i];
+      roots[i] = (scalar_t)1.0 / roots[i];
     }
   }
-  std::vector<std::complex<double>> result(roots.size() + 1);
+  std::vector<std::complex<scalar_t>> result(roots.size() + 1);
   // set first new coef == 1
   result[0] = 1;
-  std::vector<std::complex<double>> inv_temp(roots.size() + 1);
+  std::vector<std::complex<scalar_t>> inv_temp(roots.size() + 1);
   for (size_t i = 0; i < roots.size(); i++) {
     // take the root
     inv_temp = result;
@@ -108,12 +119,13 @@ template <typename T> void invert_ma(
   }
 }
 
-std::vector<std::complex<double>> invert_ma_coef_from_roots(
-    std::vector<std::complex<double>> roots ) {
-  std::vector<std::complex<double>> result(roots.size() + 1);
+template <typename scalar_t=float>
+std::vector<std::complex<scalar_t>> invert_ma_coef_from_roots(
+    std::vector<std::complex<scalar_t>> roots ) {
+  std::vector<std::complex<scalar_t>> result(roots.size() + 1);
   // set first new coef == 1
   result[0] = 1;
-  std::vector<std::complex<double>> temp(roots.size() + 1);
+  std::vector<std::complex<scalar_t>> temp(roots.size() + 1);
   for (size_t i = 0; i < roots.size(); i++) {
     // take the root
     temp = result;
@@ -124,12 +136,12 @@ std::vector<std::complex<double>> invert_ma_coef_from_roots(
   return result;
 }
 
-template <class T> void parameter_transform(
+template <typename T, typename scalar_t=float> void parameter_transform(
     T &coef, const size_t start, const size_t end) {
   size_t j, k;
   // we solve this by using a vector rather than an array
   const size_t p = end-start;
-  std::vector<double> new_par(p);
+  std::vector<scalar_t> new_par(p);
   /* Step one: map (-Inf, Inf) to (-1, 1) via tanh
    The parameters are now the pacf phi_{kk} */
   for (j = 0; j < p; j++) {
@@ -147,10 +159,10 @@ template <class T> void parameter_transform(
 }
 
 // invert the parameter transformation
-template <typename T> void inv_parameter_transform(
+template <typename T, typename scalar_t=float> void inv_parameter_transform(
     T & coef, const size_t start, const size_t end) {
   const auto p = end - start;
-  std::vector<double> new_pars(p);
+  std::vector<scalar_t> new_pars(p);
   for (size_t j = 0; j < p; j++) {
     // assigning work[j] = might be redundant - it gets reassigned anyways and
     // only holds intermediaries, but does not do anything for the result
@@ -171,20 +183,21 @@ template <typename T> void inv_parameter_transform(
 }
 
 // this just directly modifies coef
-template <typename T, const bool seasonal, const bool transform>
+template <typename T, const bool seasonal, const bool transform,
+          const bool reverse_order=false, typename scalar_t=float>
 void arima_transform_parameters(
     T &coef,
     const arima_kind &kind,
-    std::vector<double> &phi,
-    std::vector<double> &theta) {
+    std::vector<scalar_t> &phi,
+    std::vector<scalar_t> &theta) {
   // the coefficients are all 'packed in' inside coef - so we have
   // different types of coefficients. this tells us basically how many
   // of each type there are
   const size_t mp = kind.p(), msp = kind.P(), mq = kind.q();
   if constexpr (transform) {
     // cast away constness to modify by reference
-    if (mp > 0) parameter_transform(coef, 0, mp);
-    if (msp > 0) parameter_transform(coef, mp + mq, mp + mq + msp);
+    if (mp > 0) parameter_transform<T, scalar_t>(coef, 0, mp);
+    if (msp > 0) parameter_transform<T, scalar_t>(coef, mp + mq, mp + mq + msp);
   }
   if constexpr (seasonal) {
     const size_t msq = kind.Q(), ns = kind.period();
@@ -210,35 +223,42 @@ void arima_transform_parameters(
         theta[(j + 1) * ns + i] += coef[i + mp] * coef[j + mp + mq + msp];
       }
     }
+    if constexpr(reverse_order) {
+      for (i = 0; i < p; i++) coef[i] = phi[p - 1 - i];
+      for (i = 0; i < q; i++) coef[p + i] = theta[q -1 - i];
+      return;
+    }
     // the output is written back to coef
     for (i = 0; i < p; i++) coef[i] = phi[i];
     for (i = p; i < p + q; i++) coef[i] = theta[i - p];
   }
 }
 
-template <typename T> void arima_inverse_transform_parameters(
+template <typename T,
+          typename scalar_t=float>
+void arima_inverse_transform_parameters(
     T & coef,
     const arima_kind & kind) {
   // transform AR coefficients
-  if(kind.p()) inv_parameter_transform(coef, 0, kind.p());
+  if(kind.p()) inv_parameter_transform<T, scalar_t>(coef, 0, kind.p());
   // transform SAR coefficients
-  if(kind.P()) inv_parameter_transform(coef,
+  if(kind.P()) inv_parameter_transform<T, scalar_t>(coef,
      kind.p() + kind.q(),
      kind.p() + kind.q() + kind.P());
   // transform MA by inverting
-  if(kind.q()) invert_ma(coef, kind.p(), kind.p() + kind.q());
+  if(kind.q()) invert_ma<T, scalar_t>(coef, kind.p(), kind.p() + kind.q());
   // // and SMA
-  if(kind.Q()) invert_ma(coef, kind.p() + kind.q() + kind.P(),
+  if(kind.Q()) invert_ma<T, scalar_t>(coef, kind.p() + kind.q() + kind.P(),
                          kind.p() + kind.q()  + kind.P() + kind.Q());
 }
 
-// std::vector<double> arima_grad_transform(std::vector<double> &coef,
+// std::vector<scalar_t> arima_grad_transform(std::vector<scalar_t> &coef,
 //                                          std::vector<int> &arma,
-//                                          double eps = 1e-3) {
+//                                          scalar_t eps = 1e-3) {
 //   int mp = arma[0], mq = arma[1], msp = arma[2], n = coef.size();
-//   std::vector<double> w1_temp(mp), w2_temp(mp), w3_temp(mp);
+//   std::vector<scalar_t> w1_temp(mp), w2_temp(mp), w3_temp(mp);
 //
-//   std::vector<double> result(n * n);
+//   std::vector<scalar_t> result(n * n);
 //   for (int i = 0; i < n; i++) {
 //     for (int j = 0; j < n; j++) {
 //       result[i + j * n] = (i == j);

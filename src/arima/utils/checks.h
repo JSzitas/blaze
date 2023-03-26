@@ -4,9 +4,9 @@
 #include "utils/poly.h"
 #include "arima/structures/arima_kind.h"
 
-bool ar_check(
-    const std::vector<double> &ar_coef,
-    const double tol = 0.0000001) {
+template <typename scalar_t=float> bool ar_check(
+    const std::vector<scalar_t> &ar_coef,
+    const scalar_t tol = 0.0000001) {
   // check if all inverse coefficients are zero - in that case we return
   size_t p = 0;
   for (size_t i = 0; i < ar_coef.size(); i++) {
@@ -22,7 +22,7 @@ bool ar_check(
   // goes here instead of the false
   // then the abs(/inverse/roots) must be all greater than > 1 for
   // this to lie within the unit circle
-  std::vector<double> coef(p + 1);
+  std::vector<scalar_t> coef(p + 1);
   coef[0] = 1;
   for (size_t i = 1; i < coef.size(); i++) {
     coef[i] = -ar_coef[i - 1];
@@ -42,15 +42,16 @@ bool ar_check(
   return true;
 }
 
-template <class C> std::array<bool,2> check_all_ar(
+template <typename C,
+          typename scalar_t=float> std::array<bool,2> check_all_ar(
     const C & coef,
     const arima_kind & kind,
-    const double tol = 0.0000001) {
+    const scalar_t tol = 0.0000001) {
   // preallocate result
   std::array<bool,2> result;
   const size_t p = kind.p(), P = kind.P();
   // first check for the non-seasonal coef
-  std::vector<double> temp(p);
+  std::vector<scalar_t> temp(p);
   for(size_t i = 0; i < p; i++) {
     temp[i] = coef[i];
   }

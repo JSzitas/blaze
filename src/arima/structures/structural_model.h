@@ -2,7 +2,7 @@
 #define STRUCT_MODEL
 
 // Kalman filtering model structure
-template <typename U = double> struct structural_model {
+template <typename U = float> struct structural_model {
   structural_model<U>() {}
   structural_model<U>(std::vector<U> phi, std::vector<U> theta,
                       std::vector<U> delta, std::vector<U> Z, std::vector<U> a,

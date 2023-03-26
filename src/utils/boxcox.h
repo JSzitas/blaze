@@ -3,7 +3,7 @@
 
 #include <cmath>
 
-template <typename scalar_t=double> class BoxCoxTransformer{
+template <typename scalar_t=float> class BoxCoxTransformer{
   using Vec = std::vector<scalar_t>;
   // estimated lambda
   scalar_t lambda;

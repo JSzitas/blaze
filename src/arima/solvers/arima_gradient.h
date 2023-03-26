@@ -13,8 +13,8 @@
 #include "third_party/eigen.h"
 
 template <const size_t update_point = 0,
-          class T, typename scalar_t=double>
-void arima_steady_state(const T &y,
+          class T, typename scalar_t=float>
+static inline void arima_steady_state(const T &y,
                         structural_model<scalar_t> &model) {
   const size_t n = y.size(), rd = model.a.size(), p = model.phi.size(),
     q = model.theta.size(), d = model.delta.size(), r = rd - d;
@@ -128,7 +128,8 @@ void arima_steady_state(const T &y,
  * To do that, we use this custom class (since this will require some temporary
  * objects).
  */
-template <const bool seasonal, const bool has_xreg, typename scalar_t = double> class ArimaLossGradient {
+template <const bool seasonal, const bool has_xreg,
+          typename scalar_t = float> class ArimaLossGradient {
   // convenience typedefs
   using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
   using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
@@ -333,7 +334,7 @@ public:
         this->xreg * final_pars.tail(final_pars.size() - this->arma_pars);
     }
     // get arima steady state values
-    arima_steady_state(y_temp, model);
+    arima_steady_state<0, EigVec, scalar_t>(y_temp, model);
   }
 private:
   // for this we need a vector that exists for after applying AR to the

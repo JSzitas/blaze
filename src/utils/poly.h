@@ -767,7 +767,8 @@ void quad(double a, double b1, double c, double *sr, double *si, double *lr,
 }
 // a more modern interface to the poly function - this follows the polyroot in
 // R
-std::vector<std::complex<double>> polyroot(std::vector<double> &x) {
+template <typename scalar_t=float>
+std::vector<std::complex<scalar_t>> polyroot(std::vector<scalar_t> &x) {
   // reverse to be compatible with what R is doing - R uses the reverse order
   // compare to rpoly
   std::reverse(x.begin(), x.end());
@@ -783,9 +784,12 @@ std::vector<std::complex<double>> polyroot(std::vector<double> &x) {
   // call poly
   auto res = rpoly(coef_vector, size, real_part, complex_part);
   // create vector of complex elements from real and complex part
-  std::vector<std::complex<double>> result;
+  std::vector<std::complex<scalar_t>> result;
   for (size_t i = 1; i < size; i++) {
-    result.push_back(std::complex<double>(real_part[i], complex_part[i]));
+    result.push_back(std::complex<scalar_t>(
+        (scalar_t)real_part[i],
+        (scalar_t)complex_part[i])
+    );
   }
   // clean up what you we allocated to interface with the polyroot computation
   delete[] real_part;

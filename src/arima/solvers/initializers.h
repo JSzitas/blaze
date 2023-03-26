@@ -6,20 +6,20 @@
 #include "arima/structures/ss_init.h"
 
 // map 2 vectors to Eigen matrices and call solve
-template <typename U = double>
-std::vector<U> solve_mat_vec(std::vector<U> &mat,
-                             std::vector<U> &vec) {
+template <typename scalar_t = float>
+std::vector<scalar_t> solve_mat_vec(std::vector<scalar_t> &mat,
+                                    std::vector<scalar_t> &vec) {
   const size_t n = vec.size();
 
-  Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic> new_mat =
-      Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, Eigen::Dynamic>>(mat.data(),
-                                                                   n, n);
-  Eigen::Matrix<U, Eigen::Dynamic, 1> new_vec =
-      Eigen::Map<Eigen::Matrix<U, Eigen::Dynamic, 1>>(vec.data(), n, 1);
-  Eigen::Matrix<U, Eigen::Dynamic, 1> res =
+  Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic> new_mat =
+      Eigen::Map<Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>>(
+          mat.data(), n, n);
+  Eigen::Matrix<scalar_t, Eigen::Dynamic, 1> new_vec =
+      Eigen::Map<Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>>(vec.data(), n, 1);
+  Eigen::Matrix<scalar_t, Eigen::Dynamic, 1> res =
       new_mat.completeOrthogonalDecomposition().solve(new_vec);
 
-  std::vector<U> result(res.data(), res.data() + res.rows() * res.cols());
+  std::vector<scalar_t> result(res.data(), res.data() + res.rows() * res.cols());
   return result;
 }
 
@@ -32,22 +32,24 @@ std::vector<U> solve_mat_vec(std::vector<U> &mat,
  * (ie completeOrthogonalDecomposition **should** be a better approach than the
  * regular solver)
  */
-std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
-                                     const std::vector<double> &theta_coef) {
+template <typename scalar_t=float> std::vector<scalar_t>
+get_Q0_rossignol(
+  const std::vector<scalar_t> &phi_coef,
+  const std::vector<scalar_t> &theta_coef) {
   const size_t p = phi_coef.size(), q = theta_coef.size();
   size_t i, j, r = max(p, q + 1);
   // in the original, you create a pointer to the result, which is this,
   // and is a matrix (P),
   // but it makes more sense to me to model it as a std::vector -
   // since working with R matrices is not better than that.
-  std::vector<double> P(r * r);
+  std::vector<scalar_t> P(r * r);
   /* Final result is block product
    *   Q0 = A1 SX A1^T + A1 SXZ A2^T + (A1 SXZ A2^T)^T + A2 A2^T ,
    * where A1 [i,j] = phi[i+j],
    *       A2 [i,j] = ttheta[i+j],  and SX, SXZ are defined below */
 
   // Initialize and allocate theta
-  std::vector<double> theta(q + 1);
+  std::vector<scalar_t> theta(q + 1);
   theta[0] = 1.0;
   for (i = 1; i < q + 1; i++) {
     theta[i] = theta_coef[i - 1];
@@ -56,7 +58,7 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
   if (p > 0) {
     size_t r2 = max(p + q, p + 1);
     // initialize phi
-    std::vector<double> phi(p + 1);
+    std::vector<scalar_t> phi(p + 1);
     // fill with correct values (i.e. a leading 1)
     phi[0] = 1.0;
     for (i = 1; i < p + 1; i++) {
@@ -65,8 +67,8 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
     /* Compute the autocovariance function of U, the AR part of X */
     /* Gam := C1 + C2 ; initialize */
     // gam is a matrix
-    std::vector<double> gam(r2 * r2);
-    std::vector<double> g(r2);
+    std::vector<scalar_t> gam(r2 * r2);
+    std::vector<scalar_t> g(r2);
     /* C1[E] */
     for (j = 0; j < r2; ++j) {
       for (i = j; i < r2 && i - j < p + 1; ++i) {
@@ -87,7 +89,7 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
       g[i] = 0.;
     }
     // Solve the system of linear equations - using Eigen
-    std::vector<double> u = solve_mat_vec(gam, g);
+    std::vector<scalar_t> u = solve_mat_vec(gam, g);
     /* SX = A SU A^T */
     /* A[i,j]  = theta[j-i] */
     /* SU[i,j] = u[abs(i-j)] */
@@ -111,7 +113,7 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
     /* forwardsolve(C1, g) */
     /* C[i,j] = tphi[i-j] */
     /* g[i] = _ttheta(i) */
-    std::vector<double> rrz(q);
+    std::vector<scalar_t> rrz(q);
     if (q > 0) {
       for (i = 0; i < q; ++i) {
         rrz[i] = theta[i];
@@ -156,14 +158,14 @@ std::vector<double> get_Q0_rossignol(const std::vector<double> &phi_coef,
 }
 
 /* based on code from AS154 */
-inline static void inclu2(
+template <typename scalar_t = float> inline static void inclu2(
     size_t np,
-    std::vector<double> &xnext,
-    std::vector<double> &xrow, double ynext,
-    std::vector<double> &d,
-    std::vector<double> &rbar,
-    std::vector<double> &thetab) {
-  double cbar, sbar, di, xi, xk, rbthis, dpi;
+    std::vector<scalar_t> &xnext,
+    std::vector<scalar_t> &xrow, scalar_t ynext,
+    std::vector<scalar_t> &d,
+    std::vector<scalar_t> &rbar,
+    std::vector<scalar_t> &thetab) {
+  scalar_t cbar, sbar, di, xi, xk, rbthis, dpi;
   size_t i, k, ithisr;
   /*   This subroutine updates d, rbar, thetab by the inclusion
    of xnext and ynext. */
@@ -197,21 +199,23 @@ inline static void inclu2(
   }
 }
 
-std::vector<double> get_Q0_impl(const std::vector<double> &phi_coef,
-                                const std::vector<double> &theta_coef,
-                                std::vector<double> &xnext,
-                                std::vector<double> &xrow,
-                                std::vector<double> &rbar,
-                                std::vector<double> &thetab,
-                                std::vector<double> &V,
-                                std::vector<double> &P) {
+template <typename scalar_t=float>
+std::vector<scalar_t> get_Q0_impl(
+    const std::vector<scalar_t> &phi_coef,
+    const std::vector<scalar_t> &theta_coef,
+    std::vector<scalar_t> &xnext,
+    std::vector<scalar_t> &xrow,
+    std::vector<scalar_t> &rbar,
+    std::vector<scalar_t> &thetab,
+    std::vector<scalar_t> &V,
+    std::vector<scalar_t> &P) {
 
   const size_t p = phi_coef.size(), q = theta_coef.size();
   size_t i, j, r = max(p, q + 1);
   size_t np = r * (r + 1) / 2, nrbar = np * (np - 1) / 2, npr, npr1;
   size_t indi, indj, indn, ithisr, ind, ind1, ind2, im, jm;
 
-  double vj, vi, bi, ynext, phii, phij;
+  scalar_t vj, vi, bi, ynext, phii, phij;
   for (ind = 0, j = 0; j < r; j++) {
     vj = 0.0;
     if (j == 0) {
@@ -334,24 +338,28 @@ std::vector<double> get_Q0_impl(const std::vector<double> &phi_coef,
   return P;
 }
 
-std::vector<double> get_Q0(const std::vector<double> &phi_coef,
-                           const std::vector<double> &theta_coef) {
+template <typename scalar_t=float>
+std::vector<scalar_t> get_Q0(
+    const std::vector<scalar_t> &phi_coef,
+    const std::vector<scalar_t> &theta_coef) {
   const size_t p = phi_coef.size(), q = theta_coef.size(),
     r = max(p, q + 1), np = r * (r + 1) / 2, nrbar = np * (np - 1) / 2;
 
-  std::vector<double> xnext(np), xrow(np), rbar(nrbar),
+  std::vector<scalar_t> xnext(np), xrow(np), rbar(nrbar),
     thetab(np), V(np), P(r * r);
   return get_Q0_impl(phi_coef, theta_coef, xnext, xrow, rbar, thetab, V, P);
 }
 
-std::vector<double> get_Q0(const std::vector<double> &phi_coef,
-                           const std::vector<double> &theta_coef,
-                           std::vector<double> &xnext,
-                           std::vector<double> &xrow,
-                           std::vector<double> &rbar,
-                           std::vector<double> &thetab,
-                           std::vector<double> &V,
-                           std::vector<double> &P) {
+template <typename scalar_t=float>
+std::vector<scalar_t> get_Q0(
+    const std::vector<scalar_t> &phi_coef,
+    const std::vector<scalar_t> &theta_coef,
+    std::vector<scalar_t> &xnext,
+    std::vector<scalar_t> &xrow,
+    std::vector<scalar_t> &rbar,
+    std::vector<scalar_t> &thetab,
+    std::vector<scalar_t> &V,
+    std::vector<scalar_t> &P) {
   return get_Q0_impl(phi_coef, theta_coef, xnext, xrow, rbar, thetab, V, P);
 }
 

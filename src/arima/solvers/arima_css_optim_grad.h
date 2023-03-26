@@ -15,28 +15,28 @@
 #include "third_party/optim.h"
 
 
-template <const bool has_xreg, const bool seasonal>
-class ARIMA_CSS_PROBLEM : public cppoptlib::function::Function<double, ARIMA_CSS_PROBLEM<has_xreg, seasonal>> {
+template <const bool has_xreg, const bool seasonal, typename scalar_t=float>
+class ARIMA_CSS_PROBLEM : public cppoptlib::function::Function<scalar_t, ARIMA_CSS_PROBLEM<has_xreg, seasonal,scalar_t>> {
 
-  using EigVec = Eigen::Matrix<double, Eigen::Dynamic, 1>;
-  using EigMat = Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>;
-  using StateXd = cppoptlib::function::State<double, Eigen::VectorXd, Eigen::MatrixXd>;
+  using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
+  using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
+  using StateXd = cppoptlib::function::State<scalar_t, EigVec, EigMat>;
 
 private:
-  ArimaLossGradient<seasonal, has_xreg, double> Grad;
+  ArimaLossGradient<seasonal, has_xreg, scalar_t> Grad;
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
     // initialize with a given arima structure
-    ARIMA_CSS_PROBLEM(const std::vector<double> &y,
+    ARIMA_CSS_PROBLEM(const std::vector<scalar_t> &y,
                       const arima_kind &kind,
                       const bool intercept,
                       const bool drift,
-                      std::vector<std::vector<double>> &xreg) {
-      this->Grad = ArimaLossGradient<seasonal, has_xreg>(
+                      std::vector<std::vector<scalar_t>> &xreg) {
+      this->Grad = ArimaLossGradient<seasonal, has_xreg, scalar_t>(
         y, kind, intercept,
         vec_to_mat(xreg, y.size(), intercept, drift), 1);
     }
-    double operator()(const EigVec &x) {
+    scalar_t operator()(const EigVec &x) {
       return this->Grad.loss(x);
     }
     // add impl of grad, hessian, eval
@@ -51,31 +51,31 @@ public:
       state.value = this->Grad.loss(x);
       return state;
     }
-    void finalize( structural_model<double> &model,
+    void finalize( structural_model<scalar_t> &model,
                    const EigVec & final_pars,
-                   const double kappa,
+                   const scalar_t kappa,
                    const SSinit ss_init) {
       this->Grad.finalize(model, final_pars, kappa, ss_init);
     }
 };
 
-template <const bool has_xreg, const bool seasonal>
-double arima_solver_css(std::vector<double> &y,
+template <const bool has_xreg, const bool seasonal, typename scalar_t=float>
+scalar_t arima_solver_css(std::vector<scalar_t> &y,
                       const arima_kind &kind,
-                      structural_model<double> &model,
-                      std::vector<std::vector<double>> xreg,
+                      structural_model<scalar_t> &model,
+                      std::vector<std::vector<scalar_t>> xreg,
                       const bool intercept,
                       const bool drift,
-                      std::vector<double> &coef,
-                      const double kappa,
+                      std::vector<scalar_t> &coef,
+                      const scalar_t kappa,
                       const SSinit ss_init) {
 
-  Eigen::VectorXd x(coef.size());
+  Eigen::Matrix<scalar_t, Eigen::Dynamic, 1> x(coef.size());
   for(size_t i = 0; i < coef.size(); i++) x(i) = coef[i];
   // initialize solver
-  cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal>> solver;
+  cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal, scalar_t>> solver;
   // and arima problem
-  ARIMA_CSS_PROBLEM<has_xreg, seasonal> css_arima_problem(
+  ARIMA_CSS_PROBLEM<has_xreg, seasonal, scalar_t> css_arima_problem(
       y, kind, intercept, drift, xreg);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);

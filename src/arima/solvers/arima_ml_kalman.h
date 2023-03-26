@@ -19,7 +19,7 @@
 
 template <const SSinit ss_type, const bool seasonal,
           const bool has_xreg, const bool transform,
-          typename scalar_t=double> class KalmanARIMA {
+          typename scalar_t=float> class KalmanARIMA {
 
 using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
 using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
