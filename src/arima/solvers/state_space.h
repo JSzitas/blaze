@@ -92,7 +92,7 @@ forecast_result<scalar_t> kalman_forecast(const size_t n_ahead,
  * representation from some values of phi, theta and delta, where phi
  * and theta are embedded in a single vector(std::vector/Eigen::Vector)
  */
-template <typename C, typename scalar_t = float>
+template <typename C, typename scalar_t>
 structural_model<scalar_t> make_arima( const C &coef,
                                 const arima_kind &kind,
                                 const scalar_t kappa = 1000000,
@@ -193,10 +193,10 @@ structural_model<scalar_t> make_arima( const C &coef,
     std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
-      temp = std::move(get_Q0(phi, theta));
+      temp = std::move(get_Q0<std::vector<scalar_t>, scalar_t>(phi, theta));
       break;
     case Rossignol:
-      temp = std::move(get_Q0_rossignol(phi, theta));
+      temp = std::move(get_Q0_rossignol<std::vector<scalar_t>, scalar_t>(phi, theta));
       break;
     };
     /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
@@ -229,14 +229,13 @@ structural_model<scalar_t> make_arima( const C &coef,
       }
     }
   }
-  structural_model<scalar_t> res(phi, theta, delta, Z, a, P, T, V, Pn, h);
-  return res;
+  return structural_model<scalar_t>(phi, theta, delta, Z, a, P, T, V, Pn, h);
 }
 
-template <typename C, typename scalar_t = float>
+template <typename C, typename scalar_t>
 structural_model<scalar_t> make_arima(
-    const std::vector<scalar_t> &phi,
-    const std::vector<scalar_t> &theta,
+    const C &phi,
+    const C &theta,
     const arima_kind &kind,
     const scalar_t kappa = 1000000,
     const SSinit state_init = Gardner,
@@ -327,10 +326,10 @@ structural_model<scalar_t> make_arima(
     std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
-      temp = std::move(get_Q0(phi, theta));
+      temp = std::move(get_Q0<C, scalar_t>(phi, theta));
       break;
     case Rossignol:
-      temp = std::move(get_Q0_rossignol(phi, theta));
+      temp = std::move(get_Q0_rossignol<C, scalar_t>(phi, theta));
       break;
     };
     /* update a block of first r rows and columns i.e. if we have a 5x5 Pn
@@ -363,12 +362,14 @@ structural_model<scalar_t> make_arima(
       }
     }
   }
-  structural_model<scalar_t> res(phi, theta, delta, Z, a, P, T, V, Pn, h);
-  return res;
+  return structural_model<scalar_t>(
+    std::vector<scalar_t>(phi.data(), phi.data() + phi.size()),
+    std::vector<scalar_t>(theta.data(), theta.data() + theta.size()),
+    delta, Z, a, P, T, V, Pn, h);
 }
 
 
-template <typename scalar_t = float> void update_arima(
+template <typename scalar_t> void update_arima(
   structural_model<scalar_t> &model,
   std::vector<scalar_t> &phi,
   std::vector<scalar_t> &theta,
@@ -390,10 +391,11 @@ template <typename scalar_t = float> void update_arima(
     std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
-      temp = std::move(get_Q0(phi, theta));
+      temp = std::move(get_Q0<std::vector<scalar_t>, scalar_t>(phi, theta));
       break;
     case Rossignol:
-      temp = std::move(get_Q0_rossignol(phi, theta));
+      temp = std::move(get_Q0_rossignol<
+        std::vector<scalar_t>, scalar_t>(phi, theta));
       break;
     };
     size_t mat_p = 0;
@@ -420,7 +422,7 @@ template <typename scalar_t = float> void update_arima(
   std::fill(model.a.begin(), model.a.end(), 0);
 }
 
-template <class T, typename scalar_t = float>
+template <class T, typename scalar_t>
 void update_arima(structural_model<scalar_t> &model,
                   T &coef,
                   const arima_kind kind,
@@ -448,10 +450,12 @@ void update_arima(structural_model<scalar_t> &model,
     std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
-      temp = std::move(get_Q0(model.phi, model.theta));
+      temp = std::move(get_Q0<std::vector<scalar_t>, scalar_t>(
+        model.phi, model.theta));
       break;
     case Rossignol:
-      temp = std::move(get_Q0_rossignol(model.phi, model.theta));
+      temp = std::move(get_Q0_rossignol<std::vector<scalar_t>, scalar_t>(
+        model.phi, model.theta));
       break;
     };
     size_t mat_p = 0;
@@ -512,11 +516,12 @@ void update_arima(structural_model<scalar_t> &model,
     std::vector<scalar_t> temp(r * r);
     switch (state_init) {
     case Gardner:
-      temp = std::move(get_Q0(model.phi, model.theta, xnext, xrow,
-                              rbar, thetab, V, P));
+      temp = std::move(get_Q0<std::vector<scalar_t>, scalar_t>(
+        model.phi, model.theta, xnext, xrow, rbar, thetab, V, P));
       break;
     case Rossignol:
-      temp = std::move(get_Q0_rossignol(model.phi, model.theta));
+      temp = std::move(get_Q0_rossignol<std::vector<scalar_t>, scalar_t>(
+        model.phi, model.theta));
       break;
     };
     size_t mat_p = 0;

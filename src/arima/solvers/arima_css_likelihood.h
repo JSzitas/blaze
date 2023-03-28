@@ -55,42 +55,6 @@ scalar_t simd_arima_css_ssq(
     q = kind.q() + kind.period() * kind.Q();
   // prepare the residuals - possibly move this out and never allocate here?
   int ma_offset, nu = n-n_cond;
-  // this is probably computationally costly - we can fix this if the input y
-  // is already reversed
-  auto y_ = y;
-  std::reverse(y_.begin(), y_.end());
-
-  scalar_t ssq = 0.0, tmp = 0.0;
-  for (size_t i = n_cond; i < n; i++) {
-    ma_offset = min(i - n_cond, q);
-    // current observation
-    tmp = y_[y.size() - i - 1];
-    // apply AR pars
-    tmp -= dot<scalar_t>(y_.data() + y.size() - i, pars.data(), p);
-    // std::cout <<" after ar: " << tmp << std::endl;
-
-    // apply MA pars - to offset that this is all in one vector, we need to
-    // start at p and go to p + q
-    tmp -= dot<scalar_t>(resid.data() + y.size() - i, pars.data()+p, ma_offset);
-
-    resid[y.size() - i - 1] = tmp;
-    if(!isnan(tmp)) ssq += tmp * tmp;
-    else nu--;
-  }
-  return ssq / nu;
-}
-
-template<typename T, typename scalar_t=float>
-scalar_t simd_arima_css_ssq2(
-    const T &y,
-    const T &pars,
-    const arima_kind &kind,
-    const int n_cond,
-    std::vector<scalar_t> &resid) {
-  const size_t n = y.size(), p = kind.p() + kind.period() * kind.P(),
-    q = kind.q() + kind.period() * kind.Q();
-  // prepare the residuals - possibly move this out and never allocate here?
-  int ma_offset, nu = n-n_cond;
   scalar_t ssq = 0.0, tmp = 0.0;
   for (size_t i = n_cond; i < n; i++) {
     ma_offset = min(i - n_cond, q);
@@ -104,7 +68,6 @@ scalar_t simd_arima_css_ssq2(
     tmp -= dot<scalar_t>(resid.data() + (i - ma_offset),
                          pars.data() + p + q - ma_offset,
                          ma_offset);
-
     resid[i] = tmp;
     if(!isnan(tmp)) ssq += tmp * tmp;
     else nu--;

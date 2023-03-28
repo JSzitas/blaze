@@ -7,6 +7,9 @@
 
 #include "arima/solvers/state_space.h"
 
+// dot product and SIMD overloads
+#include "arima/solvers/dot.h"
+
 #include <cmath>
 #include <math.h>
 
@@ -14,8 +17,9 @@
 
 template <const size_t update_point = 0,
           class T, typename scalar_t=float>
-static inline void arima_steady_state(const T &y,
-                        structural_model<scalar_t> &model) {
+static inline void arima_steady_state(
+    const T &y,
+    structural_model<scalar_t> &model) {
   const size_t n = y.size(), rd = model.a.size(), p = model.phi.size(),
     q = model.theta.size(), d = model.delta.size(), r = rd - d;
 
@@ -141,7 +145,7 @@ template <const bool seasonal, const bool has_xreg,
   p, q, d, D, ns, mp, mq, msp, msq, arma_pars;
   bool has_intercept;
   EigMat xreg;
-  std::vector<scalar_t> phi, theta;
+  EigVec phi, theta;
   EigVec resid, y_temp;
   // finite difference approximation parameters
   size_t inner_steps;
@@ -172,8 +176,8 @@ public:
       has_intercept(has_intercept), xreg(xreg) {
     // only used for seasonal models
     if constexpr(seasonal) {
-      this->phi = std::vector<scalar_t>(this->p);
-      this->theta = std::vector<scalar_t>(this->q);
+      this->phi = EigVec(this->p);
+      this->theta = EigVec(this->q);
     }
     // residuals from running the ar part of the model
     this->resid = EigVec(this->n).setZero();
@@ -199,7 +203,7 @@ public:
     this->dd_val = dd[this->accuracy] * this->eps;
   }
   scalar_t loss(const EigVec & x) {
-    // complete loss computation
+    // complete loss computation component by component
     // apply xreg
     this->apply_xreg(x);
     // expand phi and theta
@@ -207,20 +211,18 @@ public:
       this->expand_phi(x);
       this->expand_theta(x);
     }
-    // update ar part of the model
-    // this->update_ar(x);
-    // update theta part of the model and return loss
-    // return this->update_ma_loss(x);
+    // uppdate arma loss
     return this->arma_loss(x);
   }
   EigVec Gradient(const EigVec & x) {
     // get rid of const - the interface is const, and we do not actually
     // modify the underlying parameters at the end, but it is more efficient
     // for us to modify them here
-
+    EigVec &pars = const_cast<EigVec &>(x);
+    // preallocate grad vector - this might be slightly more efficient to return
+    // by value
     EigVec grad(x.size());
     grad.setZero();
-    EigVec &pars = const_cast<EigVec &>(x);
     // carry out xreg evaluation once at the start since we are iterating from ar coefficients
     this->apply_xreg(pars);
     // expand phi and update arpart of model
@@ -320,10 +322,12 @@ public:
     if constexpr( seasonal ) {
       expand_phi(final_pars);
       expand_theta(final_pars);
-      arima_ss = make_arima<scalar_t>(this->phi, this->theta, this->kind, kappa, ss_init);
+      arima_ss = make_arima<EigVec, scalar_t>(
+        this->phi, this->theta, this->kind, kappa, ss_init);
     }
     else {
-      arima_ss = make_arima<EigVec, scalar_t>(final_pars, this->kind, kappa, ss_init);
+      arima_ss = make_arima<EigVec, scalar_t>(
+        final_pars, this->kind, kappa, ss_init);
     }
     model.set(arima_ss);
     for (size_t i = 0; i < this->n; i++) {
@@ -346,15 +350,13 @@ private:
       // is separable here - so for updates of q parameters, if you have pre-saved
       // values of this tmp somewhere, you can just fetch them :)
       scalar_t tmp = y_temp(l);
-      for (size_t j = 0; j < this->p; j++) {
-        // for seasonal models we had to expand
-        if constexpr( seasonal ) {
-          tmp -= this->phi[j] * y_temp(l - j - 1);
-        }
-        // for non-seasonal models we can just use unexpanded coefficients
-        if constexpr( !seasonal ) {
-          tmp -= x(j) * y_temp(l - j - 1);
-        }
+      if constexpr( seasonal ) {
+        tmp -= dot<scalar_t>(this->y_temp.data() + (l - this->p),
+                             this->phi.data(), this->p);
+      }
+      if constexpr( !seasonal ) {
+        tmp -= dot<scalar_t>(this->y_temp.data() + (l - this->p),
+                             x.data(), this->p);
       }
       this->resid(l) = tmp;
     }
@@ -366,14 +368,15 @@ private:
     for (size_t l = this->n_cond; l < this->n; l++) {
       const size_t ma_offset = min(l - this->n_cond, this->q);
       scalar_t tmp = this->resid(l);
-      for (size_t j = 0; j < ma_offset; j++) {
-        // see above for why this works
-        if constexpr(seasonal) {
-          tmp -= this->theta[j] * this->resid(l - j - 1);
-        }
-        if constexpr(!seasonal) {
-          tmp -= x(this->p + j) * this->resid(l - j - 1);
-        }
+      if constexpr(seasonal) {
+        tmp -= dot<scalar_t>(resid.data() + (l - ma_offset),
+                             this->theta.data(),
+                             ma_offset);
+      }
+      if constexpr(!seasonal) {
+        tmp -= dot<scalar_t>(resid.data() + (l - ma_offset),
+                             x.data() + p + q - ma_offset,
+                             ma_offset);
       }
       this->resid(l) = tmp;
       if(!isnan(tmp)) {
@@ -391,24 +394,19 @@ private:
     for (size_t l = this->n_cond; l < this->n; l++) {
       const size_t ma_offset = min(l - this->n_cond, this->q);
       scalar_t tmp = y_temp(l);
-      for (size_t j = 0; j < this->p; j++) {
-        // for seasonal models we had to expand
-        if constexpr(seasonal) {
-          tmp -= this->phi[j] * y_temp(l - j - 1);
-        }
-        // for non-seasonal models we can just use unexpanded coefficients
-        if constexpr(!seasonal) {
-          tmp -= x(j) * y_temp(l - j - 1);
-        }
+      if constexpr(seasonal) {
+        tmp -= dot<scalar_t>(this->y_temp.data() + (l - this->p),
+                             this->phi.data(), this->p);
+        tmp -= dot<scalar_t>(resid.data() + (l - ma_offset),
+                             this->theta.data(),
+                             ma_offset);
       }
-      for (size_t j = 0; j < ma_offset; j++) {
-        // see above for why this works
-        if constexpr(seasonal) {
-          tmp -= this->theta[j] * this->resid(l - j - 1);
-        }
-        if constexpr(!seasonal) {
-          tmp -= x(this->p + j) * this->resid(l - j - 1);
-        }
+      if constexpr(!seasonal) {
+        tmp -= dot<scalar_t>(this->y_temp.data() + (l - this->p),
+                             x.data(), this->p);
+        tmp -= dot<scalar_t>(resid.data() + (l - ma_offset),
+                             x.data() + p + q - ma_offset,
+                             ma_offset);
       }
       this->resid(l) = tmp;
       if(!isnan(tmp)) {

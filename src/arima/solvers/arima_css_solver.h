@@ -114,7 +114,7 @@ public:
           this->temp_theta
       );
     }
-    scalar_t res = simd_arima_css_ssq2<EigVec, scalar_t>(
+    scalar_t res = simd_arima_css_ssq<EigVec, scalar_t>(
       this->y_temp, this->new_x, this->kind, this->n_cond, this->residual);
     return 0.5 * log(res);
   }
@@ -158,7 +158,7 @@ public:
       );
     }
 
-    structural_model<scalar_t> arima_ss = make_arima(
+    structural_model<scalar_t> arima_ss = make_arima<EigVec, scalar_t>(
       this->new_x, this->kind, kappa, ss_init);
 
     model.set(arima_ss);

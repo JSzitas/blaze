@@ -32,10 +32,10 @@ std::vector<scalar_t> solve_mat_vec(std::vector<scalar_t> &mat,
  * (ie completeOrthogonalDecomposition **should** be a better approach than the
  * regular solver)
  */
-template <typename scalar_t=float> std::vector<scalar_t>
+template <typename T, typename scalar_t> std::vector<scalar_t>
 get_Q0_rossignol(
-  const std::vector<scalar_t> &phi_coef,
-  const std::vector<scalar_t> &theta_coef) {
+  const T &phi_coef,
+  const T &theta_coef) {
   const size_t p = phi_coef.size(), q = theta_coef.size();
   size_t i, j, r = max(p, q + 1);
   // in the original, you create a pointer to the result, which is this,
@@ -158,7 +158,7 @@ get_Q0_rossignol(
 }
 
 /* based on code from AS154 */
-template <typename scalar_t = float> inline static void inclu2(
+template <typename scalar_t> inline static void inclu2(
     size_t np,
     std::vector<scalar_t> &xnext,
     std::vector<scalar_t> &xrow, scalar_t ynext,
@@ -199,10 +199,10 @@ template <typename scalar_t = float> inline static void inclu2(
   }
 }
 
-template <typename scalar_t=float>
+template <typename T, typename scalar_t>
 std::vector<scalar_t> get_Q0_impl(
-    const std::vector<scalar_t> &phi_coef,
-    const std::vector<scalar_t> &theta_coef,
+    const T &phi_coef,
+    const T &theta_coef,
     std::vector<scalar_t> &xnext,
     std::vector<scalar_t> &xrow,
     std::vector<scalar_t> &rbar,
@@ -338,10 +338,10 @@ std::vector<scalar_t> get_Q0_impl(
   return P;
 }
 
-template <typename scalar_t=float>
+template <typename T, typename scalar_t>
 std::vector<scalar_t> get_Q0(
-    const std::vector<scalar_t> &phi_coef,
-    const std::vector<scalar_t> &theta_coef) {
+    const T &phi_coef,
+    const T &theta_coef) {
   const size_t p = phi_coef.size(), q = theta_coef.size(),
     r = max(p, q + 1), np = r * (r + 1) / 2, nrbar = np * (np - 1) / 2;
 
@@ -350,10 +350,10 @@ std::vector<scalar_t> get_Q0(
   return get_Q0_impl(phi_coef, theta_coef, xnext, xrow, rbar, thetab, V, P);
 }
 
-template <typename scalar_t=float>
+template <typename T, typename scalar_t>
 std::vector<scalar_t> get_Q0(
-    const std::vector<scalar_t> &phi_coef,
-    const std::vector<scalar_t> &theta_coef,
+    const T &phi_coef,
+    const T &theta_coef,
     std::vector<scalar_t> &xnext,
     std::vector<scalar_t> &xrow,
     std::vector<scalar_t> &rbar,
