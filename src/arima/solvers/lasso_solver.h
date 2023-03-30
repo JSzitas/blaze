@@ -23,9 +23,18 @@ template <typename C, typename scalar_t> scalar_t sum_abs(const C &x) {
   return res;
 }
 
-template <typename C, typename scalar_t> scalar_t arima_css_ssq_lasso(
+template <typename C, typename scalar_t> scalar_t sum_abs(
+    const C &x, const scalar_t from = 0, const scalar_t to = 1) {
+  scalar_t res = 0;
+  for(size_t i = from; i < to; i++) res += std::abs(x[i]);
+  return res;
+}
+
+template <typename C, typename scalar_t,
+          const bool arima_only=false> scalar_t arima_css_ssq_lasso(
     const C & y, const C & pars, const arima_kind kind,
-    const scalar_t penalty, const size_t n_cond, std::vector<scalar_t> resid) {
+    const scalar_t penalty,
+    const size_t n_cond, std::vector<scalar_t> resid) {
   const size_t n = y.size(), p = kind.p() + kind.period() * kind.P(),
     q = kind.q() + kind.period() * kind.Q();
   // prepare the residuals - possibly move this out and never allocate here?
@@ -50,11 +59,111 @@ template <typename C, typename scalar_t> scalar_t arima_css_ssq_lasso(
       nu--;
     }
   }
-  return (ssq/nu) + (penalty * sum_abs(pars));
+  if constexpr(arima_only) {
+    return (ssq/nu) + (penalty * sum_abs(pars, 0, p+q));
+  }
+  if constexpr(!arima_only) {
+    return (ssq/nu) + (penalty * sum_abs(pars));
+  }
 }
 
-template <const bool has_xreg, const bool seasonal, typename scalar_t = double>
-class ARIMA_CSS_PROBLEM : public cppoptlib::function::Function<scalar_t, ARIMA_CSS_PROBLEM<has_xreg, seasonal,scalar_t>> {
+template <typename scalar_t> scalar_t lambda_max(
+    const std::vector<scalar_t> &y,
+    const size_t max_lag = 3 ) {
+
+  const size_t n = y.size();
+
+  scalar_t result = 0;
+  for(size_t lag=1; lag < max_lag; lag++) {
+    // get absolute scale magnitude for given lag
+    scalar_t sum = 0;
+    for( size_t j = lag; j < n; j++ ) {
+      sum += y[j] * y[j-lag];
+    }
+    // take absolute value of sum
+    sum = std::abs(sum);
+    // if sum  is largest value so far, assign to result, otherwise keep result
+    result = result < sum ? sum : result;
+  }
+  // divide by n to normalize
+  return result/n;
+}
+
+template <typename scalar_t,
+          const bool reverse=false> std::vector<scalar_t> regular_sequence(
+  const scalar_t seq_min,
+  const scalar_t seq_max,
+  const size_t size = 100) {
+
+  const scalar_t increment = (seq_min + seq_max)/size;
+  if constexpr(reverse) {
+    seq_min = seq_max;
+    increment *= -1.0;
+  }
+  std::vector<scalar_t> result(size+1, seq_min);
+  for( size_t j = 0; j < size+1; j++ ) {
+    result[j] += j*increment;
+  }
+  return result;
+}
+// build lambda path for a given time series
+template <typename scalar_t> std::vector<scalar_t> lambda_path(
+    const std::vector<scalar_t> &y,
+    const size_t max_lag = 3,
+    const size_t K = 100,
+    const scalar_t epsilon = 0.0001) {
+  scalar_t lambda_max = lambda_max(y, max_lag);
+  // build sequence on log scale, then exponentiate
+  std::vector<scalar_t> lambda_path = regular_sequence(
+    std::log(lambda_max*epsilon), std::log(lambda_max), K);
+  // exponentiate back from log sequence
+  for( auto & val:lambda_path) {
+    val = std::exp(val);
+  }
+  return lambda_path;
+}
+
+// return true if this lambda
+template <typename C, typename scalar_t> bool lambda_calibration_check(
+    const C &old_coefs,
+    const C &new_coefs,
+    const scalar_t prev_lambda,
+    const scalar_t new_lambda,
+    const scalar_t constant) {
+
+  const size_t n = old_coefs.size();
+  scalar_t largest_coef = 0;
+  for( size_t i = 0; i < n; i++ ) {
+    scalar_t current_coef = std::abs(old_coefs[i] - new_coefs[i]);
+    // set to largest coef
+    largest_coef = largest_coef < current_coef ? largest_coef : current_coef;
+  }
+  return ((largest_coef/(prev_lambda - new_lambda)) - constant) <= 0;
+}
+
+// template <typename scalar_t> scalar_t adaptive_lasso_lambda(
+//     const std::vector<scalar_t> lambdas,
+//     const std::vector<std::vector<scalar_t>> coefs,
+//     const scalar_t constant = 0.75) {
+//   // we iterate from the largest lambda to smallest
+//   // until we find a lambda such that it is the smallest lambda where
+//   // the check_lambdas function still returns true
+//   for( size_t j = 0; j < (coefs.size()-1); j++) {
+//     const bool chk = check_lambdas(
+//       coefs[j], coefs[j+1], lambdas[j], lambdas[j+1]);
+//     if( !chk ) {
+//       return lambdas[j];
+//     }
+//   }
+//   return lambdas[lambdas.size()-1];
+// }
+
+template <const bool has_xreg, const bool seasonal, typename scalar_t = double,
+          const bool arima_only=false>
+class ARIMA_LASSO_CSS_PROBLEM :
+  public cppoptlib::function::Function<
+    scalar_t,
+    ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal,scalar_t>> {
 
   using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
   using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
@@ -65,6 +174,8 @@ private:
   const bool intercept;
   const size_t n_cond, n;
   const std::vector<scalar_t> y;
+  const scalar_t lambda;
+  // initialized in constructor
   EigMat xreg;
   size_t arma_pars;
   EigVec y_temp, new_x;
@@ -73,14 +184,16 @@ public:
 
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   // initialize with a given arima structure
-  ARIMA_CSS_PROBLEM(const std::vector<scalar_t> &y,
+  ARIMA_LASSO_CSS_PROBLEM(const std::vector<scalar_t> &y,
                     const arima_kind &kind,
                     const bool intercept,
                     const bool drift,
-                    std::vector<std::vector<scalar_t>> &xreg)
+                    std::vector<std::vector<scalar_t>> &xreg,
+                    const scalar_t lambda = -1)
     : kind(kind), intercept(intercept),
       n_cond(kind.d() + (kind.D() * kind.period()) +
-        kind.p() + (kind.P() * kind.period())), n(y.size()), y(y) {
+             kind.p() + (kind.P() * kind.period())),
+      n(y.size()), y(y), lambda(lambda) {
     this->xreg = vec_to_mat(xreg, y.size(), intercept, drift);
     this->arma_pars = kind.p() + kind.P() + kind.q() + kind.Q();
     this->y_temp = EigVec(n);
@@ -110,8 +223,10 @@ public:
     this->residual = std::vector<scalar_t>(n, 0.0);
     // pre-allocate transformation helper vector - this is only necessary
     // for expanding seasonal models
-    this->temp_phi = std::vector<scalar_t>(kind.p() + (kind.P() * kind.period()));
-    this->temp_theta = std::vector<scalar_t>(kind.q() + (kind.Q() * kind.period()));
+    this->temp_phi = std::vector<scalar_t>(
+      kind.p() + (kind.P() * kind.period()));
+    this->temp_theta = std::vector<scalar_t>(
+      kind.q() + (kind.Q() * kind.period()));
   }
   scalar_t operator()(const EigVec &x) {
     for (size_t i = 0; i < x.size(); i++) this->new_x(i) = x(i);
@@ -148,8 +263,9 @@ public:
           this->temp_theta
       );
     }
-    scalar_t res = arima_css_ssq_lasso(
-      this->y_temp, this->new_x, this->kind, this->n_cond, this->residual);
+    scalar_t res = arima_css_ssq_lasso<EigVec, scalar_t, arima_only>(
+      this->y_temp, this->new_x, this->kind,
+      this->lambda, this->n_cond, this->residual);
     return 0.5 * log(res);
   }
   // add impl of grad, hessian, eval
@@ -170,6 +286,9 @@ public:
       this->Hessian(x, &*(state.hessian));
     }
     return state;
+  }
+  void reset_lambda(const scalar_t lambda) {
+    this->lambda = lambda;
   }
   void finalize( structural_model<scalar_t> &model,
                  const EigVec & final_pars,
@@ -197,29 +316,58 @@ public:
 };
 
 template <const bool has_xreg, const bool seasonal, typename scalar_t=double>
-scalar_t arima_solver_css(std::vector<scalar_t> &y,
-                        const arima_kind &kind,
-                        structural_model<scalar_t> &model,
-                        std::vector<std::vector<scalar_t>> xreg,
-                        const bool intercept,
-                        const bool drift,
-                        std::vector<scalar_t> &coef,
-                        const scalar_t kappa,
-                        const SSinit ss_init) {
-  Eigen::Matrix<scalar_t, Eigen::Dynamic, 1> x(coef.size());
+scalar_t arima_lasso_solver_css(
+    std::vector<scalar_t> &y,
+    const arima_kind &kind,
+    structural_model<scalar_t> &model,
+    std::vector<std::vector<scalar_t>> xreg,
+    const bool intercept,
+    const bool drift,
+    std::vector<scalar_t> &coef,
+    const scalar_t kappa,
+    const SSinit ss_init) {
+
+  using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
+  EigVec x(coef.size());
+
+  // specify arima lasso path - in reverse (high to low lambda)
+  auto lam_path = lambda_path<scalar_t, true>(
+    y, std::max(kind.p(), kind.q()), 100);
+  std::vector<EigVec> coefs_along_path(100, EigVec(coef.size()));
   for(size_t i = 0; i < coef.size(); i++) x(i) = coef[i];
   // initialize solver
-  cppoptlib::solver::Bfgs<ARIMA_CSS_PROBLEM<has_xreg, seasonal, scalar_t>> solver;
+  cppoptlib::solver::Bfgs<
+    ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal, scalar_t>> solver;
   // and arima problem
-  ARIMA_CSS_PROBLEM<has_xreg, seasonal, scalar_t> css_arima_problem(
+  ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal, scalar_t> css_arima_problem(
       y, kind, intercept, drift, xreg);
+  css_arima_problem.reset_lambda(lam_path[0]);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
-  // update variance estimate for the arima model - this was passed by reference
-  css_arima_problem.finalize( model, solution.x, kappa, ss_init);
+  // set up current value vector
+  std::vector<scalar_t> values(100);
+  // copy current solution parameters
+  coefs_along_path[0] = solution.x;
+  values[0] = solution.value;
+  size_t j = 1;
+  for(; j < 100; j++) {
+    css_arima_problem.reset_lambda(lam_path[j]);
+    // and finally, minimize
+    auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
+    // copy current solution parameters and solution value
+    coefs_along_path[j] = solution.x;
+    values[j] = solution.value;
+    // copy current values
+    if(!check_lambdas(coefs_along_path[j-1], coefs_along_path[j],
+                      lam_path[j-1], lam_path[j], 0.75 )) {
+      break;
+    }
+  }
+  // finalize
+  css_arima_problem.finalize( model, coefs_along_path[j-1], kappa, ss_init);
   // pass fitted coefficients back to the caller
-  for (size_t i = 0; i < coef.size(); i++) coef[i] = solution.x[i];
-  return exp(2 * solution.value);
+  for (size_t i = 0; i < coef.size(); i++) coef[i] = coefs_along_path[j-1][i];
+  return exp(2 * values[j-1]);
 }
 
 #endif
