@@ -76,7 +76,7 @@ struct State {
               const function::State<scalar_t, vector_t, hessian_t>
                   current_function_state,
               const State &stop_state) {
-    if( std::isnan(current_function_state.value)) {
+    if( std::isnan(previous_function_state.value)) {
       status = Status::NaNLoss;
       return;
     }
@@ -130,12 +130,12 @@ struct State {
 template <class T>
 State<T> DefaultStoppingSolverState() {
   State<T> state;
-  state.num_iterations = 10000;
-  state.x_delta = T{1e-7};
-  state.x_delta_violations = 3;
-  state.f_delta = T{1e-7};
-  state.f_delta_violations = 3;
-  state.gradient_norm = T{1e-3};
+  state.num_iterations = 2;
+  state.x_delta = T{1e-9};
+  state.x_delta_violations = 5;
+  state.f_delta = T{1e-9};
+  state.f_delta_violations = 5;
+  state.gradient_norm = T{1e-4};
   state.condition_hessian = T{0.001};
   state.status = Status::NotStarted;
   return state;
@@ -143,11 +143,11 @@ State<T> DefaultStoppingSolverState() {
 
 template <class T>
 State<T> CustomState( int num_iter = 100,
-                      T x_delta = 1e-8,
+                      T x_delta = 1e-9,
                       int x_delta_violations = 5,
-                      T f_delta = 1e-8,
+                      T f_delta = 1e-9,
                       int f_delta_violations = 5,
-                      T gradient_norm = 1e-3,
+                      T gradient_norm = 1e-4,
                       T condition_hessian = 0) {
   State<T> state;
   state.num_iterations = num_iter;
