@@ -188,13 +188,14 @@ template <typename scalar_t = float,
           const size_t update_point = 0,
           typename T> std::array<scalar_t,2> arima_likelihood(
               const T &y,
-              structural_model<scalar_t> &model) {
+              structural_model<scalar_t> &model,
+              std::vector<scalar_t> & resid) {
   const size_t rd = model.a.size(), d = model.delta.size();
 
   std::vector<scalar_t> anew(rd);
   std::vector<scalar_t> M(rd);
   std::vector<scalar_t> mm( (d > 0) * rd * rd);
-  return arima_likelihood_impl(y, model, anew, M, mm);
+  return arima_likelihood_impl(y, model, anew, M, mm, resid);
 }
 
 template <typename scalar_t = float,
@@ -203,8 +204,12 @@ template <typename scalar_t = float,
               const T &y, structural_model<scalar_t> &model,
               std::vector<scalar_t> &anew,
               std::vector<scalar_t> &M,
-              std::vector<scalar_t> &mm) {
-  return arima_likelihood_impl(y, model, anew, M, mm);
+              std::vector<scalar_t> &mm,
+              std::vector<scalar_t> & resid) {
+  std::fill(anew.begin(), anew.end(), 0.0);
+  std::fill(M.begin(), M.end(), 0.0);
+  std::fill(mm.begin(), mm.end(), 0.0);
+  return arima_likelihood_impl(y, model, anew, M, mm, resid);
 }
 
 template <typename scalar_t = float,
@@ -214,7 +219,8 @@ template <typename scalar_t = float,
               structural_model<scalar_t> &model,
               std::vector<scalar_t> &anew,
               std::vector<scalar_t> &M,
-              std::vector<scalar_t> &mm) {
+              std::vector<scalar_t> &mm,
+              std::vector<scalar_t> & residuals) {
   const size_t n = y.size(), rd = model.a.size(), p = model.phi.size(),
     q = model.theta.size(), d = model.delta.size(), r = rd - d;
 
@@ -293,6 +299,7 @@ template <typename scalar_t = float,
     }
     if (!isnan(y[l])) {
       scalar_t resid = y[l] - anew[0];
+      residuals[l] = resid;
       for (size_t i = 0; i < d; i++)
         resid -= model.delta[i] * anew[r + i];
 
@@ -307,7 +314,7 @@ template <typename scalar_t = float,
       for (size_t j = 0; j < d; j++) gain += model.delta[j] * M[r + j];
       if (gain < 1e4) {
         ssq += resid * resid / gain;
-        sumlog += log(gain);
+        sumlog += std::log(gain);
       } else {
         nu--;
       }

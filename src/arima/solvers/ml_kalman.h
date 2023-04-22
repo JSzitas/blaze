@@ -11,7 +11,7 @@
 #include "third_party/eigen.h"
 #include "utils/utils.h"
 
-#include "arima/solvers/arima_css_likelihood.h"
+#include "arima/solvers/css_likelihood.h"
 #include "arima/solvers/state_space.h"
 
 
@@ -59,10 +59,9 @@ public:
       r2(max(p + q, p + 1)),
       kind(kind), kappa(kappa), xreg(xreg) {
 
-    this->anew = vec(rd);
-    this->M = vec(rd);
-    this->mm = vec( (d > 0) * rd * rd);
-
+    this->anew = vec(rd, 0);
+    this->M = vec(rd, 0);
+    this->mm = vec( (d > 0) * rd * rd, 0);
     if constexpr( ss_type == SSinit::Rossignol) {
       this->gam = vec(r2 * r2);
       this->g = vec(r2);
@@ -88,14 +87,14 @@ public:
     this->new_x = EigVec::Zero(kind.p() + (kind.P() * kind.period()) + kind.q() +
       (kind.Q() * kind.period()) + this->xreg.cols());
     // pre-allocate model residuals
-    this->residual = vec(this->n);
+    this->residual = vec(this->n, 0.0);
     // pre-allocate transformation helper vector - this is only necessary
     // for expanding seasonal models
     this->temp_phi = vec(kind.p() + (kind.P() * kind.period()));
     this->temp_theta = vec(kind.q() + (kind.Q() * kind.period()));
     if constexpr(seasonal || transform) {
       // the expansion of arima parameters is only necessary for seasonal models
-      arima_transform_parameters<EigVec, seasonal, transform>(
+      arima_transform_parameters<EigVec, seasonal, transform, false, scalar_t>(
           this->new_x, this->kind, this->temp_phi, this->temp_theta
       );
     }
@@ -121,16 +120,15 @@ public:
      */
     if constexpr(seasonal || transform) {
       // the expansion of arima parameters is only necessary for seasonal models
-      arima_transform_parameters<EigVec, seasonal, transform>(
+      arima_transform_parameters<EigVec, seasonal, transform, false, scalar_t>(
           this->new_x, this->kind, this->temp_phi, this->temp_theta
       );
     }
     // update arima
-    // this->update_arima();
     if constexpr( ss_type == SSinit::Gardner ) {
       update_arima(this->model, this->new_x, this->kind,
-                   this->xnext, this->xrow, this->rbar,
-                   this->thetab, this->V, this->P,
+                   // this->xnext, this->xrow, this->rbar,
+                   // this->thetab, this->V, this->P,
                    SSinit::Gardner);
     }
     if constexpr( ss_type == SSinit::Rossignol ) {
@@ -139,12 +137,13 @@ public:
     // return likelihood - check if this updated model or not (it ideally
     // should not, not here)
     const std::array<scalar_t,2> res = arima_likelihood(
-      this->y_temp, this->model, this->anew, this->M, this->mm);
+      this->y_temp, this->model, this->anew, this->M, this->mm, this->residual);
     this->sigma2 = res[0];
     return res[1];
   }
   scalar_t get_sigma() const { return this->sigma2; }
   structural_model<scalar_t> get_structural_model() const { return this->model; }
+  vec get_residuals() const { return this->residual; }
 };
 
 #endif

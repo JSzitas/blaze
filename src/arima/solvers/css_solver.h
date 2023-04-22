@@ -2,22 +2,20 @@
 #define ARIMA_CSS_SOLVER
 
 #include "utils/utils.h"
+#include "utils/xreg.h"
 
-#include "arima/structures/structural_model.h"
-#include "arima/structures/fitting_method.h"
-#include "arima/structures/arima_kind.h"
+#include "arima/structures/structures.h"
 
-#include "arima/solvers/arima_css_likelihood.h"
+#include "arima/solvers/css_likelihood.h"
 #include "arima/solvers/state_space.h"
 
 #include "arima/utils/transforms.h"
-#include "utils/xreg.h"
 
 // include optimizer library
 #include "third_party/eigen.h"
 #include "third_party/optim.h"
 
-template <const bool has_xreg, const bool seasonal, typename scalar_t=float>
+template <const bool has_xreg, const bool seasonal, typename scalar_t>
 class ARIMA_CSS_PROBLEM : public cppoptlib::function::Function<scalar_t, ARIMA_CSS_PROBLEM<has_xreg, seasonal, scalar_t>> {
 
   using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
@@ -104,7 +102,7 @@ public:
      */
     // we can expand these in reverse order for simd - which should in principle allow
     //  us to not have to reverse in simd css ssq
-    for (size_t i = 0; i < x.size(); i++) this->new_x(i) = x(i);
+    for( size_t i= 0; i < x.size(); i++ ) this->new_x(i) = x(i);
     if constexpr(seasonal) {
       // the expansion of arima parameters is only necessary for seasonal models
       arima_transform_parameters<EigVec, seasonal, false, true, scalar_t>(
@@ -140,7 +138,8 @@ public:
   void finalize( structural_model<scalar_t> &model,
                  const EigVec & final_pars,
                  scalar_t kappa,
-                 SSinit ss_init) {
+                 SSinit ss_init,
+                 std::vector<scalar_t> & residuals) {
     // this function creates state space representation and expands it
     // I found out it is easier and cheaper (computationally) to do here
     // do the same for model coefficients
@@ -172,19 +171,24 @@ public:
     }
     // get arima steady state values
     arima_steady_state(this->y_temp, model);
+    // write back residuals
+    for(size_t i=0; i < residuals.size(); i++) {
+      residuals[i] = this->residual[i];
+    }
   }
 };
 
-template <const bool has_xreg, const bool seasonal, typename scalar_t = float>
-scalar_t arima_solver_css(std::vector<scalar_t> &y,
-                        const arima_kind &kind,
-                        structural_model<scalar_t> &model,
-                        std::vector<std::vector<scalar_t>> xreg,
-                        const bool intercept,
-                        const bool drift,
-                        std::vector<scalar_t> &coef,
-                        const scalar_t kappa,
-                        const SSinit ss_init) {
+template <const bool has_xreg, const bool seasonal, typename scalar_t>
+scalar_t css_solver(std::vector<scalar_t> &y,
+                    const arima_kind &kind,
+                    structural_model<scalar_t> &model,
+                    std::vector<std::vector<scalar_t>> xreg,
+                    const bool intercept,
+                    const bool drift,
+                    std::vector<scalar_t> &coef,
+                    const scalar_t kappa,
+                    const SSinit ss_init,
+                    std::vector<scalar_t> &residuals) {
   Eigen::Matrix<scalar_t, Eigen::Dynamic, 1> x(coef.size());
   for(size_t i = 0; i < coef.size(); i++) x(i) = coef[i];
   // initialize solver
@@ -195,10 +199,32 @@ scalar_t arima_solver_css(std::vector<scalar_t> &y,
       y, kind, intercept, drift, xreg);
   // and finally, minimize
   auto [solution, solver_state] = solver.Minimize(css_arima_problem, x);
+  // solution is correct, but in the wrong order, due to us rearranging around
+  // SIMD operations - thus it needs to be rearranged if we fitted a non-seasonal
+  // model
+  if constexpr(!seasonal) {
+    const scalar_t p_ = kind.p() + kind.P(), q_ = kind.q() + kind.Q();
+    // pass fitted coefficients back to the caller
+
+    for (size_t i = 0; i < p_; i++) {
+      coef[p_ - i - 1] = solution.x[i];
+    }
+    for(size_t i = 0; i < q_; i++ ) {
+      coef[p_ + q_ - i - 1] = solution.x[p_ + i];
+    }
+    // also rewrite solution before finalizing model
+    for(size_t i = 0; i < coef.size(); i++) {
+      solution.x[i] = coef[i];
+    }
+  }
   // update variance estimate for the arima model - this was passed by reference
-  css_arima_problem.finalize( model, solution.x, kappa, ss_init);
-  // pass fitted coefficients back to the caller
-  for (size_t i = 0; i < coef.size(); i++) coef[i] = solution.x[i];
+  css_arima_problem.finalize( model, solution.x, kappa, ss_init, residuals);
+  // for the seasonal case we already handled the inversion in previous call
+  if constexpr(seasonal) {
+    for(size_t i = 0; i < coef.size(); i++) {
+      coef[i] = solution.x[i];
+    }
+  }
   return exp(2 * solution.value);
 }
 

@@ -1,17 +1,13 @@
-#ifndef ARIMA_CSS_SOLVER
-#define ARIMA_CSS_SOLVER
+#ifndef ARIMA_LASSO_SOLVER
+#define ARIMA_LASSO_SOLVER
 
 #include "utils/utils.h"
+#include "utils/xreg.h"
 
-#include "arima/structures/structural_model.h"
-#include "arima/structures/fitting_method.h"
-#include "arima/structures/arima_kind.h"
-
-// #include "arima/solvers/arima_css_likelihood.h"
+#include "arima/structures/structures.h"
 #include "arima/solvers/state_space.h"
 
 #include "arima/utils/transforms.h"
-#include "utils/xreg.h"
 
 // include optimizer library
 #include "third_party/eigen.h"
@@ -24,7 +20,7 @@ template <typename C, typename scalar_t> scalar_t sum_abs(const C &x) {
 }
 
 template <typename C, typename scalar_t> scalar_t sum_abs(
-    const C &x, const scalar_t from = 0, const scalar_t to = 1) {
+    const C &x, const scalar_t from, const scalar_t to) {
   scalar_t res = 0;
   for(size_t i = from; i < to; i++) res += std::abs(x[i]);
   return res;
@@ -60,19 +56,17 @@ template <typename C, typename scalar_t,
     }
   }
   if constexpr(arima_only) {
-    return (ssq/nu) + (penalty * sum_abs(pars, 0, p+q));
+    return (ssq/nu) + (penalty * sum_abs<C, scalar_t>(pars, 0, p+q));
   }
   if constexpr(!arima_only) {
-    return (ssq/nu) + (penalty * sum_abs(pars));
+    return (ssq/nu) + (penalty * sum_abs<C, scalar_t>(pars));
   }
 }
 
 template <typename scalar_t> scalar_t lambda_max(
     const std::vector<scalar_t> &y,
     const size_t max_lag = 3 ) {
-
   const size_t n = y.size();
-
   scalar_t result = 0;
   for(size_t lag=1; lag < max_lag; lag++) {
     // get absolute scale magnitude for given lag
@@ -91,13 +85,14 @@ template <typename scalar_t> scalar_t lambda_max(
 
 template <typename scalar_t,
           const bool reverse=false> std::vector<scalar_t> regular_sequence(
-  const scalar_t seq_min,
-  const scalar_t seq_max,
+  scalar_t seq_min,
+  scalar_t seq_max,
   const size_t size = 100) {
 
-  const scalar_t increment = (seq_min + seq_max)/size;
+  scalar_t increment = (seq_min + seq_max)/size;
   if constexpr(reverse) {
-    seq_min = seq_max;
+    // swap seq_min and seq_max
+    std::swap(seq_min, seq_max);
     increment *= -1.0;
   }
   std::vector<scalar_t> result(size+1, seq_min);
@@ -107,15 +102,16 @@ template <typename scalar_t,
   return result;
 }
 // build lambda path for a given time series
-template <typename scalar_t> std::vector<scalar_t> lambda_path(
+template <typename scalar_t,
+          const bool reverse=false> std::vector<scalar_t> lambda_path(
     const std::vector<scalar_t> &y,
     const size_t max_lag = 3,
-    const size_t K = 100,
-    const scalar_t epsilon = 0.0001) {
-  scalar_t lambda_max = lambda_max(y, max_lag);
+    const size_t K = 50,
+    const scalar_t epsilon = 0.005) {
+  scalar_t max_lambda = lambda_max<scalar_t>(y, max_lag);
   // build sequence on log scale, then exponentiate
-  std::vector<scalar_t> lambda_path = regular_sequence(
-    std::log(lambda_max*epsilon), std::log(lambda_max), K);
+  std::vector<scalar_t> lambda_path = regular_sequence<scalar_t, reverse>(
+    std::log(max_lambda), std::log(max_lambda*epsilon), K);
   // exponentiate back from log sequence
   for( auto & val:lambda_path) {
     val = std::exp(val);
@@ -125,47 +121,30 @@ template <typename scalar_t> std::vector<scalar_t> lambda_path(
 
 // return true if this lambda
 template <typename C, typename scalar_t> bool lambda_calibration_check(
-    const C &old_coefs,
-    const C &new_coefs,
-    const scalar_t prev_lambda,
-    const scalar_t new_lambda,
+    const C &low_coefs,
+    const C &high_coefs,
+    const scalar_t higher_lambda,
+    const scalar_t lower_lambda,
     const scalar_t constant) {
 
-  const size_t n = old_coefs.size();
+  const size_t n = low_coefs.size();
   scalar_t largest_coef = 0;
   for( size_t i = 0; i < n; i++ ) {
-    scalar_t current_coef = std::abs(old_coefs[i] - new_coefs[i]);
+    scalar_t current_coef = std::abs(low_coefs[i] - high_coefs[i]);
     // set to largest coef
-    largest_coef = largest_coef < current_coef ? largest_coef : current_coef;
+    largest_coef = largest_coef > current_coef ? largest_coef : current_coef;
   }
-  return ((largest_coef/(prev_lambda - new_lambda)) - constant) <= 0;
+  return ((largest_coef/(higher_lambda + lower_lambda)) - constant) <= 0;
 }
-
-// template <typename scalar_t> scalar_t adaptive_lasso_lambda(
-//     const std::vector<scalar_t> lambdas,
-//     const std::vector<std::vector<scalar_t>> coefs,
-//     const scalar_t constant = 0.75) {
-//   // we iterate from the largest lambda to smallest
-//   // until we find a lambda such that it is the smallest lambda where
-//   // the check_lambdas function still returns true
-//   for( size_t j = 0; j < (coefs.size()-1); j++) {
-//     const bool chk = check_lambdas(
-//       coefs[j], coefs[j+1], lambdas[j], lambdas[j+1]);
-//     if( !chk ) {
-//       return lambdas[j];
-//     }
-//   }
-//   return lambdas[lambdas.size()-1];
-// }
 
 template <const bool has_xreg, const bool seasonal, typename scalar_t = double,
           const bool arima_only=false>
 class ARIMA_LASSO_CSS_PROBLEM :
   public cppoptlib::function::Function<
     scalar_t,
-    ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal,scalar_t>> {
+    ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal, scalar_t, arima_only>> {
 
-  using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
+  using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
   using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
   using StateXd = cppoptlib::function::State<scalar_t, EigVec, EigMat>;
 
@@ -174,7 +153,7 @@ private:
   const bool intercept;
   const size_t n_cond, n;
   const std::vector<scalar_t> y;
-  const scalar_t lambda;
+  scalar_t lambda;
   // initialized in constructor
   EigMat xreg;
   size_t arma_pars;
@@ -293,7 +272,8 @@ public:
   void finalize( structural_model<scalar_t> &model,
                  const EigVec & final_pars,
                  scalar_t kappa,
-                 SSinit ss_init) {
+                 SSinit ss_init,
+                 std::vector<scalar_t> &residuals) {
     // this function creates state space representation and expands it
     // I found out it is easier and cheaper (computationally) to do here
     // do the same for model coefficients
@@ -312,11 +292,14 @@ public:
     }
     // get arima steady state values
     arima_steady_state(this->y_temp, model);
+    for(size_t i=0; i < residuals.size(); i++) {
+      residuals[i] = this->residual[i];
+    }
   }
 };
 
-template <const bool has_xreg, const bool seasonal, typename scalar_t=double>
-scalar_t arima_lasso_solver_css(
+template <const bool has_xreg, const bool seasonal, typename scalar_t>
+scalar_t lasso_solver(
     std::vector<scalar_t> &y,
     const arima_kind &kind,
     structural_model<scalar_t> &model,
@@ -325,21 +308,22 @@ scalar_t arima_lasso_solver_css(
     const bool drift,
     std::vector<scalar_t> &coef,
     const scalar_t kappa,
-    const SSinit ss_init) {
-
+    const SSinit ss_init,
+    std::vector<scalar_t> &residuals) {
   using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
   EigVec x(coef.size());
-
   // specify arima lasso path - in reverse (high to low lambda)
-  auto lam_path = lambda_path<scalar_t, true>(
+  auto lam_path = lambda_path<scalar_t, false>(
     y, std::max(kind.p(), kind.q()), 100);
+  // std::cout << "lambda path: " << std::endl;
+  // print_vector(lam_path);
   std::vector<EigVec> coefs_along_path(100, EigVec(coef.size()));
   for(size_t i = 0; i < coef.size(); i++) x(i) = coef[i];
   // initialize solver
   cppoptlib::solver::Bfgs<
-    ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal, scalar_t>> solver;
+    ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal, scalar_t, true>> solver;
   // and arima problem
-  ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal, scalar_t> css_arima_problem(
+  ARIMA_LASSO_CSS_PROBLEM<has_xreg, seasonal, scalar_t, true> css_arima_problem(
       y, kind, intercept, drift, xreg);
   css_arima_problem.reset_lambda(lam_path[0]);
   // and finally, minimize
@@ -357,18 +341,22 @@ scalar_t arima_lasso_solver_css(
     // copy current solution parameters and solution value
     coefs_along_path[j] = solution.x;
     values[j] = solution.value;
+    // std::cout << "Current lambda: " << lam_path[j] << std::endl;
     // copy current values
-    if(!check_lambdas(coefs_along_path[j-1], coefs_along_path[j],
+    if(!lambda_calibration_check(coefs_along_path[j-1], coefs_along_path[j],
+                      // 0.75 is hardcoded, but this is value recommended by
+                      // the original paper
                       lam_path[j-1], lam_path[j], 0.75 )) {
+      // std::cout << "Chosen lambda: " << lam_path[j-1] << std::endl;
       break;
     }
   }
   // finalize
-  css_arima_problem.finalize( model, coefs_along_path[j-1], kappa, ss_init);
+  css_arima_problem.finalize(
+    model, coefs_along_path[j-1], kappa, ss_init, residuals);
   // pass fitted coefficients back to the caller
   for (size_t i = 0; i < coef.size(); i++) coef[i] = coefs_along_path[j-1][i];
   return exp(2 * values[j-1]);
 }
 
 #endif
-
