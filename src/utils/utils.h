@@ -112,6 +112,22 @@ template <typename U=double> size_t count_na(std::vector<U> &a) {
   return count;
 }
 
+template <typename scalar_t> scalar_t mean(
+    const std::vector<scalar_t> & x) {
+  scalar_t result = 0;
+  size_t n = x.size();
+  for( auto &val:x ) {
+    if(!std::isnan(val)) {
+      result += val;
+    }
+    else {
+      n--;
+    }
+  }
+  return result/(scalar_t)n;
+}
+
+
 template <typename U = double> std::vector<size_t> find_na(std::vector<U> &a) {
   std::vector<size_t> result;
   result.reserve(a.size());
@@ -264,5 +280,87 @@ template <typename U=double> struct MinMaxScaler{
 private:
   U spread, range, a,b, min_v, max_v;
 };
+
+template <typename scalar_t=double> size_t continguous_len(
+  const std::vector<scalar_t> & y) {
+  // find continguous non-missing size of y
+  size_t first=0, last=0;
+  for( size_t i = 0; i < y.size(); i++ ) {
+    if(!isnan(y[i])) {
+      last++;
+    } else {
+      first = i;
+      last = i;
+    }
+  }
+  return last - first;
+}
+
+template<typename scalar_t> bool all_is_nan(const std::vector<scalar_t> &x) {
+  for( auto &val:x ) {
+    if(!std::isnan(val))
+      return false;
+  }
+  return true;
+}
+
+template<typename scalar_t> size_t size_omit_nan(const std::vector<scalar_t> &x) {
+  size_t n = 0;
+  for( auto &val:x ) {
+    if(!std::isnan(val))
+      n++;
+  }
+  return n;
+}
+
+template <typename scalar_t=double> bool is_constant(
+  std::vector<scalar_t> &x,
+  const scalar_t tol = 1e-7) {
+  scalar_t current_val;
+  for( auto & val:x ) {
+    // find non-nan value to start with
+    if(!isnan(val)) {
+      current_val = val;
+      // break out of loop
+      break;
+    }
+  }
+  for( auto & val:x ) {
+    // if we find out that any two values are different, the vector is not
+    // constant
+    if( std::abs(val - current_val) > tol ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+
+template <typename scalar_t> scalar_t sign(const scalar_t x) {
+  return x > 0.0 ? 1.0 : -1.0;
+}
+
+template <typename scalar_t> scalar_t trunc(const scalar_t x) {
+  return sign(x) * std::floor(std::abs(x));
+}
+
+template <typename scalar_t,
+          const bool truncate = true>
+std::vector<std::vector<scalar_t>> get_lags(
+  const std::vector<scalar_t> &y,
+  const size_t lags = 2) {
+
+  const size_t n = y.size();
+
+  std::vector<std::vector<scalar_t>> result(
+      lags, std::vector<scalar_t>(n-lags));
+  for( size_t i = 0; i < lags; i++ ){
+    for(size_t j = i; j < n; j++ ) {
+      result[i][j-lags] = y[i+1];
+    }
+  }
+  return result;
+}
+
 
 #endif
