@@ -4,8 +4,6 @@ using namespace Rcpp;
 #include "string"
 
 // [[Rcpp::plugins(cpp17)]]
-
-
 class BlazeArima {
 public:
   BlazeArima( std::vector<double> y,
@@ -25,7 +23,8 @@ public:
     static std::map<std::string, fitting_method> fitting_method_map = {
       {"CSS", fitting_method::CSS},
       {"CSS-ML", fitting_method::CSSML},
-      {"ML", fitting_method::ML}
+      {"ML", fitting_method::ML},
+      {"LASSO", fitting_method::LASSO}
       };
 
     this->model = Arima<double, StandardScaler<double>>(
@@ -33,13 +32,13 @@ public:
       intercept_drift_transform[1], intercept_drift_transform[2],
       ss_method_map[ss_init], fitting_method_map[method], kappa, true);
   }
-  void fit(){
+  void fit() {
     this->model.fit();
   }
-  std::vector<double> get_coef() {
+  std::vector<double> get_coef() const {
     return this->model.get_coef();
   }
-  Rcpp::List get_structural_model() {
+  Rcpp::List get_structural_model() const {
     auto res = this->model.get_structural_model();
     return List::create(Named("phi") = res.phi,
                         Named("theta") = res.theta,
@@ -56,6 +55,14 @@ public:
     forecast_result<double> result = this->model.forecast(h, newxreg );
     return List::create(Named("forecast") = result.forecast, Named("std.err.") = result.std_err);
   };
+  Rcpp::NumericVector residuals() const {
+    // auto residuals = this->model.get_residuals();
+    return Rcpp::wrap(this->model.get_residuals());//residuals);
+  };
+  Rcpp::NumericVector fitted() const {
+    // auto residuals = this->model.get_residuals();
+    return Rcpp::wrap(this->model.get_fitted());//residuals);
+  };
 private:
   Arima<double> model;
 };
@@ -63,7 +70,6 @@ private:
 RCPP_EXPOSED_CLASS_NODECL(BlazeArima)
 RCPP_MODULE(BlazeArima) {
   // using namespace Rcpp;
-
   Rcpp::class_<BlazeArima>("BlazeArima")
   .constructor< std::vector<double>,
                 std::vector<size_t>,
@@ -79,5 +85,9 @@ RCPP_MODULE(BlazeArima) {
   .method("forecast", &BlazeArima::forecast,
                 "forecast from a fitted arima model")
   .method("get_structural_model", &BlazeArima::get_structural_model,
-                "get structural model specification from arima model");
+                "get structural model specification from arima model")
+  .method("residuals", &BlazeArima::residuals,
+                "get residuals from fitted model")
+  .method("fitted", &BlazeArima::fitted,
+                "get fitted values from fitted model");
 }
