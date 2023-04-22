@@ -7,13 +7,9 @@
 #include "arima/structures/structural_model.h"
 
 #include "utils/xreg.h"
-
-#include "arima/solvers/arima_css_optim_grad.h"
-// #include "arima/solvers/arima_css_solver.h"
-#include "arima/solvers/arima_ml_solver.h"
+#include "arima/solvers/dispatch.h"
 
 #include "arima/utils/checks.h"
-
 
 template <typename scalar_t = float, typename Scaler = StandardScaler<scalar_t>> class Arima {
 private:
@@ -27,7 +23,7 @@ private:
   fitting_method method;
   scalar_t kappa;
   // estimated during fitting
-  std::vector<scalar_t> coef, residuals, reg_coef;
+  std::vector<scalar_t> coef, residuals, fitted_vals, reg_coef;
   scalar_t sigma2;
   std::vector<Scaler> scalers;
   scalar_t aic;
@@ -51,6 +47,8 @@ public:
     this->model = structural_model<scalar_t>();
     this->fitted = false;
     this->ar_stationary = {true,true};
+    this->residuals = std::vector<scalar_t>(y.size(), 0.0);
+    this->fitted_vals = std::vector<scalar_t>(y.size(), 0.0);
   };
   void fit() {
     // this should just proceed with fitting, not do things which can be done in
@@ -127,113 +125,11 @@ public:
     // bool optimization_failed = false;
     const bool is_seasonal = this->kind.P() + this->kind.Q();
     const bool has_xreg = this->reg_coef.size() > 0;
-    if (this->method != ML) {
-      /* this is an ugly tower of specializations, but as far as I can tell,
-       * it is the simplest (if ugliest) way to do it
-       * to reassure you if you are reading this, all calls are the same,
-       * and the only thing that changes are the template arguments
-       */
-      if (this->reg_coef.size() > 0) {
-        if (is_seasonal) {
-          this->sigma2 = arima_solver_css<true, true, scalar_t>(
-            this->y, this->kind, this->model,
-            this->xreg, this->intercept,
-            this->drift, this->coef,
-            this->kappa, this->ss_init);
-        } else {
-          this->sigma2 = arima_solver_css<true, false, scalar_t>(
-              this->y, this->kind, this->model,
-              this->xreg, this->intercept,
-              this->drift, this->coef,
-              this->kappa, this->ss_init);
-        }
-      } else {
-        if (is_seasonal) {
-          this->sigma2 = arima_solver_css<false, true, scalar_t>(
-              this->y, this->kind, this->model,
-              this->xreg, this->intercept,
-              this->drift, this->coef,
-              this->kappa, this->ss_init);
-        } else {
-          this->sigma2 = arima_solver_css<false, false, scalar_t>(
-              this->y, this->kind, this->model,
-              this->xreg, this->intercept,
-              this->drift, this->coef,
-              this->kappa, this->ss_init);
-        }
-      }
-    }
-    if( this->method == CSSML) {
-      //perform checks on AR coefficients following CSS fit
-      // diagnostic struct that carries codes for unstable fits?
-      // would allow us to have nothrow all over these :)
-      this->ar_stationary = check_all_ar<
-        decltype(this->coef), scalar_t>(this->coef, this->kind);
-    }
-    if( this->method == ML || this->method == CSSML) {
-      if(this->transform_parameters) {
-        arima_inverse_transform_parameters<
-          decltype(this->coef), scalar_t>(this->coef, this->kind);
-      }
-      /* again, ugly tower, all calls are the same and differ only in template
-       * parameters - this is the (sadly) easiest way to do it :/
-       */
-      if (this->reg_coef.size() > 0) {
-        if (is_seasonal) {
-          if(this->transform_parameters) {
-            this->sigma2 = arima_solver_ml<true, true, true, scalar_t>(
-              this->y, this->model, this->intercept, this->drift,
-              this->xreg, this->kind, this->coef,
-              this->kappa, this->ss_init);
-          }
-          else{
-            this->sigma2 = arima_solver_ml<true, true, false, scalar_t>(
-                this->y, this->model, this->intercept, this->drift,
-                this->xreg, this->kind, this->coef,
-                this->kappa, this->ss_init);
-          }
-        } else {
-          if(this->transform_parameters) {
-            this->sigma2 = arima_solver_ml<true, false, true, scalar_t>(
-                this->y, this->model, this->intercept, this->drift,
-                this->xreg, this->kind, this->coef,
-                this->kappa, this->ss_init);
-          }
-          else{
-            this->sigma2 = arima_solver_ml<true, false, false, scalar_t>(
-                this->y, this->model, this->intercept, this->drift,
-                this->xreg, this->kind, this->coef,
-                this->kappa, this->ss_init);
-          }
-        }
-      } else {
-        if (is_seasonal) {
-          if(this->transform_parameters) {
-            this->sigma2 = arima_solver_ml<false, true, true, scalar_t>(
-                this->y, this->model, this->intercept, this->drift,
-                this->xreg, this->kind, this->coef,
-                this->kappa, this->ss_init);
-          } else{
-            this->sigma2 = arima_solver_ml<false, true, false, scalar_t>(
-                this->y, this->model, this->intercept, this->drift,
-                this->xreg, this->kind, this->coef,
-                this->kappa, this->ss_init);
-          }
-        } else {
-          if(this->transform_parameters) {
-            this->sigma2 = arima_solver_ml<false, false, true, scalar_t>(
-                this->y, this->model, this->intercept, this->drift,
-                this->xreg, this->kind, this->coef,
-                this->kappa, this->ss_init);
-          } else{
-            this->sigma2 = arima_solver_ml<false, false, false, scalar_t>(
-                this->y, this->model, this->intercept, this->drift,
-                this->xreg, this->kind, this->coef,
-                this->kappa, this->ss_init);
-          }
-        }
-      }
-    }
+    this->sigma2 = fit_arima( this->y, this->model, this->intercept,
+                              this->drift, this->xreg, this->kind, this->coef,
+                              this->kappa, this->ss_init, this->residuals,
+                              this->method, is_seasonal, this->xreg.size() > 0,
+                              this->transform_parameters);
     // load xreg coefficients from coef as necessary
     for (size_t i = arma_coef_size; i < this->coef.size(); i++) {
       this->reg_coef[i - arma_coef_size] = this->coef[i];
@@ -267,8 +163,13 @@ public:
         scalar_t temp = scalers[0].rescale_val(this->coef.back());
         this->coef.back() = temp;
       }
+      // rescale residuals to be on the original scale
+      scalers[0].rescale_w_sd(this->residuals);
     }
     this->fitted = true;
+    for(size_t i = 0; i < this->y.size(); i++) {
+      this->fitted_vals[i] = this->y[i] - this->residuals[i];
+    }
   };
   forecast_result<scalar_t> forecast(
       const size_t h = 10,
@@ -305,6 +206,8 @@ public:
   };
   const structural_model<scalar_t> get_structural_model() const { return this->model; }
   const std::vector<scalar_t> get_coef() const { return this->coef; }
+  const std::vector<scalar_t> get_residuals() const { return this->residuals; }
+  const std::vector<scalar_t> get_fitted() const { return this->fitted_vals; }
   const bool is_fitted() const { return this->fitted; }
 };
 
