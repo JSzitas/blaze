@@ -1,5 +1,5 @@
 ## usethis namespace: start
-#' @useDynLib blazearima, .registration = TRUE
+#' @useDynLib blaze, .registration = TRUE
 ## usethis namespace: end
 NULL
 
@@ -9,4 +9,4 @@ NULL
 NULL
 
 ## ensure module gets loaded
-Rcpp::loadModule("BlazeArima", TRUE)
+Rcpp::loadModule("blaze_arima", TRUE)
