@@ -4,3 +4,4 @@
 ^extra$
 ^README\.Rmd$
 ^LICENSE\.md$
+^src/.clang-format$

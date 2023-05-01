@@ -11,14 +11,14 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 
-RcppExport SEXP _rcpp_module_boot_BlazeArima();
+RcppExport SEXP _rcpp_module_boot_blaze_arima();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_rcpp_module_boot_BlazeArima", (DL_FUNC) &_rcpp_module_boot_BlazeArima, 0},
+    {"_rcpp_module_boot_blaze_arima", (DL_FUNC) &_rcpp_module_boot_blaze_arima, 0},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_blazearima(DllInfo *dll) {
+RcppExport void R_init_blaze(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

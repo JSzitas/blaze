@@ -1,4 +1,5 @@
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -ggdb -02#-O0#-DNDEBUG -02 -g#-O3 -ffast-math -mtune=native -flto
+PKG_CXXFLAGS = -DNDEBUG -02#-O0#-DNDEBUG -02 -g#-O3 -ffast-math -mtune=native -flto
+#$(SHLIB_OPENMP_CXXFLAGS)
 
 ## Use c++17
 CXX_STD = CXX17
