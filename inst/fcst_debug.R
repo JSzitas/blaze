@@ -3,33 +3,41 @@ pkgload::load_all(compile = TRUE)
 
 p <- 3
 d <- 1
-q <- 1
+q <- 2
 P <- 1
-D <- 0
-Q <- 0
+D <- 1
+Q <- 1
 season <- 10
-use_mean <- TRUE
+use_mean <- FALSE
 use_drift <- FALSE
-transform <- FALSE
+transform <- TRUE
 
 train <- c(lynx)[1:100]
 test <- lynx[101:114]
 
+blaze::ar(train, p = 2) -> cpp
+forecast(cpp, h = 14) -> fcst
+
+
+
+
+
 # train[ c(4,7,26)] <- NA
 
 
-arima_obj <- new(BlazeArima, train, c(p, d, q, P, D, Q, season), list(), "Gardner", "CSS", c(use_mean, use_drift, transform), 1000000)
-arima_obj$fit()
+arima_cpp <- blaze::arima(train, c(p, d, q), c(P, D, Q), season,
+                          use_mean, use_drift, fitting_method = "CSS-ML",
+                          xreg = list(),
+                          ss_init = "Gardner",
+                          transform_parameters = transform, 1000000)
+forecast(arima_cpp, 14, list()) -> cpp_fcst
 
-arima_obj$forecast(14, list()) -> cpp_fcst
-
-arima_mod <- forecast::Arima(ts(train,frequency = season),
-  order = c(p, d, q), seasonal = list(order = c(P, D, Q)),
-  include.constant = use_mean,
-  include.drift = use_drift,
-  transform.pars = transform, kappa = 1000000, method = "CSS"
+arima_r <- forecast::Arima(ts(train,frequency = season),
+                           order = c(p, d, q), seasonal = list(order = c(P, D, Q)),
+                           include.mean = use_mean, include.drift = use_drift,
+                           transform.pars = transform, kappa = 1000000, method = "CSS-ML"
 )
-forecast::forecast(arima_mod, 14) -> r_fcst
+forecast::forecast(arima_r, 14) -> r_fcst
 
 plot.ts(c(lynx)[91:114])
 lines(c( rep(NA, 10), cpp_fcst$forecast), col = "red")
