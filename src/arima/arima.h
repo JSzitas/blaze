@@ -197,7 +197,7 @@ public:
         }
       }
       auto xreg_adjusted = predict(h, this->reg_coef, this->intercept,
-                                   this->drift, newxreg);
+                                   this->drift, newxreg, this->y.size());
       for (size_t i = 0; i < h; i++) {
         res.forecast[i] += xreg_adjusted[i];
       }
