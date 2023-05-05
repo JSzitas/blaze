@@ -12,9 +12,11 @@ template <typename scalar_t = float> void add_constant(EigMat<scalar_t> & mat) {
   mat.col(mat.cols() - 1) = EigVec<scalar_t>::Constant(mat.rows(), 1, mat.rows());
 }
 
-template <typename scalar_t = float> void add_drift(EigMat<scalar_t> & mat) {
+template <typename scalar_t = float> void add_drift(EigMat<scalar_t> & mat,
+                                                    const size_t drift_offset = 1) {
   mat.conservativeResize(Eigen::NoChange, mat.cols() + 1);
-  mat.col(mat.cols() - 1) = EigVec<scalar_t>::LinSpaced(mat.rows(), 1, mat.rows());
+  mat.col(mat.cols() - 1) = EigVec<scalar_t>::LinSpaced(
+    mat.rows(), drift_offset, drift_offset + mat.rows());
 }
 
 template <typename scalar_t = float> void put_last_item_first( std::vector<scalar_t> & x) {
@@ -83,13 +85,14 @@ template<typename scalar_t=float> std::vector<scalar_t> predict(
   std::vector<scalar_t> &coef,
   const bool use_intercept,
   const bool use_drift,
-  std::vector<std::vector<scalar_t>> &xreg ) {
+  std::vector<std::vector<scalar_t>> &xreg,
+  const size_t drift_offset = 1) {
 
   std::vector<scalar_t> _xreg = flatten_vec(xreg);
   EigMat<scalar_t> mat = Eigen::Map<EigMat<scalar_t>>(_xreg.data(), n, xreg.size());
-  if (use_drift) add_drift(mat);
+  if (use_drift) add_drift(mat, drift_offset);
   if (use_intercept) add_constant(mat);
-  EigVec<scalar_t> _coef = Eigen::Map<EigVec<scalar_t>>( coef.data(), coef.size(), 1);
+  EigVec<scalar_t> _coef = Eigen::Map<EigVec<scalar_t>>(coef.data(), coef.size(), 1);
   EigVec<scalar_t> res = mat * _coef;
   std::vector<scalar_t> result(res.size());
   for(size_t i=0; i< result.size(); i++) result[i] = res[i];

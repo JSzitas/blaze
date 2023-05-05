@@ -335,7 +335,6 @@ template <typename scalar_t=double> bool is_constant(
   return true;
 }
 
-
 template <typename scalar_t> scalar_t sign(const scalar_t x) {
   return x > 0.0 ? 1.0 : -1.0;
 }
@@ -352,9 +351,9 @@ std::vector<std::vector<scalar_t>> get_lags(
 
   const size_t n = y.size();
   std::vector<std::vector<scalar_t>> result(
-      lags, std::vector<scalar_t>(n-lags));
+      lags+1, std::vector<scalar_t>(n-lags));
   // for each lag 
-  for( size_t i = 0; i < lags; i++ ){
+  for( size_t i = 0; i < lags+1; i++ ){
     // every result starts at n_lag (since we skip rows where any column is missing)
     // thus what changes is which value of y is at that position
     for(size_t j = lags; j < n; j++) {
