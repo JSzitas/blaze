@@ -20,6 +20,8 @@ knitr::opts_chunk$set(
 [![R-CMD-check](https://github.com/JSzitas/fasttbats/workflows/R-CMD-check/badge.svg)](https://github.com/JSzitas/fasttbats/actions)
 <!-- badges: end -->
 
+**TODO: Update**
+
 An intentionally very fast (S)ARIMA(X) implementation. This intends to be as accurate as possible, overcoming both **R** and **statsforecast** implementation
 of **arima**, while hopefully also being faster, with a lower memory footprint. 
 <!-- This faster goal seems to have been reached, at least comparing against **R**'s arima:  -->

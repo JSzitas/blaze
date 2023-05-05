@@ -12,9 +12,11 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 
 
 RcppExport SEXP _rcpp_module_boot_blaze_arima();
+RcppExport SEXP _rcpp_module_boot_blaze_ar();
 
 static const R_CallMethodDef CallEntries[] = {
     {"_rcpp_module_boot_blaze_arima", (DL_FUNC) &_rcpp_module_boot_blaze_arima, 0},
+    {"_rcpp_module_boot_blaze_ar", (DL_FUNC) &_rcpp_module_boot_blaze_ar, 0},
     {NULL, NULL, 0}
 };
 

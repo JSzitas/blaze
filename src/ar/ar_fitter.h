@@ -24,9 +24,12 @@ template <typename scalar_t> scalar_t fit_ar(
  EigMat xregs = vec_to_mat(xreg, n, intercept, drift);
  auto lags = get_lags(y, p);
  // recover y with lags reflected 
- EigVec y_ = Eigen::Map<EigVec>( lags[0].data(), lags[0].size(), 1);
- // get the lags - simply offset the data pointer by first few elements 
- EigMat lag_mat = Eigen::Map<EigMat>(lags.data()+lags[0].size(), n-p, p);
+ EigVec y_ = Eigen::Map<EigVec>(lags[0].data(), lags[0].size(), 1);
+ // get the lags as an eigen matrix
+ EigMat lag_mat = EigMat::Zero(n-p, p);
+ for (size_t i = 1; i < lags.size(); i++) {
+   lag_mat.col(i-1) += Eigen::Map<EigVec>(lags[i].data(), n-p, 1);
+ }
  // reflect this in xreg
  xregs = xregs.bottomRows(n-p);
  // concatenate all matrices together
@@ -34,8 +37,9 @@ template <typename scalar_t> scalar_t fit_ar(
  all_features << lag_mat, xregs;
  // estimate parameters
  coef = solve_ortho_decomp(all_features, y_);
+ auto eig_coef = Eigen::Map<EigVec>(coef.data(), coef.size(), 1);
  // compute in-sample fit 
- auto fitted_vals = all_features * EigVec(coef.data(), coef.size(), 1 );
+ auto fitted_vals = all_features * eig_coef;
  for(size_t i = p; i < n; i++) {
    fitted[i] = fitted_vals[i-p];
  }
@@ -45,7 +49,7 @@ template <typename scalar_t> scalar_t fit_ar(
    residuals[i] = resid;
    ssq += resid * resid;
  }
- return ssq;
+ return ssq/n;
 }
 
 #endif

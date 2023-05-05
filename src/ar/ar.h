@@ -7,16 +7,17 @@
 #include "common/forecast_result.h"
 
 #include "ar/ar_fitter.h"
+#include "ar/ar_forecaster.h"
 
 template <typename scalar_t, typename Scaler = StandardScaler<scalar_t>> class AR {
 private:
   // data
   std::vector<scalar_t> y;
-  const size_t p;
+  size_t p;
   std::vector<std::vector<scalar_t>> xreg;
   bool intercept, drift;
   // estimated during fitting
-  std::vector<scalar_t> coef, residuals, fitted_vals, reg_coef;
+  std::vector<scalar_t> coef, raw_coef, residuals, fitted_vals, prev_y;
   scalar_t sigma2;
   std::vector<Scaler> scalers;
   scalar_t aic;
@@ -34,6 +35,7 @@ public:
     this->fitted = false;
     this->residuals = std::vector<scalar_t>(y.size(), 0.0);
     this->fitted_vals = std::vector<scalar_t>(y.size(), 0.0);
+    this->prev_y = std::vector<scalar_t>(p+1);
   };
   void fit() {
     // if we are asked to fit a model with p,q, P,Q == 0, we simply throw 
@@ -58,7 +60,13 @@ public:
         i++;
       }
     }
-    this->coef = std::vector<scalar_t>(this->xreg.size() + this->p + this->intercept + this->drift);
+    for(size_t i = 0; i < this->prev_y.size(); i++) {
+      const size_t index = this->y.size() - this->prev_y.size() + i;
+      this->prev_y[i] = this->y[index];
+    }
+    this->coef = std::vector<scalar_t>(
+      this->xreg.size() + this->p + this->intercept + this->drift);
+    this->raw_coef = std::vector<scalar_t>(this->coef.size());
     this->sigma2 = fit_ar(coef, this->fitted_vals, this->residuals, 
                           this->y, this->xreg, this->p, this->intercept, 
                           this->drift);
@@ -77,6 +85,8 @@ public:
       // first scaler used for target
       this->scalers[0].rescale(this->y);
       size_t i = 1;
+      // write back raw coefficients - we will need them later
+      this->raw_coef = this->coef;
       for( auto & xreg_val:this->xreg ) {
         scalar_t temp = this->scalers[i].rescale_val(coef[p+i-1]);
         this->coef[p+i-1] = temp;
@@ -87,8 +97,14 @@ public:
         scalar_t temp = scalers[0].rescale_val(this->coef.back());
         this->coef.back() = temp;
       }
+      // rescale fitted values 
+      this->scalers[0].rescale(this->fitted_vals);
+      for(size_t i = 0; i < p; i++) {
+        // first p values set to zero
+        this->fitted_vals[i] = 0.0;
+      }
       // rescale residuals to be on the original scale
-      scalers[0].rescale_w_sd(this->residuals);
+      this->scalers[0].rescale_w_sd(this->residuals);
     }
     this->fitted = true;
   };
@@ -102,9 +118,7 @@ public:
     if (!this->fitted || newxreg.size() != this->xreg.size())
       return forecast_result<scalar_t>(0);
     // otherwise run forecast
-    // TODO: rewrite forecast method
-    auto res = kalman_forecast(h, this->model);
-    // and if using xreg or intercepts, integrate those
+    // scale xreg as needed
     if( newxreg.size() > 0 || this->intercept ) {
       if( scalers.size() > 0 ) {
         size_t i = 1;
@@ -113,16 +127,16 @@ public:
           i++;
         }
       }
-      auto xreg_adjusted = predict(h, this->reg_coef, this->intercept,
-                                   this->drift, newxreg);
-      for (size_t i = 0; i < h; i++) {
-        res.forecast[i] += xreg_adjusted[i];
-      }
     }
-    // scale standard errors
+    // run actual forecast
+    auto res = forecast_ar(h, newxreg, this->prev_y, this->raw_coef, this->sigma2,
+                           this->p, this->intercept, this->drift,
+                           this->y.size());
+    // scale by sigma2 and take square root
     for( size_t i = 0; i < h; i++ ) {
       res.std_err[i] = sqrt(res.std_err[i] * this->sigma2);
     }
+    // rescale forecasts
     if( scalers.size() > 0 ) {
       scalers[0].rescale(res.forecast);
       scalers[0].rescale_w_sd(res.std_err);
@@ -132,6 +146,8 @@ public:
   const std::vector<scalar_t> get_coef() const { return this->coef; }
   const std::vector<scalar_t> get_residuals() const { return this->residuals; }
   const std::vector<scalar_t> get_fitted() const { return this->fitted_vals; }
+  const scalar_t get_sigma2() const { return this->sigma2; }
+  const scalar_t get_aic() const { return this->aic; }
   const bool is_fitted() const { return this->fitted; }
 };
 
