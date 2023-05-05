@@ -1,48 +1,14 @@
 #ifndef AUTO_ARIMA
 #define AUTO_ARIMA
 
+#include "arima/structures/fitting_method.h"
+#include "arima/structures/structural_model.h"
+#include "arima/structures/ss_init.h"
+
 #include <cmath>
 
 // TODO: port the period identification scheme from fable.tbats
 // size_t find_seasonality() {}
-
-template <typename scalar_t=double> size_t continguous_len(
-  const std::vector<scalar_t> & y) {
-  // find continguous non-missing size of y
-  size_t first=0, last=0;
-  for( size_t i = 0; i < y.size(); i++ ) {
-    if(!isnan(y[i])) {
-      last++;
-    } else {
-      first = i;
-      last = i;
-    }
-  }
-  return last - first;
-}
-
-template <typename scalar_t=double> bool is_constant(
-  std::vector<scalar_t> &x,
-  const scalar_t tol = 1e-7) {
-
-  scalar_t current_val;
-  for( auto & val:x ) {
-    // find non-nan value to start with
-    if(!isnan(val)) {
-      current_val = val;
-      // break out of loop
-      break;
-    }
-  }
-  for( auto & val:x ) {
-    // if we find out that any two values are different, the vector is not
-    // constant
-    if( std::abs(val - current_val) > tol ) {
-      return false;
-    }
-  }
-  return true;
-}
 
 
 struct arima_restrictions{
@@ -71,18 +37,34 @@ private:
   const bool stationary, seasonal;
 };
 
+enum IC{
+  AIC,
+  BIC,
+  AICC
+};
 
-class AutoArima{
+template <typename scalar_t = double> class AutoArima{
+public:
   AutoArima(std::vector<double> y,
             const arima_restrictions restrictions,
-            ic = c("aicc", "aic", "bic"),
-            stepwise = TRUE,
-            nmodels = 94, approximation = (length(x) > 150 | frequency(x) > 12),
-            method = NULL, truncate = NULL,
-            xreg = NULL, test = c("kpss", "adf", "pp"), test.args = list(),
-            seasonal.test = c("seas", "ocsb", "hegy", "ch"), seasonal.test.args = list(),
-            allowdrift = TRUE, allowmean = TRUE, lambda = NULL, biasadj = FALSE,
-            parallel = FALSE,  x = y, ...){
+            const IC criterium,
+            const bool stepwise = true,
+            const std::vector<std::vector<scalar_t>> xreg = {{}},
+            const size_t n_models = 94,
+            const bool approximate = false,
+            const SSinit ss_init = SSinit::Gardner,
+            const fitting_method method = ML, const scalar_t kappa = 1000000,
+            const bool standardize = true,
+            const bool try_drift = true,
+            const bool try_mean = true,
+            const bool try_box_cox = true) {
+    // if(is_constant(y)) {
+    //   if(all_is_nan(y)) {
+    //     Arima();
+    //   }
+    // }
+  }
+  void fit() {
 
   }
 
@@ -90,16 +72,7 @@ class AutoArima{
 
 };
 
-auto.arima <- function (y, d = NA, D = NA, max.p = 5, max.q = 5, max.P = 2,
-                        max.Q = 2, max.order = 5, max.d = 2, max.D = 1, start.p = 2,
-                        start.q = 2, start.P = 1, start.Q = 1, stationary = FALSE,
-                        seasonal = TRUE, ic = c("aicc", "aic", "bic"), stepwise = TRUE,
-                        nmodels = 94, trace = FALSE, approximation = (length(x) >
-                                                                        150 | frequency(x) > 12), method = NULL, truncate = NULL,
-                                                                          xreg = NULL, test = c("kpss", "adf", "pp"), test.args = list(),
-                                                                          seasonal.test = c("seas", "ocsb", "hegy", "ch"), seasonal.test.args = list(),
-                                                                          allowdrift = TRUE, allowmean = TRUE, lambda = NULL, biasadj = FALSE,
-                                                                          parallel = FALSE, num.cores = 2, x = y, ...)
+
 {
   if (is.constant(x)) {
     if (all(is.na(x)))
