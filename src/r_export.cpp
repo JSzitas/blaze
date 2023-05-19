@@ -2,6 +2,8 @@
 using namespace Rcpp;
 #include "arima/arima.h"
 #include "ar/ar.h"
+#include "auto_ar/auto_ar.h"
+#include "inoise/inoise.h"
 #include "string"
 
 // [[Rcpp::plugins(cpp17)]]
@@ -99,6 +101,69 @@ public:
   };
 };
 
+class auto_ar {
+private:
+  AutoAR<double, StandardScaler<double>> model;
+public:
+  auto_ar(const std::vector<double> &y,
+     const size_t min_p,
+     const size_t max_p,
+     const std::vector<std::vector<double>> &xreg = {{}},
+     const bool intercept = true, const bool drift = true, 
+     std::string method = std::string("AIC")) {
+
+    static std::map<std::string, AutoARMethod> fitting_method_map = {
+      {"AIC", AutoARMethod::AIC},
+      {"AICc", AutoARMethod::AICc},
+      {"BIC", AutoARMethod::BIC}
+    };
+
+    this->model = AutoAR<double, StandardScaler<double>>(
+      y, min_p, max_p, xreg, intercept, drift, true, fitting_method_map[method]);
+  }
+  void fit() {
+    this->model.fit();
+  }
+  std::vector<double> get_coef() const {
+    return this->model.get_coef();
+  }
+  std::vector<double> residuals() const {
+    return this->model.get_residuals();
+  };
+  std::vector<double> fitted() const {
+    return this->model.get_fitted();
+  };
+  // R specific exports 
+  Rcpp::List forecast( size_t h = 10, std::vector<std::vector<double>> newxreg = {{}} ){
+    forecast_result<double> result = this->model.forecast(h, newxreg );
+    return List::create(Named("forecast") = result.forecast, Named("std.err.") = result.std_err);
+  };
+};
+
+class inoise {
+private:
+  INoise<double, sqrtStabilizer<double>> model;
+public:
+  inoise() = delete;
+  inoise(const std::vector<double> &y,
+         const size_t differences = 1,
+         const size_t seasonal_difference = 10,
+         const bool stabilize = true) {
+    this->model = INoise<double,sqrtStabilizer<double>>(
+      y, differences, seasonal_difference, stabilize);
+  }
+  void fit() {
+    this->model.fit();
+  }
+  // R specific exports 
+  Rcpp::List forecast(const size_t h = 10, const bool produce_se = true,
+                      const size_t samples = 10000 ){
+    forecast_result<double> result = this->model.forecast(h, produce_se, samples );
+    return List::create(Named("forecast") = result.forecast, Named("std.err.") = result.std_err);
+  };
+};
+
+
 RCPP_EXPOSED_CLASS_NODECL(arima)
 RCPP_MODULE(blaze_arima) {
   Rcpp::class_<arima>("blaze_arima")
@@ -129,3 +194,23 @@ RCPP_MODULE(blaze_ar) {
   .method("residuals", &ar::residuals, "get residuals from fitted model")
   .method("fitted", &ar::fitted, "get fitted values from fitted model");
 }
+
+RCPP_EXPOSED_CLASS_NODECL(auto_ar)
+  RCPP_MODULE(blaze_auto_ar) {
+    Rcpp::class_<auto_ar>("blaze_auto_ar")
+    .constructor<std::vector<double>, size_t, size_t, std::vector<std::vector<double>>,
+    bool, bool, std::string>("contructor")
+    .method("fit", &auto_ar::fit, "fit ar model")
+    .method("get_coef", &auto_ar::get_coef, "get fitted ar coefficients")
+    .method("forecast", &auto_ar::forecast, "forecast from a fitted ar model")
+    .method("residuals", &auto_ar::residuals, "get residuals from fitted model")
+    .method("fitted", &auto_ar::fitted, "get fitted values from fitted model");
+  }
+
+RCPP_EXPOSED_CLASS_NODECL(inoise)
+  RCPP_MODULE(blaze_inoise) {
+    Rcpp::class_<inoise>("blaze_inoise")
+    .constructor<std::vector<double>, size_t, size_t, bool>("contructor")
+    .method("fit", &inoise::fit, "fit ar model")
+    .method("forecast", &inoise::forecast, "forecast from a fitted ar model");
+  }
