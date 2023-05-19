@@ -4,6 +4,8 @@
 // included mainly for isnan()
 #include <math.h>
 #include <unordered_set>
+#include <limits>
+#include <random>
 
 template <typename T> T abs(T x) {
   if (x < 0.0) {
@@ -61,6 +63,62 @@ template <typename T, typename U> T max(T &a, U &b) { return (T)(a < b ? b : a);
 template <typename T, typename U> T min(T a, U b) { return (T)(a > b ? b : a); }
 template <typename T, typename U> T min(T &a, U &b) { return (T)(a > b ? b : a); }
 
+template <typename T> T max(const std::vector<T> &x) {
+  T max = -1 * std::numeric_limits<T>::infinity();
+  for(size_t j=0; j< x.size(); j++) {
+    if(x[j] > max) {
+      max = x[j];
+    }
+  }
+  return max;
+}
+template <typename T> T min(const std::vector<T> &x) {
+  T min = std::numeric_limits<T>::infinity();
+  for(size_t j=0; j< x.size(); j++) {
+    if(x[j] < min) {
+      min = x[j];
+    }
+  }
+  return min;
+}
+template <typename T> size_t max_at(const std::vector<T> &x) {
+  size_t max_at = 0;
+  for(size_t j=0; j< x.size(); j++) {
+    if(x[j] > x[max_at]) {
+      max_at = j;
+    }
+  }
+  return max_at;
+}
+template <typename T> size_t min_at(const std::vector<T> &x) {
+  size_t min_at = 0;
+  for(size_t j=0; j< x.size(); j++) {
+    if(x[j] < x[min_at]) {
+      min_at = j;
+    }
+  }
+  return min_at;
+}
+template <typename T> size_t max_at(
+    const std::vector<T> &x, const size_t start, const size_t end) {
+  size_t max_at = start;
+  for(size_t j=start+1; j < end; j++) {
+    if(x[j] > x[max_at]) {
+      max_at = j;
+    }
+  }
+  return max_at;
+}
+template <typename T> size_t min_at(
+    const std::vector<T> &x, const size_t start, const size_t end) {
+  size_t min_at = start;
+  for(size_t j=start+1; j < end; j++) {
+    if(x[j] < x[min_at]) {
+      min_at = j;
+    }
+  }
+  return min_at;
+}
 
 template <typename T> void pop_front(std::vector<T> &x) { x.erase(x.begin()); }
 
@@ -361,6 +419,120 @@ std::vector<std::vector<scalar_t>> get_lags(
     }
   }
   return result;
+}
+
+template <typename scalar_t, const bool reverse=false>
+std::vector<scalar_t> regular_sequence(
+    scalar_t seq_min,
+    scalar_t seq_max,
+    const size_t size = 100) {
+  scalar_t increment = (seq_min + seq_max)/size;
+  if constexpr(reverse) {
+    // swap seq_min and seq_max
+    std::swap(seq_min, seq_max);
+    increment *= -1.0;
+  }
+  std::vector<scalar_t> result(size+1, seq_min);
+  for( size_t j = 0; j < size+1; j++ ) {
+    result[j] += j*increment;
+  }
+  return result;
+}
+
+template <typename T> std::vector<T> cummulative_product(
+    const std::vector<T> &y) {
+  std::vector<T> result(y.size());
+  for(size_t i=1; i < y.size(); i++) {
+    result[i] *= result[i-1];
+  }
+  return result;
+}
+
+template <typename T> std::vector<T> cummulative_sum(
+    const std::vector<T> &y) {
+  std::vector<T> result(y.size());
+  for(size_t i=1; i < y.size(); i++) {
+    result[i] += result[i-1];
+  }
+  return result;
+}
+
+template <typename ForwardIt> void cummulative_sum(
+    ForwardIt begin, ForwardIt end) {
+  for(;begin != (end-1); begin++) {
+    *(begin+1) = *(begin+1) + *(begin);
+  }
+}
+
+template <typename ForwardIt> void reverse_scaling(
+    ForwardIt begin, ForwardIt end) {
+  auto c_size = end-begin;
+  auto size = 1;
+  for(;begin != end; begin++) {
+    *(begin) = *(begin)/(c_size/size);
+    size++;
+  }
+}
+
+template <typename ForwardIt, typename T> void add_to_vec(
+    ForwardIt begin, ForwardIt end, T val) {
+  for(;begin != end; begin++) {
+    *(begin) = *(begin) + val;
+  }
+}
+
+template <typename scalar_t> scalar_t crossprod(
+    const std::vector<scalar_t> &x) {
+  scalar_t result = 0;
+  for(size_t j = 0; j < x.size(); j++) {
+    result += std::pow(x[j], 2);
+  }
+  return result;
+}
+
+template <typename T> T draw_from_vec(
+    const std::vector<T> &x, std::mt19937& twister) {
+  
+  auto res = twister();
+  constexpr std::uint64_t range = 2147483647;
+  
+  return x[x.size() * res/range];
+}
+
+// mostly just to have a clear implementation
+template <typename scalar_t> std::array<scalar_t, 2> 
+welfords_algorithm(const std::vector<scalar_t> &y) {
+  std::array<scalar_t, 2> result;
+  const size_t n = y.size();
+  // mean, standard error
+  result[0] = y[0];
+  result[1] = 0;
+  scalar_t prev_value = y[0];
+  for(size_t j = 1; j < y.size(); j++) {
+    prev_value = result[0];
+    result[0] += (y[j] - prev_value)/static_cast<scalar_t>(j);
+    result[1] += ((y[j] - prev_value) * (y[j] - result[0]));
+  }
+  result[1] = std::sqrt(result[1]/(n-1));
+  return result;
+}
+
+template <typename scalar_t> void welfords_algorithm(
+    std::array<scalar_t, 2> &current_state,
+    const scalar_t current_val, const size_t index) {
+  if(std::isnan(current_val)) return;
+  scalar_t prev_value = current_state[0];
+  current_state[0] += (current_val - prev_value)/static_cast<scalar_t>(index);
+  current_state[1] += ((current_val - prev_value) * (current_val - current_state[0]));
+}
+
+template <typename scalar_t> void welfords_algorithm(
+    scalar_t &current_mean, scalar_t &current_std_err,
+    const scalar_t current_val, const size_t index) {
+  if(std::isnan(current_val)) return;
+  scalar_t prev_value = current_mean;
+  current_mean += (current_val - prev_value)/static_cast<scalar_t>(index);
+  current_std_err += ((current_val - prev_value) * (current_val - current_mean));
 }
 
 

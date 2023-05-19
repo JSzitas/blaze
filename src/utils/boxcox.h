@@ -23,7 +23,7 @@ public:
       this->lambda = lambda;
     }
   }
-  const Vec transform(Vec &y) {
+  const Vec transform(const Vec &y) {
     Vec result(y.size());
     if( lambda < 0)
       std::transform(y.cbegin(), y.cend(),
@@ -68,6 +68,18 @@ public:
         return sgn(val) * std::pow(std::abs(val),(1/this->lambda));
       });
     return result;
+  }
+  const scalar_t inverse_transform(const scalar_t y) {
+    if(lambda < 0) {
+      if(y > (-1/this->lambda) )
+        return std::nan("");
+    }
+    else if(lambda == 0)
+      return std::exp(y);
+    else {
+      y *= (this->lambda + 1);
+      return sgn(y) * std::pow(std::abs(y),(1/this->lambda));
+    }
   }
 private:
   const scalar_t sgn( const scalar_t x ) {
