@@ -34,7 +34,6 @@ public:
       >(y, kind, vec_to_mat(xreg, y.size(), intercept, drift), kappa);
   }
   scalar_t operator()(const EigVec &x) {
-    // print_vector(x);
    return this->MLSolver(x);
   }
   // add impl of grad, hessian, eval

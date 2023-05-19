@@ -23,22 +23,23 @@ template <const SSinit ss_type, const bool seasonal,
 
 using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
 using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
-using vec = std::vector<scalar_t>;
+using Vec = std::vector<scalar_t>;
 
 // these things should be const
-vec y;
+Vec y;
 size_t n, arma_pars, p, q, r, d, rd, r2;
 arima_kind kind;
 scalar_t kappa;
 
-vec anew, M, mm, gam, g, rrz;
+Vec anew, M, mm, gam, g, rrz;
+Vec transform_temp;
 EigVec u;
 EigMat xreg;
 size_t np, nrbar, npr, npr1;
-vec xnext, xrow, rbar, thetab, V, P;
+Vec xnext, xrow, rbar, thetab, V, P;
 
 EigVec y_temp, new_x;
-vec residual, temp_phi, temp_theta;
+Vec residual, temp_phi, temp_theta;
 
 structural_model<scalar_t> model;
 scalar_t sigma2;
@@ -46,7 +47,7 @@ scalar_t sigma2;
 public:
   KalmanARIMA<ss_type, seasonal, has_xreg, transform, scalar_t>(){};
   KalmanARIMA<ss_type, seasonal, has_xreg, transform, scalar_t>(
-      const vec &y,
+      const Vec &y,
       const arima_kind &kind,
       EigMat xreg,
       const scalar_t kappa ) : y(y), n(y.size()),
@@ -59,13 +60,17 @@ public:
       r2(max(p + q, p + 1)),
       kind(kind), kappa(kappa), xreg(xreg) {
 
-    this->anew = vec(rd, 0);
-    this->M = vec(rd, 0);
-    this->mm = vec( (d > 0) * rd * rd, 0);
+    this->anew = Vec(rd, 0);
+    this->M = Vec(rd, 0);
+    this->mm = Vec( (d > 0) * rd * rd, 0);
+    if constexpr(transform) {
+      // allocate transform temporary
+      this->transform_temp = Vec(kind.p() + kind.P() + kind.q());
+    }
     if constexpr( ss_type == SSinit::Rossignol) {
-      this->gam = vec(r2 * r2);
-      this->g = vec(r2);
-      this->rrz = vec(q);
+      this->gam = Vec(r2 * r2);
+      this->g = Vec(r2);
+      this->rrz = Vec(q);
       this->u = EigVec(r2);
     }
     if constexpr( ss_type == SSinit::Gardner) {
@@ -74,12 +79,12 @@ public:
       this->nrbar = this->np * (this->np - 1) / 2;
       this->npr = this->np - this->r;
       // preallocate expansion vectors
-      this->xnext = vec(this->np);
-      this->xrow = vec(this->np);
-      this->rbar = vec(this->nrbar);
-      this->thetab = vec(this->np);
-      this->V = vec(this->np);
-      this->P = vec(r * r);
+      this->xnext = Vec(this->np);
+      this->xrow = Vec(this->np);
+      this->rbar = Vec(this->nrbar);
+      this->thetab = Vec(this->np);
+      this->V = Vec(this->np);
+      this->P = Vec(r * r);
     }
     this->y_temp = EigVec(this->n);
     for (size_t i = 0; i < this->n; i++) this->y_temp(i) = y[i];
@@ -87,15 +92,16 @@ public:
     this->new_x = EigVec::Zero(kind.p() + (kind.P() * kind.period()) + kind.q() +
       (kind.Q() * kind.period()) + this->xreg.cols());
     // pre-allocate model residuals
-    this->residual = vec(this->n, 0.0);
+    this->residual = Vec(this->n, 0.0);
     // pre-allocate transformation helper vector - this is only necessary
     // for expanding seasonal models
-    this->temp_phi = vec(kind.p() + (kind.P() * kind.period()));
-    this->temp_theta = vec(kind.q() + (kind.Q() * kind.period()));
+    this->temp_phi = Vec(kind.p() + (kind.P() * kind.period()));
+    this->temp_theta = Vec(kind.q() + (kind.Q() * kind.period()));
     if constexpr(seasonal || transform) {
       // the expansion of arima parameters is only necessary for seasonal models
       arima_transform_parameters<EigVec, seasonal, transform, false, scalar_t>(
-          this->new_x, this->kind, this->temp_phi, this->temp_theta
+          this->new_x, this->kind, this->temp_phi, this->temp_theta,
+          this->transform_temp
       );
     }
     // initialize state space model
@@ -121,14 +127,15 @@ public:
     if constexpr(seasonal || transform) {
       // the expansion of arima parameters is only necessary for seasonal models
       arima_transform_parameters<EigVec, seasonal, transform, false, scalar_t>(
-          this->new_x, this->kind, this->temp_phi, this->temp_theta
+          this->new_x, this->kind, this->temp_phi, this->temp_theta,
+          this->transform_temp
       );
     }
     // update arima
     if constexpr( ss_type == SSinit::Gardner ) {
       update_arima(this->model, this->new_x, this->kind,
-                   // this->xnext, this->xrow, this->rbar,
-                   // this->thetab, this->V, this->P,
+                   this->xnext, this->xrow, this->rbar,
+                   this->thetab, this->V, this->P,
                    SSinit::Gardner);
     }
     if constexpr( ss_type == SSinit::Rossignol ) {
@@ -143,7 +150,7 @@ public:
   }
   scalar_t get_sigma() const { return this->sigma2; }
   structural_model<scalar_t> get_structural_model() const { return this->model; }
-  vec get_residuals() const { return this->residual; }
+  Vec get_residuals() const { return this->residual; }
 };
 
 #endif

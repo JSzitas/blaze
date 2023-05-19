@@ -83,24 +83,6 @@ template <typename scalar_t> scalar_t lambda_max(
   return result/n;
 }
 
-template <typename scalar_t,
-          const bool reverse=false> std::vector<scalar_t> regular_sequence(
-  scalar_t seq_min,
-  scalar_t seq_max,
-  const size_t size = 100) {
-
-  scalar_t increment = (seq_min + seq_max)/size;
-  if constexpr(reverse) {
-    // swap seq_min and seq_max
-    std::swap(seq_min, seq_max);
-    increment *= -1.0;
-  }
-  std::vector<scalar_t> result(size+1, seq_min);
-  for( size_t j = 0; j < size+1; j++ ) {
-    result[j] += j*increment;
-  }
-  return result;
-}
 // build lambda path for a given time series
 template <typename scalar_t,
           const bool reverse=false> std::vector<scalar_t> lambda_path(

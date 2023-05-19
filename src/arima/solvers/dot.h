@@ -1,9 +1,6 @@
 #ifndef SIMD_AR_DOT_HEADER
 #define SIMD_AR_DOT_HEADER
 
-// this is potentially something else on e.g. Windows
-#include <x86intrin.h>
-
 template<typename T>
 inline T dot(const T* x, const T* y, int f) {
   T s = 0;
@@ -14,9 +11,24 @@ inline T dot(const T* x, const T* y, int f) {
   }
   return s;
 }
-// we should add a check and env variable to remove the following overloads
-// or maybe replace them depending on available extension set.
 
+// inspired by annoylib, see https://github.com/spotify/annoy/blob/main/src/annoylib.h
+// #if !defined(NO_MANUAL_VECTORIZATION) && defined(__GNUC__) && (__GNUC__ >6) && defined(__AVX512F__) 
+// #define DOT_USE_AVX512
+#if !defined(NO_MANUAL_VECTORIZATION) && defined(__AVX__) && defined (__SSE__) && defined(__SSE2__) && defined(__SSE3__)
+#define DOT_USE_AVX
+#else
+#endif
+
+#if defined(DOT_USE_AVX) || defined(DOT_USE_AVX512)
+#if defined(_MSC_VER)
+#include <intrin.h>
+#elif defined(__GNUC__)
+#include <x86intrin.h>
+#endif
+#endif
+
+#ifdef DOT_USE_AVX
 // Horizontal single sum of 256bit vector.
 inline float hsum256_ps_avx(__m256 v) {
   const __m128 x128 = _mm_add_ps(_mm256_extractf128_ps(v, 1), _mm256_castps256_ps128(v));
@@ -24,7 +36,6 @@ inline float hsum256_ps_avx(__m256 v) {
   const __m128 x32 = _mm_add_ss(x64, _mm_shuffle_ps(x64, x64, 0x55));
   return _mm_cvtss_f32(x32);
 }
-
 
 inline double hsum256_pd_avx(__m256d v) {
   __m128d vlow  = _mm256_castpd256_pd128(v);
@@ -79,5 +90,6 @@ inline double dot<double>(const double* x, const double *y, int f) {
   }
   return result;
 }
+#endif
 
 #endif

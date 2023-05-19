@@ -531,7 +531,6 @@ void update_arima(structural_model<scalar_t> &model,
   std::fill(model.a.begin(), model.a.end(), 0);
 }
 
-
 template <typename scalar_t = float> void recompute_v(
   structural_model<scalar_t> & model) {
   // reexpand V for an already existing structural model
