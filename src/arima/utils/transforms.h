@@ -158,6 +158,29 @@ template <typename T, typename scalar_t=float> void parameter_transform(
   }
 }
 
+template <typename T, typename scalar_t=float> void parameter_transform(
+  T &coef, const size_t start, const size_t end,
+  std::vector<scalar_t> &temp) {
+  size_t j, k;
+  // we solve this by using a vector rather than an array
+  const size_t p = end-start;
+  /* Step one: map (-Inf, Inf) to (-1, 1) via tanh
+   The parameters are now the pacf phi_{kk} */
+  for (j = 0; j < p; j++) {
+    coef[start+j] = temp[j] = tanh(coef[start+j]);
+  }
+  /* Step two: run the Durbin-Levinson recursions to find phi_{j.},
+   j = 2, ..., p and phi_{p.} are the autoregression coefficients */
+  for (j = 0; j < p; j++) {
+    for (k = 0; k < j; k++) {
+      // I believe allocating a is not necessary
+      temp[k] -= coef[start + j] * coef[start + j - k - 1];
+    }
+    for (k = 0; k < j; k++) coef[start+k] = temp[k];
+  }
+}
+
+
 // invert the parameter transformation
 template <typename T, typename scalar_t=float> void inv_parameter_transform(
     T & coef, const size_t start, const size_t end) {
@@ -182,6 +205,29 @@ template <typename T, typename scalar_t=float> void inv_parameter_transform(
   for (size_t j = 0; j < p; j++) coef[j+start] = atanh(new_pars[j]);
 }
 
+template <typename T, typename scalar_t=float> void inv_parameter_transform(
+  T & coef, const size_t start, const size_t end,
+  std::vector<scalar_t> &temp) {
+  const auto p = end - start;
+  for (size_t j = 0; j < p; j++) {
+    // assigning work[j] = might be redundant - it gets reassigned anyways and
+    // only holds intermediaries, but does not do anything for the result
+    temp[j] = coef[start + j];
+  }
+  /* Run the Durbin-Levinson recursions backwards
+   to find the PACF phi_{j.} from the autoregression coefficients */
+  for (size_t j = p-1; j > 0; j--) {
+    // this allocation is redundant, we can just take reference to temp[j]
+    a = temp[j];
+    for (size_t k = 0; k < j; k++) {
+      coef[start + k] = (temp[k] + a * temp[j - k - 1]) / (1 - a * a);
+    }
+    for (size_t k = 0; k < j; k++) temp[k] = coef[k+start];
+  }
+  // revert the tanh transform from earlier
+  for (size_t j = 0; j < p; j++) coef[j+start] = atanh(temp[j]);
+}
+
 // this just directly modifies coef
 template <typename T, const bool seasonal, const bool transform,
           const bool reverse_order=false, typename scalar_t=float>
@@ -198,6 +244,59 @@ void arima_transform_parameters(
     // cast away constness to modify by reference
     if (mp > 0) parameter_transform<T, scalar_t>(coef, 0, mp);
     if (msp > 0) parameter_transform<T, scalar_t>(coef, mp + mq, mp + mq + msp);
+  }
+  if constexpr (seasonal) {
+    const size_t msq = kind.Q(), ns = kind.period();
+    const size_t p = mp + ns * msp;
+    const size_t q = mq + ns * msq;
+    size_t i, j;
+    /* expand out seasonal ARMA models
+     * note that the offsetting here is crucial - the original indexing was
+     * into two data structures of the same combined size as our coef */
+    for (i = 0; i < mp; i++) phi[i] = coef[i];
+    for (i = 0; i < mq; i++) theta[i] = coef[i + mp];
+    for (i = mp; i < p; i++) phi[i] = 0.0;
+    for (i = mq; i < q; i++) theta[i] = 0.0;
+    for (j = 0; j < msp; j++) {
+      phi[(j + 1) * ns - 1] += coef[j + mp + mq];
+      for (i = 0; i < mp; i++) {
+        phi[(j + 1) * ns + i] -= coef[i] * coef[j + mp + mq];
+      }
+    }
+    for (j = 0; j < msq; j++) {
+      theta[(j + 1) * ns - 1] += coef[j + mp + mq + msp];
+      for (i = 0; i < mq; i++) {
+        theta[(j + 1) * ns + i] += coef[i + mp] * coef[j + mp + mq + msp];
+      }
+    }
+    if constexpr(reverse_order) {
+      for (i = 0; i < p; i++) coef[i] = phi[p - 1 - i];
+      for (i = 0; i < q; i++) coef[p + i] = theta[q -1 - i];
+      return;
+    }
+    // the output is written back to coef
+    for (i = 0; i < p; i++) coef[i] = phi[i];
+    for (i = p; i < p + q; i++) coef[i] = theta[i - p];
+  }
+}
+
+template <typename T, const bool seasonal, const bool transform,
+          const bool reverse_order=false, typename scalar_t=float>
+void arima_transform_parameters(
+    T &coef,
+    const arima_kind &kind,
+    std::vector<scalar_t> &phi,
+    std::vector<scalar_t> &theta,
+    std::vector<scalar_t> &temp) {
+  // the coefficients are all 'packed in' inside coef - so we have
+  // different types of coefficients. this tells us basically how many
+  // of each type there are
+  const size_t mp = kind.p(), msp = kind.P(), mq = kind.q();
+  if constexpr (transform) {
+    // cast away constness to modify by reference
+    if (mp > 0) parameter_transform<T, scalar_t>(coef, 0, mp, temp);
+    if (msp > 0) parameter_transform<T, scalar_t>(
+        coef, mp + mq, mp + mq + msp, temp);
   }
   if constexpr (seasonal) {
     const size_t msq = kind.Q(), ns = kind.period();
