@@ -68,11 +68,6 @@ public:
 
   using state_t = function::State<scalar_t, vector_t, hessian_t>;
 
-  // template<class T>  using has_grad =
-  // decltype(std::declval<T&>().Gradient(std::declval<const vector_t&, vector_t*>()));
-  // template<class T>  using has_eval =
-  // decltype(std::declval<T&>().Eval(std::declval<const vector_t&, const int>()));
-
 public:
   Function() = default;
   ~Function() = default;
