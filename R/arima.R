@@ -27,10 +27,6 @@ arima <- function(y, pdq = c(1,0,0), PDQ = c(0,0,0),
                   fitting_method = c("CSS-ML", "CSS", "ML", "LASSO"),
                   xreg = list(), ss_init = c("Gardner", "Rossignol"),
                   transform_parameters = TRUE, kappa = 1000000 ) {
-  # cast time series to raw vectors
-  # if(stats::is.ts(y)) { y <- c(y) }
-  # ss_init <- match.arg(ss_init)
-  # fitting_method <- match.arg(fitting_method)
   arima_model <- new(
     blaze_arima,
     c(y), c(pdq, PDQ, season), xreg, ss_init[1], fitting_method[1],
