@@ -20,7 +20,7 @@ private:
   std::vector<scalar_t> coef, raw_coef, residuals, fitted_vals, prev_y;
   scalar_t sigma2;
   std::vector<Scaler> scalers;
-  scalar_t aic;
+  scalar_t aic, bic, aicc;
   bool fitted;
 public:
   AR<scalar_t, Scaler>(){};
@@ -70,17 +70,6 @@ public:
     this->sigma2 = fit_ar(coef, this->fitted_vals, this->residuals, 
                           this->y, this->xreg, this->p, this->intercept, 
                           this->drift);
-    // we have to rescale the sigma to be on the same scale as original data
-    auto sigma_2 = this->sigma2;
-    if( scalers.size() > 0 ) {
-      sigma_2 = scalers[0].rescale_val_w_mean(this->sigma2);
-    }
-    // 1.837877 is equal to log(2*pi) - log is not standard compliant in a
-    // constexpr so we must expand the expression manually, sadly
-    constexpr scalar_t one_p_log_twopi = 1.0 + 1.837877;
-    this->aic = (this->y.size() - this->p) * (log(sigma_2) + one_p_log_twopi);
-    // invert scaling - this is probably redundant, we do not care for estimated
-    // coefficients too much (as the main goal of the package is forecasting)
     if( this->scalers.size() > 0 ) {
       // first scaler used for target
       this->scalers[0].rescale(this->y);
@@ -106,6 +95,13 @@ public:
       // rescale residuals to be on the original scale
       this->scalers[0].rescale_w_sd(this->residuals);
     }
+    this->aic = this->y.size() * std::log(
+      crossprod(this->residuals)/this->y.size()) + 
+      (2 * this->coef.size());
+    // these need to be verified (they might be slightly off)
+    this->bic = this->aic + (this->p + 1) * (log(this->y.size()) - 2);
+    this->aicc = this->aic + 
+      (2*(std::pow(this->p, 2) + this->p)/(this->y.size() - this->p - 1)); 
     this->fitted = true;
   };
   void respecify(const size_t p) {
@@ -148,6 +144,8 @@ public:
   const std::vector<scalar_t> get_fitted() const { return this->fitted_vals; }
   const scalar_t get_sigma2() const { return this->sigma2; }
   const scalar_t get_aic() const { return this->aic; }
+  const scalar_t get_bic() const { return this->bic; }
+  const scalar_t get_aicc() const { return this->aicc; }
   const bool is_fitted() const { return this->fitted; }
 };
 
