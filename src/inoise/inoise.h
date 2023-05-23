@@ -98,13 +98,20 @@ public:
       ForwardIt first, ForwardIt last) {}
 };
 
+using mt19937_size_t = std::mersenne_twister_engine<size_t, 64, 312, 156, 31,
+                                                    0xb5026f5aa96619e9, 29,
+                                                    0x5555555555555555, 17,
+                                                    0x71d67fffeda60000, 37,
+                                                    0xfff7eee000000000, 43, 6364136223846793005>;
+
+
 template <typename scalar_t,
           typename Stabilizer=sqrtStabilizer<scalar_t>> class INoise {
 private:
   std::vector<scalar_t> y, diff_y, diff_y_s;
   size_t d, s_d, season;
   Stabilizer stabilizer;
-  std::mt19937 twister;
+  mt19937_size_t twister;
   scalar_t last_y;
   bool fitted;
 public:
@@ -116,7 +123,7 @@ public:
   y(y), d(differences) {
     this->stabilizer = Stabilizer(y);
     this->s_d = seasonal_difference;
-    this->twister = std::mt19937{std::random_device{}()};
+    this->twister = mt19937_size_t{std::random_device{}()};
     // if(seasonal_difference < 0) {
       // find seasonality instead
     // }
@@ -149,7 +156,7 @@ public:
       std::vector<scalar_t> temp(h);
       // h * 2 as this will hold intermediaries for both the averages and 
       // standard errors when running welfords algorithm
-      std::vector<scalar_t> welfords_temp(h*2, 0.0);
+      std::vector<scalar_t> welfords_temp(h*2);//, 0.0);
       // initialize welfords algorithm from first sample
       for(size_t j = 0; j < h; j++) {
         // draw and create temp
@@ -163,12 +170,7 @@ public:
       this->stabilizer.inverse_transform(temp.begin(), temp.end());
       // initialize welfords algorithm
       for(size_t j = 0; j < h; j++) {
-        if(!std::isnan(temp[j])) {
-          welfords_temp[2*j] = temp[j];
-        } else {
-          // otherwise set initial to zero
-          welfords_temp[2*j] = 0.0;
-        }
+        welfords_temp[2*j] = temp[j];
         welfords_temp[(2*j)+1] = 0.0;
       }
       // finish initialization, run actual sampling
@@ -182,7 +184,9 @@ public:
         this->stabilizer.inverse_transform(temp.begin(), temp.end());
         // run welfords algorithm
         for(size_t j = 0; j < h; j++) {
-          welfords_algorithm(welfords_temp[2*j], welfords_temp[(2*j)+1], temp[j], i);
+          const scalar_t current_val = temp[j], prev_mean = welfords_temp[2*j];
+          welfords_temp[2*j] += (current_val - prev_mean)/static_cast<scalar_t>(i);
+          welfords_temp[(2*j)+1] += (current_val - welfords_temp[2*j]) * (current_val - prev_mean);
         }
       }
       // move results out of welfords temp 
@@ -191,14 +195,7 @@ public:
         std_err[j] = std::sqrt(welfords_temp[(2*j)+1]/(samples-1));
       }
     }
-    bool did_we_fail = false;
-    for(size_t j = 0; j < h; j++) {
-      if(std::isnan(avg[j]) || std::isinf(std_err[j])) {
-        did_we_fail = true;
-        break;
-      }
-    }
-    if(!produce_se || did_we_fail) {
+    else{
       // the seasonal mean is correct
       scalar_t mean_seas_val = mean(this->diff_y_s);
       // repeat pattern from last s_d observations until we have h/s_d repeats

@@ -9,3 +9,7 @@ find_period <- function(x) {
     .Call(`_blaze_find_period`, x)
 }
 
+draw <- function(x) {
+    .Call(`_blaze_draw`, x)
+}
+

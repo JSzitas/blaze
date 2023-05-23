@@ -267,6 +267,11 @@ template <typename U=double> struct StandardScaler{
       x[i] = (x[i] - this->mean)/this->sd;
     }
   }
+  void scale_w_sd(std::vector<U> &x) const {
+    for(auto &val:x) {
+      val /= this->sd;
+    }
+  }
   void rescale(std::vector<U> &x) const {
     for(size_t i=0; i < x.size(); i++) {
       x[i] = this->mean + (x[i]*this->sd);
@@ -290,6 +295,9 @@ template <typename U=double> struct StandardScaler{
   }
   U rescale_val_w_mean( const U x ) const {
     return this->mean + x;
+  }
+  U rescale_val_w_sd( const U x ) const {
+    return this->mean * x;
   }
   const U get_mean() const {
     return this->mean;
@@ -481,7 +489,7 @@ template <typename ForwardIt, typename T> void add_to_vec(
   }
 }
 
-template <typename scalar_t> scalar_t crossprod(
+template <typename scalar_t> scalar_t sum_of_squares(
     const std::vector<scalar_t> &x) {
   scalar_t result = 0;
   for(size_t j = 0; j < x.size(); j++) {
@@ -490,13 +498,14 @@ template <typename scalar_t> scalar_t crossprod(
   return result;
 }
 
-template <typename T> T draw_from_vec(
-    const std::vector<T> &x, std::mt19937& twister) {
-  
+template <typename T, typename RNG> T draw_from_vec(
+    const std::vector<T> &x, RNG& twister) {
   auto res = twister();
-  constexpr std::uint64_t range = 2147483647;
-  
-  return x[x.size() * res/range];
+  // finds largest available size_t 
+  constexpr size_t range = (size_t)-1;
+  // ad-hoc way to create a valid(ish) unbiased(ish) index
+  auto index = std::floor((x.size()) * static_cast<T>(res)/range - 0.0000001);
+  return x[index];
 }
 
 // mostly just to have a clear implementation
@@ -520,20 +529,9 @@ welfords_algorithm(const std::vector<scalar_t> &y) {
 template <typename scalar_t> void welfords_algorithm(
     std::array<scalar_t, 2> &current_state,
     const scalar_t current_val, const size_t index) {
-  if(std::isnan(current_val)) return;
   scalar_t prev_value = current_state[0];
   current_state[0] += (current_val - prev_value)/static_cast<scalar_t>(index);
   current_state[1] += ((current_val - prev_value) * (current_val - current_state[0]));
 }
-
-template <typename scalar_t> void welfords_algorithm(
-    scalar_t &current_mean, scalar_t &current_std_err,
-    const scalar_t current_val, const size_t index) {
-  if(std::isnan(current_val)) return;
-  scalar_t prev_value = current_mean;
-  current_mean += (current_val - prev_value)/static_cast<scalar_t>(index);
-  current_std_err += ((current_val - prev_value) * (current_val - current_mean));
-}
-
 
 #endif

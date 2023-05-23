@@ -37,6 +37,7 @@ template <typename scalar_t> scalar_t fit_ar(
  all_features << lag_mat, xregs;
  // estimate parameters
  coef = solve_ortho_decomp(all_features, y_);
+ // print_vector(coef);
  auto eig_coef = Eigen::Map<EigVec>(coef.data(), coef.size(), 1);
  // compute in-sample fit 
  auto fitted_vals = all_features * eig_coef;
@@ -44,12 +45,14 @@ template <typename scalar_t> scalar_t fit_ar(
    fitted[i] = fitted_vals[i-p];
  }
  scalar_t ssq = 0.0;
- for(size_t i = 0; i < n; i++) {
+ // only values from p up are valid and should be accounted for in the residual
+ // sum of squares
+ for(size_t i = p; i < n; i++) {
    scalar_t resid = y[i] - fitted[i];
    residuals[i] = resid;
    ssq += resid * resid;
  }
- return ssq/n;
+ return ssq/(n-p);
 }
 
 #endif
