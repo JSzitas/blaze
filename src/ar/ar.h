@@ -15,7 +15,7 @@ private:
   std::vector<scalar_t> y;
   size_t p;
   std::vector<std::vector<scalar_t>> xreg;
-  bool intercept, drift, demean;
+  bool intercept, drift;
   // estimated during fitting
   std::vector<scalar_t> coef, raw_coef, residuals, fitted_vals, prev_y;
   scalar_t sigma2;
@@ -29,8 +29,8 @@ public:
       const size_t p,
       const std::vector<std::vector<scalar_t>> &xreg = {{}},
       const bool intercept = true, const bool drift = false,
-      const bool standardize = true,  const bool demean = true) : y(y), p(p),
-      xreg(xreg), intercept(intercept), drift(drift), demean(demean) {
+      const bool standardize = true) : y(y), p(p),
+      xreg(xreg), intercept(intercept), drift(drift) {
     this->scalers = std::vector<Scaler>( standardize * (1 + xreg.size()) );
     this->fitted = false;
     this->residuals = std::vector<scalar_t>(y.size(), 0.0);
@@ -52,23 +52,14 @@ public:
     if( this->scalers.size() > 0 ) {
       // first scaler used for target
       this->scalers[0] = Scaler(this->y);
-      this->scalers[0].scale_w_sd(this->y);
+      // this->scalers[0].scale_w_sd(this->y);
+      this->scalers[0].scale(this->y);
       size_t i = 1;
-      for( auto & xreg_val:this->xreg ) {
-        this->scalers[i] = Scaler(xreg_val);
-        this->scalers[i].scale(xreg_val);
+      while(i < this->scalers.size()) {
+        this->scalers[i] = Scaler(this->xreg[i-1]);
+        this->scalers[i].scale(this->xreg[i-1]);
         i++;
       }
-    }
-    // demean 
-    if(this->demean) {
-      this->y_mean = mean(this->y);
-      for(auto& val:this->y) {
-        val -= this->y_mean;
-      }
-      this->y_mean *= this->scalers[0].get_sd();
-      // std::cout << " Demeaning mean: " << this->y_mean << std::endl;
-      // std::cout << " Mean of y : " << mean(this->y) << std::endl;
     }
     for(size_t i = 0; i < this->prev_y.size(); i++) {
       const size_t index = this->y.size() - this->prev_y.size() + i;
@@ -146,9 +137,6 @@ public:
     if( scalers.size() > 0 ) {
       scalers[0].rescale(res.forecast);
       scalers[0].rescale_w_sd(res.std_err);
-    }
-    for(auto &val:res.forecast) {
-      val += this->y_mean;
     }
     return res;
   };

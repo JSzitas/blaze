@@ -59,8 +59,8 @@ forecast_ar( const size_t h,
     result[i] = lag_mat * _coef.head(p);
     result[i] += xreg_mat.row(i) * _coef.tail(_coef.size()-p);
     // update lag_mat 
-    for( size_t j = 1; j < p; j++ ) {
-      lag_mat(j) = lag_mat(j-1);
+    for( size_t j = 0; j < p; j++ ) {
+      lag_mat(p-j-1) = lag_mat(p-j-2);
     }
     lag_mat(0) = result[i];
   }

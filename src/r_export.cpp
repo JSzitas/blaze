@@ -77,11 +77,10 @@ public:
   ar(const std::vector<double> &y,
      const size_t p,
      const std::vector<std::vector<double>> &xreg = {{}},
-     const bool intercept = true, const bool drift = true,
-     const bool demean = true) {
+     const bool intercept = true, const bool drift = true) {
 
     this->model = AR<double, StandardScaler<double>>(
-      y, p, xreg, intercept, drift, true, demean);
+      y, p, xreg, intercept, drift, true);
   }
   void fit() {
     this->model.fit();
@@ -188,7 +187,7 @@ RCPP_EXPOSED_CLASS_NODECL(ar)
 RCPP_MODULE(blaze_ar) {
   Rcpp::class_<ar>("blaze_ar")
   .constructor<std::vector<double>, size_t, std::vector<std::vector<double>>,
-               bool, bool, bool>("contructor")
+               bool, bool>("contructor")
   .method("fit", &ar::fit, "fit ar model")
   .method("get_coef", &ar::get_coef, "get fitted ar coefficients")
   .method("forecast", &ar::forecast, "forecast from a fitted ar model")
