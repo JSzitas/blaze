@@ -9,7 +9,7 @@ template <typename scalar_t> using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynam
 
 template <typename scalar_t = float> void add_constant(EigMat<scalar_t> & mat) {
   mat.conservativeResize(Eigen::NoChange, mat.cols() + 1);
-  mat.col(mat.cols() - 1) = EigVec<scalar_t>::Constant(mat.rows(), 1, mat.rows());
+  mat.col(mat.cols() - 1) = EigVec<scalar_t>::Constant(mat.rows(), 1, 1);
 }
 
 template <typename scalar_t = float> void add_drift(EigMat<scalar_t> & mat,
