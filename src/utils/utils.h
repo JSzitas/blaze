@@ -434,14 +434,14 @@ std::vector<scalar_t> regular_sequence(
     scalar_t seq_min,
     scalar_t seq_max,
     const size_t size = 100) {
-  scalar_t increment = (seq_min + seq_max)/size;
+  scalar_t increment = (seq_min + seq_max)/(size-1);
   if constexpr(reverse) {
     // swap seq_min and seq_max
     std::swap(seq_min, seq_max);
     increment *= -1.0;
   }
-  std::vector<scalar_t> result(size+1, seq_min);
-  for( size_t j = 0; j < size+1; j++ ) {
+  std::vector<scalar_t> result(size, seq_min);
+  for( size_t j = 0; j < size; j++ ) {
     result[j] += j*increment;
   }
   return result;
@@ -449,8 +449,8 @@ std::vector<scalar_t> regular_sequence(
 
 template <typename T> std::vector<T> cummulative_product(
     const std::vector<T> &y) {
-  std::vector<T> result(y.size());
-  for(size_t i=1; i < y.size(); i++) {
+  std::vector<T> result = y;
+  for(size_t i=1; i < result.size(); i++) {
     result[i] *= result[i-1];
   }
   return result;
@@ -496,6 +496,15 @@ template <typename scalar_t> scalar_t sum_of_squares(
     result += std::pow(x[j], 2);
   }
   return result;
+}
+
+template <typename scalar_t> scalar_t mean_squared_error(
+    const std::vector<scalar_t> &x) {
+  scalar_t result = 0;
+  for(size_t j = 0; j < x.size(); j++) {
+    result += std::pow(x[j], 2);
+  }
+  return result/x.size();
 }
 
 template <typename T, typename RNG> T draw_from_vec(
