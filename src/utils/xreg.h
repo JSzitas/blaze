@@ -38,6 +38,72 @@ template <typename scalar_t = float> std::vector<scalar_t> solve_ortho_decomp(
   return result;
 }
 
+template <typename scalar_t = float> std::vector<scalar_t> solve_ortho_decomp(
+  EigMat<scalar_t> &mat,
+  EigVec<scalar_t> &vec,
+  EigVec<scalar_t> & fitted) {
+  auto decomp = mat.completeOrthogonalDecomposition();
+  EigVec<scalar_t> res = decomp.solve(vec);
+  fitted = mat * res;
+  std::vector<scalar_t> result(
+      res.data(), res.data() + res.rows() * res.cols());
+  return result;
+}
+
+// less accurate, but faster for large matrices
+template <typename scalar_t = float> std::vector<scalar_t> solve_llt_decomp(
+  EigMat<scalar_t> &mat,
+  EigVec<scalar_t> &vec) {
+  EigVec<scalar_t> res = (mat.transpose() * mat).ldlt().solve(mat.transpose() * vec);
+  std::vector<scalar_t> result(
+      res.data(), res.data() + res.rows() * res.cols());
+  return result;
+}
+
+// less accurate, but faster for large matrices
+template <typename scalar_t = float> std::vector<scalar_t> solve_llt_decomp(
+  EigMat<scalar_t> &mat,
+  EigVec<scalar_t> &vec,
+  EigVec<scalar_t> & fitted) {
+  EigVec<scalar_t> res = (mat.transpose() * mat).ldlt().solve(mat.transpose() * vec);
+  fitted = mat * res;
+  std::vector<scalar_t> result(
+      res.data(), res.data() + res.rows() * res.cols());
+  return result;
+}
+
+// middle ground? 
+template <typename scalar_t = float> std::vector<scalar_t> solve_householder_decomp(
+  EigMat<scalar_t> &mat,
+  EigVec<scalar_t> &vec) {
+  EigVec<scalar_t> res = mat.HouseholderQr().solve(vec);
+  std::vector<scalar_t> result(
+      res.data(), res.data() + res.rows() * res.cols());
+  return result;
+}
+
+template <const size_t cutoff,
+          typename scalar_t = float> std::vector<scalar_t> solve_system(
+    EigMat<scalar_t> &mat,
+    EigVec<scalar_t> &vec) {
+  if(vec.size() > cutoff) {
+    return solve_llt_decomp(mat, vec);
+  }
+  return solve_ortho_decomp(mat, vec);
+}
+
+template <const size_t cutoff,
+          typename scalar_t = float>
+std::vector<scalar_t> solve_system(
+    EigMat<scalar_t> &mat,
+    EigVec<scalar_t> &vec,
+    EigVec<scalar_t> &fitted) {
+  if(vec.size() > cutoff) {
+    return solve_llt_decomp(mat, vec, fitted);
+  }
+  return solve_ortho_decomp(mat, vec, fitted);
+}
+
 
 // map 2 vectors to Eigen matrices and call solve
 template <typename scalar_t = float>
