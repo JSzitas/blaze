@@ -162,8 +162,6 @@ public:
     std::vector<scalar_t> best_coef(coef.size());
     for(size_t p_ = this->max_p; p_ >= this->min_p; --p_) {
       this->eig_fitted_vals.resize(this->y.size()-p_);
-      // executions timed using a silly stopwatch 
-      Stopwatch timer;
       // create candidate model
       this->sigma2 = fit_ar_spec(coef, this->y, this->eig_fitted_vals,
                                  this->xregs, p_);
