@@ -74,13 +74,11 @@ public:
     if( this->scalers.size() > 0 ) {
       // first scaler used for target
       this->scalers[0].rescale(this->y);
-      size_t i = 1;
       // write back raw coefficients - we will need them later
       this->raw_coef = this->coef;
-      for( auto & xreg_val:this->xreg ) {
+      for(size_t i = 1; i < this->scalers.size(); i++) {
         scalar_t temp = this->scalers[i].rescale_val(coef[p+i-1]);
         this->coef[p+i-1] = temp;
-        i++;
       }
       if( this->intercept ) {
         // the intercept also has to be rescaled to have any meaning
@@ -97,7 +95,7 @@ public:
       this->scalers[0].rescale_w_sd(this->residuals);
     }
     this->aic = this->y.size() * std::log(
-      sum_of_squares(this->residuals)/this->y.size()) + 
+      sum_of_squares(this->residuals)/(this->y.size() - this->p)) + 
       (2 * this->coef.size());
     // these need to be verified (they might be slightly off)
     this->bic = this->aic + (this->p + 1) * (log(this->y.size()) - 2);

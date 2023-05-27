@@ -6,6 +6,9 @@
 #include "utils/utils.h"
 #include "utils/xreg.h"
 
+#include "utils/stopwatch.h"
+
+
 template <typename scalar_t> scalar_t fit_ar(
     std::vector<scalar_t> & coef,
     std::vector<scalar_t> & fitted, 
@@ -15,7 +18,6 @@ template <typename scalar_t> scalar_t fit_ar(
     const size_t p,
     const bool intercept,
     const bool drift) {
- 
  using EigVec = Eigen::Matrix<scalar_t, Eigen::Dynamic, 1>;
  using EigMat = Eigen::Matrix<scalar_t, Eigen::Dynamic, Eigen::Dynamic>;
  
@@ -36,17 +38,16 @@ template <typename scalar_t> scalar_t fit_ar(
  EigMat all_features(lag_mat.rows(), lag_mat.cols() + xregs.cols());
  all_features << lag_mat, xregs;
  // estimate parameters
- coef = solve_ortho_decomp(all_features, y_);
- // print_vector(coef);
+ coef = solve_system<1000>(all_features, y_);
  auto eig_coef = Eigen::Map<EigVec>(coef.data(), coef.size(), 1);
  // compute in-sample fit 
- auto fitted_vals = all_features * eig_coef;
- for(size_t i = p; i < n; i++) {
+ EigVec fitted_vals = all_features * eig_coef;
+ scalar_t ssq = 0.0;
+ for( size_t i = p; i < n; i++) {
    fitted[i] = fitted_vals[i-p];
  }
- scalar_t ssq = 0.0;
- // only values from p up are valid and should be accounted for in the residual
- // sum of squares
+ // // only values from p up are valid and should be accounted for in the residual
+ // // sum of squares
  for(size_t i = p; i < n; i++) {
    scalar_t resid = y[i] - fitted[i];
    residuals[i] = resid;
