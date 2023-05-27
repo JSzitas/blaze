@@ -157,11 +157,9 @@ public:
     if( this->scalers.size() > 0 ) {
       // first scaler used for target
       this->scalers[0].rescale(this->y);
-      size_t i = 1;
-      for( auto & xreg_val:this->xreg ) {
+      for(size_t i = 1; i < this->scalers.size(); i++) {
         scalar_t temp = this->scalers[i].rescale_val(coef[arma_coef_size+i-1]);
         this->coef[arma_coef_size+i-1] = temp;
-        i++;
       }
       if( this->intercept ) {
         // the intercept also has to be rescaled to have any meaning
