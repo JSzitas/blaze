@@ -135,7 +135,7 @@ public:
   };
   // R specific exports 
   Rcpp::List forecast( size_t h = 10, std::vector<std::vector<double>> newxreg = {{}} ){
-    forecast_result<double> result = this->model.forecast(h, newxreg );
+    forecast_result<double> result = this->model.forecast(h, newxreg);
     return List::create(Named("forecast") = result.forecast, Named("std.err.") = result.std_err);
   };
 };

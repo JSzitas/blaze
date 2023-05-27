@@ -10,36 +10,14 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// find_seasons
-std::vector<size_t> find_seasons(std::vector<double>& x);
-RcppExport SEXP _blaze_find_seasons(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::vector<double>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(find_seasons(x));
-    return rcpp_result_gen;
-END_RCPP
-}
 // find_period
-size_t find_period(std::vector<double>& x);
+std::vector<double> find_period(std::vector<double>& x);
 RcppExport SEXP _blaze_find_period(SEXP xSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< std::vector<double>& >::type x(xSEXP);
     rcpp_result_gen = Rcpp::wrap(find_period(x));
-    return rcpp_result_gen;
-END_RCPP
-}
-// draw
-double draw(std::vector<double>& x);
-RcppExport SEXP _blaze_draw(SEXP xSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::vector<double>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(draw(x));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -50,9 +28,7 @@ RcppExport SEXP _rcpp_module_boot_blaze_auto_ar();
 RcppExport SEXP _rcpp_module_boot_blaze_inoise();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_blaze_find_seasons", (DL_FUNC) &_blaze_find_seasons, 1},
     {"_blaze_find_period", (DL_FUNC) &_blaze_find_period, 1},
-    {"_blaze_draw", (DL_FUNC) &_blaze_draw, 1},
     {"_rcpp_module_boot_blaze_arima", (DL_FUNC) &_rcpp_module_boot_blaze_arima, 0},
     {"_rcpp_module_boot_blaze_ar", (DL_FUNC) &_rcpp_module_boot_blaze_ar, 0},
     {"_rcpp_module_boot_blaze_auto_ar", (DL_FUNC) &_rcpp_module_boot_blaze_auto_ar, 0},
