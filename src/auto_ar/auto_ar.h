@@ -1,12 +1,9 @@
 #ifndef BLAZE_AUTO_AR
 #define BLAZE_AUTO_AR
 
-// #include "ar/ar.h"
 #include "utils/xreg.h"
 #include "common/forecast_result.h"
 #include "ar/ar_forecaster.h"
-
-#include "utils/stopwatch.h"
 
 enum AutoARMethod {
   AIC,
