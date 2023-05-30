@@ -1,14 +1,13 @@
 #ifndef ARIMA_CSS_LIKELIHOOD
 #define ARIMA_CSS_LIKELIHOOD
 
+#include "utils/dot.h"
+#include "utils/utils.h"
+
 #include "arima/structures/structural_model.h"
 #include "arima/structures/arima_kind.h"
 
-#include "arima/solvers/dot.h"
-
 #include "third_party/eigen.h"
-
-#include "utils/utils.h"
 
 /* arma is p, q, sp, sq, ns, d, sd
  * Note that this function is very similar to the one that follows it
