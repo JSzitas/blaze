@@ -527,7 +527,7 @@ welfords_algorithm(const std::vector<scalar_t> &y) {
   result[1] = 0;
   scalar_t prev_value = y[0];
   for(size_t j = 1; j < y.size(); j++) {
-    prev_value = result[0];
+    prev_value = result[j-1];
     result[0] += (y[j] - prev_value)/static_cast<scalar_t>(j);
     result[1] += ((y[j] - prev_value) * (y[j] - result[0]));
   }
