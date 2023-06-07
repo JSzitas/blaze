@@ -52,6 +52,16 @@ template <class T> void print_vector(T &a) {
   std::cout << " " << std::endl;
 }
 
+template <class T> void print_vector(T &a, const size_t from, const size_t to) {
+  if( a.size() < 1 ) {
+    return;
+  }
+  for (size_t i = from; i < to; i++) {
+    std::cout << a[i] << ", ";
+  }
+  std::cout << " " << std::endl;
+}
+
 template <typename T> T max(T &a, T &b) { return a < b ? b : a; }
 template <typename T> T max(T a, T b) { return a < b ? b : a; }
 template <typename T> T min(T &a, T &b) { return a > b ? b : a; }
