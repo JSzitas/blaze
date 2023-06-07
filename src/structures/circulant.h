@@ -22,7 +22,7 @@ public:
     this->circle_index = 0;
   }
   T& operator [] (const size_t i){
-    return data[(this->circle_index + i) % this->size_];
+    return this->data[(this->circle_index + i) % this->size_];
   }
   void push_back(const T item) {
     this->data[this->circle_index] = item;
@@ -37,6 +37,12 @@ public:
   void print(const size_t i) {
     std::cout << "Index " << i << " value: " << this->data[(this->circle_index + i) % this->size_] << std::endl;
   }
+  void print_in_order() {
+    for(size_t i=0; i < this->size_; i++) {
+      std::cout << this->data[(this->circle_index + i) % this->size_] << ", ";
+    }
+    std::cout << std::endl;
+  }
   const size_t size() const {
     return this->size_;
   }
@@ -48,23 +54,33 @@ public:
 template <typename T, const size_t size> struct fixed_circulant{
 private:
   std::array<T, size> data = std::array<T,size>();
-  size_t circle_index = 0;
+  size_t circle_index = 0, size_ = size;
 public:
+  fixed_circulant<T, size>(circulant<T> &x) {
+    for(size_t i= 0; i < x.size(); i++) {
+      this->data[i] = x[i];
+    }
+    this->circle_index = 0;
+    this->size_ = x.size();
+  }
+  fixed_circulant<T, size>(const size_t current_size) {
+    this->size_ = current_size;
+  }
   T& operator [] (const size_t i){
-    return this->data[(this->circle_index + i) % size];
+    return this->data[(this->circle_index + i) % size_];
   }
   void push_back(const T item) {
     this->data[this->circle_index] = item;
-    this->circle_index = (this->circle_index + 1) % size;
+    this->circle_index = (this->circle_index + 1) % size_;
   }
   void print() {
-    for(size_t j = 0; j < size; j++) {
+    for(size_t j = 0; j < size_; j++) {
       std::cout << this->data[j] << ", ";
     }
     std::cout << std::endl;
   }
   void print(const size_t i) {
-    std::cout << "Index " << i << " value: " << this->data[(this->circle_index + i) % size] << std::endl;
+    std::cout << "Index " << i << " value: " << this->data[(this->circle_index + i) % size_] << std::endl;
   }
 };
 
