@@ -203,7 +203,7 @@ public:
         /* i % s_d allows you to correctly fold over seasonal periods 
          * because we might need e.g. 20 repeats of the last 12 values, so repeat 
          * all 12 values once, and then get the first 8 values in that series again
-         * looping around */
+         * after looping around */
         avg[i] = this->diff_y[this->diff_y.size() - this->s_d + (i % this->s_d)] + mean_seas_val;
       }
       *(avg.begin()) += this->last_y;
