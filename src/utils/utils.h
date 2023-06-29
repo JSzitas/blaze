@@ -14,6 +14,15 @@ template <typename T> T abs(T x) {
   return x;
 }
 
+template <typename T> int sgn(const T val) {
+  return (T(0) < val) - (val < T(0));
+}
+
+template <typename T> int copysign(const T val) {
+  return val < 0 ? int(-1) : int(1);
+}
+
+
 template <typename T> bool is_same(T &a, T &b, T tol = 0.000001) {
   return abs(a - b) < tol;
 }
