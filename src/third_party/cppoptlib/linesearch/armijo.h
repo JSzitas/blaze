@@ -32,7 +32,6 @@ class Armijo {
       alpha *= rho;
       f = function(state.x + alpha * search_direction);
     }
-
     return alpha;
   }
 };
@@ -55,18 +54,16 @@ class Armijo<function_t, 2> {
    */
   static scalar_t Search(const state_t &state, const vector_t &search_direction,
                          function_t &function) {
-    constexpr scalar_t c = 0.2;
-    constexpr scalar_t rho = 0.9;
-    scalar_t alpha = 1.0;
-    scalar_t f = function(state.x + alpha * search_direction);
+    constexpr scalar_t c = 0.2, rho = 0.9;
+    scalar_t alpha = 1.0, f_val = function(state.x + alpha * search_direction);
     const scalar_t f_in = state.value;
     const scalar_t cache = c * state.gradient.dot(search_direction) +
                            0.5 * c * c * search_direction.transpose() *
                                ((*state.hessian) * search_direction);
 
-    while (f > f_in + alpha * cache) {
+    while (f_val > f_in + alpha * cache) {
       alpha *= rho;
-      f = function(state.x + alpha * search_direction);
+      f_val = function(state.x + alpha * search_direction);
     }
     return alpha;
   }
