@@ -64,34 +64,25 @@ private:
   }
 };
 
-template <typename T> struct FudgyStreamingMedian{
-  T average, median;
+template <typename T> class FudgyStreamingMedian{
+  T average, median, eta;
 public:
-  FudgyStreamingMedian<T>() {
+  FudgyStreamingMedian<T>(const T eta = 0.1) {
     this->average = 0;
     this->median = 0;
-    this->init = false;
+    this->eta = eta;
   }
-  void push_back(const T x) {
-      this->average += (x - average) * 0.1f; // rough running average.
-      this->median += std::copysign(this->average * 0.01, x - median);
+  void update(const T x) {
+      this->average += (x - average) * eta; // rough running average.
+      this->median += std::copysign(this->average * eta, x - median);
+  }
+  void reset() {
+    this->average = 0;
+    this->median = 0;
   }
   const T value() const {
     return this->median; 
   }
 };
-
-
-
-
-
-
-//priority_queue
-
-
-
-
-
-
 
 #endif
