@@ -10,14 +10,40 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// find_period
-std::vector<double> find_period(std::vector<double>& x);
-RcppExport SEXP _blaze_find_period(SEXP xSEXP) {
+// oarima_test
+void oarima_test(std::vector<double>& x, const size_t mk, const size_t d);
+RcppExport SEXP _blaze_oarima_test(SEXP xSEXP, SEXP mkSEXP, SEXP dSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::vector<double>& >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const size_t >::type mk(mkSEXP);
+    Rcpp::traits::input_parameter< const size_t >::type d(dSEXP);
+    oarima_test(x, mk, d);
+    return R_NilValue;
+END_RCPP
+}
+// stl_test
+Rcpp::List stl_test(std::vector<double> x, const size_t period, const size_t seasonal);
+RcppExport SEXP _blaze_stl_test(SEXP xSEXP, SEXP periodSEXP, SEXP seasonalSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< std::vector<double>& >::type x(xSEXP);
-    rcpp_result_gen = Rcpp::wrap(find_period(x));
+    Rcpp::traits::input_parameter< std::vector<double> >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const size_t >::type period(periodSEXP);
+    Rcpp::traits::input_parameter< const size_t >::type seasonal(seasonalSEXP);
+    rcpp_result_gen = Rcpp::wrap(stl_test(x, period, seasonal));
+    return rcpp_result_gen;
+END_RCPP
+}
+// test_interpol
+double test_interpol(std::vector<double> x, const double p);
+RcppExport SEXP _blaze_test_interpol(SEXP xSEXP, SEXP pSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< std::vector<double> >::type x(xSEXP);
+    Rcpp::traits::input_parameter< const double >::type p(pSEXP);
+    rcpp_result_gen = Rcpp::wrap(test_interpol(x, p));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -28,7 +54,9 @@ RcppExport SEXP _rcpp_module_boot_blaze_auto_ar();
 RcppExport SEXP _rcpp_module_boot_blaze_inoise();
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_blaze_find_period", (DL_FUNC) &_blaze_find_period, 1},
+    {"_blaze_oarima_test", (DL_FUNC) &_blaze_oarima_test, 3},
+    {"_blaze_stl_test", (DL_FUNC) &_blaze_stl_test, 3},
+    {"_blaze_test_interpol", (DL_FUNC) &_blaze_test_interpol, 2},
     {"_rcpp_module_boot_blaze_arima", (DL_FUNC) &_rcpp_module_boot_blaze_arima, 0},
     {"_rcpp_module_boot_blaze_ar", (DL_FUNC) &_rcpp_module_boot_blaze_ar, 0},
     {"_rcpp_module_boot_blaze_auto_ar", (DL_FUNC) &_rcpp_module_boot_blaze_auto_ar, 0},
