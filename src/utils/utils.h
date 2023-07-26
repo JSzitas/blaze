@@ -466,6 +466,12 @@ std::vector<scalar_t> regular_sequence(
   return result;
 }
 
+template <typename scalar_t> bool all_positive(
+    const std::vector<scalar_t> &y) {
+  for(auto &val:y) if(val < 0.001) return false;
+  return true;
+}
+
 template <typename T> std::vector<T> cummulative_product(
     const std::vector<T> &y) {
   std::vector<T> result = y;
