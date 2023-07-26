@@ -77,20 +77,22 @@ template <typename scalar_t> std::vector<scalar_t> windowed_sum(
   return result;
 }
 
-template <typename scalar_t> std::vector<size_t> find_seasonalities(
+template <typename scalar_t,
+          typename result_int_type = size_t>
+std::vector<result_int_type> find_seasonalities(
   std::vector<scalar_t> y,
   const size_t max_iter = 5,
   const size_t upper_limit = 1500 ) {
-  std::vector<size_t> periods;
+  std::vector<result_int_type> periods;
   for(size_t j = 0; j < max_iter; j++) {
-    size_t last_period = period(y);
+    result_int_type last_period = static_cast<result_int_type>(period(y));
     if(last_period <= 1 || (last_period > y.size())){
       break;
     }
     periods.push_back(last_period);
     y = windowed_sum(y, last_period);
   }
-  std::vector<size_t> result = cummulative_product(periods);
+  std::vector<result_int_type> result = cummulative_product(periods);
   size_t last_valid_index = result.size();
   for(size_t j=0; j < result.size();j++) {
     if(result[j] > upper_limit) {
