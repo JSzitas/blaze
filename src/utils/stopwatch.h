@@ -5,7 +5,11 @@
 #include <type_traits>
 #include <iostream>
 
-// graciously taken from: https://stackoverflow.com/a/61881422
+/* graciously taken from: https://stackoverflow.com/a/61881422
+ * this is quite convenient, because to time a block of code you simply call 
+ * the constructor, and when the block finishes it will be automatically 
+ * cleaned up (and that will give you the timing). 
+ */
 template <typename Resolution = std::chrono::duration<double,std::micro>>
 class Stopwatch {
   typedef std::chrono::steady_clock Clock;
@@ -25,7 +29,5 @@ public:
     std::cout << "This code took: " << (*this)() * 1e-6 << " seconds.\n";
   }
 };
-
-
 
 #endif
