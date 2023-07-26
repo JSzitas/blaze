@@ -4,16 +4,8 @@
 #include "utils/median.h"
 #include "utils/seasonality_utils.h"
 
-template <typename scalar_t> struct STLDecompositionResult {
-  std::vector<scalar_t> trend, season, remainder;
-  STLDecompositionResult<scalar_t>(
-    const std::vector<scalar_t> &trend, 
-    const std::vector<scalar_t> &season,
-    const std::vector<scalar_t> &remainder) : trend(trend), season(season),
-    remainder(remainder) {}
-};
+#include "decomposition/decompose_result.h"
 
-// TODO: figure out which things can be size_t and which must be int
 template <typename scalar_t> class STL {
   std::vector<scalar_t> y;
   // these have to be ints (probably)
@@ -22,7 +14,7 @@ template <typename scalar_t> class STL {
   seasonal_jump, trend_jump, low_pass_jump;
   // these must be size_t
   size_t inner_iter, outer_iter;
-  bool robust, fitted;
+  bool robust;
   std::vector<scalar_t> season, trend, residual, robust_weights;
   // temporaries
   std::vector<scalar_t> detrended, cycle_sub, cycle, seasonal_s, rw_temp;
@@ -45,7 +37,7 @@ public:
   low_pass_size(low_pass_size), seasonal_degree(seasonal_degree),
   trend_degree(trend_degree), low_pass_degree(low_pass_degree),
   seasonal_jump(seasonal_jump), trend_jump(trend_jump),
-  low_pass_jump(low_pass_jump), robust(robust), fitted(false),
+  low_pass_jump(low_pass_jump), robust(robust),
   season(std::vector<scalar_t>(y.size(),0.0)),
   trend(std::vector<scalar_t>(y.size(),0.0)),
   residual(std::vector<scalar_t>(y.size(),0.0)),
@@ -81,18 +73,12 @@ public:
     this->rw_temp = std::vector<scalar_t>(this->n + (2 * this->period), 0.0);
   }
   void fit() {
-    if(this->fitted) {
-      std::cout << "Model has already been fitted - please use the .refit() " 
-                << "method to refit the model." << std::endl;
-      return;
-    }
     if(n == 1) {
       std::cout << "Only 1 valid observation found - setting trend equal to it" 
                 << std::endl;
       this->residual[0] = 0; 
       this->season[0] = 0; 
       this->trend[0] = this->y[0];
-      this->fitted = true;
       return;
     }
     // convert user supplied runtime argument to precompiled code 
@@ -107,17 +93,13 @@ public:
     for(size_t i = 0; i < this->n; i++) {
       this->residual[i] = this->y[i] - this->season[i] - this->trend[i];
     }
-    this->fitted = true;
     return;
   }
-  // TODO: 
-  void refit() {}
   const std::vector<scalar_t> get_trend() const { return this->trend; }
   const std::vector<scalar_t> get_season() const { return this->season; }
   const std::vector<scalar_t> get_remainder() const { return this->residual; }
-  const STLDecompositionResult<scalar_t> get_decomposition_result() const {
-    return STLDecompositionResult<scalar_t>(this->trend, this->season,
-                                            this->residual);
+  const DecompositionResult<scalar_t> get_decomposition_result() const {
+    return DecompositionResult<scalar_t>(this->trend, this->season, this->residual);
   }
   void print_summary() {
     std::cout << "Period: " << period << " | seasonal: " << seasonal << 
@@ -127,7 +109,6 @@ public:
 private:
   template <const bool robust_update=false> void inner_step() {
     for(size_t j = 0; j < inner_iter; j++) {
-      std::cout << "Running inner step: "<< j << std::endl;
       // step 1 - detrending
       for(int i = 0; i < this->n; i++) this->detrended[i] = y[i] - trend[i];
       // step 2 - cycle-subseries smoothing
