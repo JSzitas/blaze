@@ -16,7 +16,7 @@ public:
                               const scalar_t tol = 1e-6,
                               const scalar_t eps = 1e-8,
                               const size_t max_iter = 200) {
-    if( lambda == -99999) {
+    if(lambda == -99999 || std::isnan(lambda)) {
       this->lambda = solve_brent(x, period, lower, upper, tol, eps, max_iter);
     }
     else{
