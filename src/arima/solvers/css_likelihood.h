@@ -1,7 +1,7 @@
 #ifndef ARIMA_CSS_LIKELIHOOD
 #define ARIMA_CSS_LIKELIHOOD
 
-#include "utils/dot.h"
+#include "utils/simd.h"
 #include "utils/utils.h"
 
 #include "arima/structures/structural_model.h"
