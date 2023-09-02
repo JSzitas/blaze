@@ -7,26 +7,22 @@
 
 #include <cmath>
 
-// TODO: port the period identification scheme from fable.tbats
-// size_t find_seasonality() {}
-
-
 struct arima_restrictions{
-  arima_restrictions(  const size_t d = -1,
-                       const size_t D = -1,
-                       const size_t max_p = 5,
-                       const size_t max_q = 5,
-                       const size_t max_P = 2,
-                       const size_t max_Q = 2,
-                       const size_t max_order = 5,
-                       const size_t max_d = 2,
-                       const size_t max_D = 1,
-                       const size_t start_p = 2,
-                       const size_t start_q = 2,
-                       const size_t start_P = 1,
-                       const size_t start_Q = 1,
-                       const bool stationary = false,
-                       const bool seasonal = true) :
+  arima_restrictions(const size_t d = -1,
+                     const size_t D = -1,
+                     const size_t max_p = 5,
+                     const size_t max_q = 5,
+                     const size_t max_P = 2,
+                     const size_t max_Q = 2,
+                     const size_t max_order = 5,
+                     const size_t max_d = 2,
+                     const size_t max_D = 1,
+                     const size_t start_p = 2,
+                     const size_t start_q = 2,
+                     const size_t start_P = 1,
+                     const size_t start_Q = 1,
+                     const bool stationary = false,
+                     const bool seasonal = true) :
   d(d), D(D), max_p(max_p), max_q(max_q), max_P(max_P), max_Q(max_Q),
   max_order(max_order), max_d(max_d), max_D(max_D), start_p(start_p),
   start_q(start_q), start_P(start_P), start_Q(start_Q), stationary(stationary),
@@ -47,17 +43,18 @@ template <typename scalar_t = double> class AutoArima{
 public:
   AutoArima(std::vector<double> y,
             const arima_restrictions restrictions,
-            const IC criterium,
+            const IC criterium = IC::AIC,
             const bool stepwise = true,
             const std::vector<std::vector<scalar_t>> xreg = {{}},
             const size_t n_models = 94,
-            const bool approximate = false,
+            const fitting_method method = ML,
             const SSinit ss_init = SSinit::Gardner,
-            const fitting_method method = ML, const scalar_t kappa = 1000000,
-            const bool standardize = true,
+            const bool approximate = false,
             const bool try_drift = true,
             const bool try_mean = true,
-            const bool try_box_cox = true) {
+            const bool try_box_cox = true,
+            const bool standardize = true,
+            const scalar_t kappa = 1000000) {
     // if(is_constant(y)) {
     //   if(all_is_nan(y)) {
     //     Arima();
@@ -662,15 +659,6 @@ public:
                                                   }
                     }
                 }
-
-                bestfit$x <- orig.x
-                  bestfit$series <- series
-                  bestfit$ic <- NULL
-                bestfit$call <- match.call()
-                  bestfit$call$x <- data.frame(x = x)
-                  bestfit$lambda <- lambda
-                  bestfit$fitted <- fitted.Arima(bestfit)
-                  return(bestfit)
 }
 
 
