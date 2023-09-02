@@ -1,5 +1,5 @@
-#ifndef STATIONARITY_TESTS
-#define STATIONARITY_TESTS
+#ifndef BLAZE_UNITROOT_TESTS
+#define BLAZE_UNITROOT_TESTS
 
 #include "utils/utils.h"
 
@@ -72,26 +72,25 @@ template <typename scalar_t> scalar_t mse(const std::vector<scalar_t> &x) {
   return result/n;
 }
 
-template <typename scalar_t> size_t alpha_to_level(const scalar_t alpha) {
-  if(alpha >= 0.1) return 0;
-  else if(alpha >= 0.05) return 1;
-  else if(alpha >= 0.025) return 2;
+template <typename scalar_t, const scalar_t alpha>
+constexpr size_t alpha_to_level() {
+  if constexpr(alpha >= 0.1) return 0;
+  else if constexpr(alpha >= 0.05) return 1;
+  else if constexpr(alpha >= 0.025) return 2;
   else return 3;
 }
 
-template <typename scalar_t> bool kpss_test(
+template <typename scalar_t,
+          const scalar_t alpha = 0.05,
+          const kpss_type type = kpss_type::mu>
+bool kpss_test(
     const std::vector<scalar_t> &y,
-    const scalar_t alpha = 0.05,
-    const kpss_type type = kpss_type::mu,
     const lag_type lags = lag_type::short_lag,
     const bool use_lag = true)
 {
   const size_t n = size_omit_nan(y);
-  size_t lag_max = 0;
-  if(use_lag) {
-    lag_max = trunc( 4 * std::pow(n/100, 0.25));
-  }
-  else if (lags == lag_type::short_lag) {
+  size_t lag_max = use_lag * trunc( 4 * std::pow(n/100, 0.25));
+  if (lags == lag_type::short_lag) {
     lag_max = trunc(4 * std::pow((n/100), 0.25));
   }
   else if (lags == lag_type::long_lag) {
@@ -102,15 +101,17 @@ template <typename scalar_t> bool kpss_test(
   }
   std::vector<scalar_t> residuals(n);
   scalar_t crit_value = 0;
-  if (type == kpss_type::mu) {
+  if constexpr(type == kpss_type::mu) {
     residuals = mean_residuals(y);
-    constexpr std::array<double, 4> crit_vals = {0.347, 0.463, 0.574, 0.739};
-    crit_value = crit_vals[alpha_to_level(alpha)];
+    constexpr std::array<scalar_t, 4> crit_vals = {0.347, 0.463, 0.574, 0.739};
+    constexpr size_t level = alpha_to_level(alpha);
+    crit_value = crit_vals[level];
   }
-  else if (type == kpss_type::tau) {
+  else if constexpr(type == kpss_type::tau) {
     residuals = trend_residuals(y);
-    constexpr std::array<double, 4> crit_vals = {0.119, 0.146, 0.176, 0.216};
-    crit_value = crit_vals[alpha_to_level(alpha)];
+    constexpr std::array<scalar_t, 4> crit_vals = {0.119, 0.146, 0.176, 0.216};
+    constexpr size_t level = alpha_to_level(alpha);
+    crit_value = crit_vals[level];
   }
   auto S = cumsum(residuals);
   auto nominator = mse(S)/n;
@@ -144,160 +145,160 @@ enum select_lag {
   bic
 };
 
-// template <typename scalar_t> bool augmented_dickey_fuller_test(
-//   const std::vector<scalar_t> & y,
-//   const adf_test_type type = adf_test_type::none,
-//   const size_t lags = 1,
-//   const select_lag lag_select = select_lag::fixed) {
-//
-//     // selectlags <- match.arg(selectlags)
-//     // type <- match.arg(type)
-//     // if (ncol(as.matrix(y)) > 1)
-//       // stop("\ny is not a vector or univariate time series.\n")
-//       // if (any(is.na(y)))
-//         // stop("\nNAs in y.\n")
-//         // y <- as.vector(y)
-//         // lag <- as.integer(lags)
-//         // if (lag < 0)
-//           // stop("\nLags must be set to an non negative integer value.\n")
-//           // CALL <- match.call()
-//           // DNAME <- deparse(substitute(y))
-//           // x.name <- deparse(substitute(y))
-//           // lags <- lags + 1
-//
-//     // lags += 1;
-//     // auto lag = lags;
-//
-//   auto z = diff(y, 1, 1);
-//   const size_t n = z.size();
-//
-//
-//         // z <- diff(y)
-//           // n <- length(z)
-//           x <- embed(z, lags)
-//           z.diff <- x[, 1]
-//         z.lag.1 <- y[lags:n]
-//         tt <- lags:n
-//           if (lags > 1) {
-//           if (selectlags != "Fixed") {
-//             critRes <- rep(NA, lags)
-//             for (i in 2:(lags)) {
-//               z.diff.lag = x[, 2:i]
-//               if (type == "none")
-//                 result <- lm(z.diff ~ z.lag.1 - 1 + z.diff.lag)
-//                 if (type == "drift")
-//                   result <- lm(z.diff ~ z.lag.1 + 1 + z.diff.lag)
-//                   if (type == "trend")
-//                     result <- lm(z.diff ~ z.lag.1 + 1 + tt + z.diff.lag)
-//                     critRes[i] <- AIC(result, k = switch(selectlags,
-//                                                          AIC = 2, BIC = log(length(z.diff))))
-//             }
-//             lags <- which.min(critRes)
-//           }
-//           z.diff.lag = x[, 2:lags]
-//           if (type == "none") {
-//             result <- lm(z.diff ~ z.lag.1 - 1 + z.diff.lag)
-//             tau <- coef(summary(result))[1, 3]
-//             teststat <- as.matrix(tau)
-//             colnames(teststat) <- "tau1"
-//           }
-//           if (type == "drift") {
-//             result <- lm(z.diff ~ z.lag.1 + 1 + z.diff.lag)
-//             tau <- coef(summary(result))[2, 3]
-//             phi1.reg <- lm(z.diff ~ -1 + z.diff.lag)
-//             phi1 <- anova(phi1.reg, result)$F[2]
-//             teststat <- as.matrix(t(c(tau, phi1)))
-//             colnames(teststat) <- c("tau2", "phi1")
-//           }
-//           if (type == "trend") {
-//             result <- lm(z.diff ~ z.lag.1 + 1 + tt + z.diff.lag)
-//             tau <- coef(summary(result))[2, 3]
-//             phi2.reg <- lm(z.diff ~ -1 + z.diff.lag)
-//             phi3.reg <- lm(z.diff ~ z.diff.lag)
-//             phi2 <- anova(phi2.reg, result)$F[2]
-//             phi3 <- anova(phi3.reg, result)$F[2]
-//             teststat <- as.matrix(t(c(tau, phi2, phi3)))
-//             colnames(teststat) <- c("tau3", "phi2", "phi3")
-//           }
-//         }
-//           else {
-//             if (type == "none") {
-//               result <- lm(z.diff ~ z.lag.1 - 1)
-//               tau <- coef(summary(result))[1, 3]
-//               teststat <- as.matrix(tau)
-//               colnames(teststat) <- "tau1"
-//             }
-//             if (type == "drift") {
-//               result <- lm(z.diff ~ z.lag.1 + 1)
-//               phi1.reg <- lm(z.diff ~ -1)
-//               phi1 <- anova(phi1.reg, result)$F[2]
-//               tau <- coef(summary(result))[2, 3]
-//               teststat <- as.matrix(t(c(tau, phi1)))
-//               colnames(teststat) <- c("tau2", "phi1")
-//             }
-//             if (type == "trend") {
-//               result <- lm(z.diff ~ z.lag.1 + 1 + tt)
-//               phi2.reg <- lm(z.diff ~ -1)
-//               phi3.reg <- lm(z.diff ~ 1)
-//               phi2 <- anova(phi2.reg, result)$F[2]
-//               phi3 <- anova(phi3.reg, result)$F[2]
-//               tau <- coef(summary(result))[2, 3]
-//               teststat <- as.matrix(t(c(tau, phi2, phi3)))
-//               colnames(teststat) <- c("tau3", "phi2", "phi3")
-//             }
-//           }
-//           rownames(teststat) <- "statistic"
-//           testreg <- summary(result)
-//             res <- residuals(testreg)
-//             if (n < 25)
-//               rowselec <- 1
-//             if (25 <= n & n < 50)
-//               rowselec <- 2
-//             if (50 <= n & n < 100)
-//               rowselec <- 3
-//             if (100 <= n & n < 250)
-//               rowselec <- 4
-//             if (250 <= n & n < 500)
-//               rowselec <- 5
-//             if (n >= 500)
-//               rowselec <- 6
-//             if (type == "none") {
-//               cval.tau1 <- rbind(c(-2.66, -1.95, -1.6), c(-2.62, -1.95,
-//                                    -1.61), c(-2.6, -1.95, -1.61), c(-2.58, -1.95, -1.62),
-//                                    c(-2.58, -1.95, -1.62), c(-2.58, -1.95, -1.62))
-//               cvals <- t(cval.tau1[rowselec, ])
-//               testnames <- "tau1"
-//             }
-//             if (type == "drift") {
-//               cval.tau2 <- rbind(c(-3.75, -3, -2.63), c(-3.58, -2.93,
-//                                    -2.6), c(-3.51, -2.89, -2.58), c(-3.46, -2.88, -2.57),
-//                                    c(-3.44, -2.87, -2.57), c(-3.43, -2.86, -2.57))
-//               cval.phi1 <- rbind(c(7.88, 5.18, 4.12), c(7.06, 4.86,
-//                                    3.94), c(6.7, 4.71, 3.86), c(6.52, 4.63, 3.81), c(6.47,
-//                                    4.61, 3.79), c(6.43, 4.59, 3.78))
-//               cvals <- rbind(cval.tau2[rowselec, ], cval.phi1[rowselec,
-//               ])
-//               testnames <- c("tau2", "phi1")
-//             }
-//             if (type == "trend") {
-//               cval.tau3 <- rbind(c(-4.38, -3.6, -3.24), c(-4.15, -3.5,
-//                                    -3.18), c(-4.04, -3.45, -3.15), c(-3.99, -3.43, -3.13),
-//                                    c(-3.98, -3.42, -3.13), c(-3.96, -3.41, -3.12))
-//               cval.phi2 <- rbind(c(8.21, 5.68, 4.67), c(7.02, 5.13,
-//                                    4.31), c(6.5, 4.88, 4.16), c(6.22, 4.75, 4.07), c(6.15,
-//                                    4.71, 4.05), c(6.09, 4.68, 4.03))
-//               cval.phi3 <- rbind(c(10.61, 7.24, 5.91), c(9.31, 6.73,
-//                                    5.61), c(8.73, 6.49, 5.47), c(8.43, 6.49, 5.47),
-//                                    c(8.34, 6.3, 5.36), c(8.27, 6.25, 5.34))
-//               cvals <- rbind(cval.tau3[rowselec, ], cval.phi2[rowselec,
-//               ], cval.phi3[rowselec, ])
-//               testnames <- c("tau3", "phi2", "phi3")
-//             }
-//             colnames(cvals) <- c("1pct", "5pct", "10pct")
-//               rownames(cvals) <- testnames
-//               new("ur.df", y = y, model = type, cval = cvals, lags = lag,
-//                   teststat = teststat, testreg = testreg, res = res, test.name = "Augmented Dickey-Fuller Test")
-//   }
+template <typename scalar_t> bool augmented_dickey_fuller_test(
+  const std::vector<scalar_t> & y,
+  const adf_test_type type = adf_test_type::none,
+  const size_t lags = 1,
+  const select_lag lag_select = select_lag::fixed) {
+
+    // selectlags <- match.arg(selectlags)
+    // type <- match.arg(type)
+    // if (ncol(as.matrix(y)) > 1)
+      // stop("\ny is not a vector or univariate time series.\n")
+      // if (any(is.na(y)))
+        // stop("\nNAs in y.\n")
+        // y <- as.vector(y)
+        // lag <- as.integer(lags)
+        // if (lag < 0)
+          // stop("\nLags must be set to an non negative integer value.\n")
+          // CALL <- match.call()
+          // DNAME <- deparse(substitute(y))
+          // x.name <- deparse(substitute(y))
+          // lags <- lags + 1
+
+    // lags += 1;
+    // auto lag = lags;
+
+  auto z = diff(y, 1, 1);
+  const size_t n = z.size();
+
+
+        // z <- diff(y)
+          // n <- length(z)
+          x <- embed(z, lags)
+          z.diff <- x[, 1]
+        z.lag.1 <- y[lags:n]
+        tt <- lags:n
+          if (lags > 1) {
+          if (selectlags != "Fixed") {
+            critRes <- rep(NA, lags)
+            for (i in 2:(lags)) {
+              z.diff.lag = x[, 2:i]
+              if (type == "none")
+                result <- lm(z.diff ~ z.lag.1 - 1 + z.diff.lag)
+                if (type == "drift")
+                  result <- lm(z.diff ~ z.lag.1 + 1 + z.diff.lag)
+                  if (type == "trend")
+                    result <- lm(z.diff ~ z.lag.1 + 1 + tt + z.diff.lag)
+                    critRes[i] <- AIC(result, k = switch(selectlags,
+                                                         AIC = 2, BIC = log(length(z.diff))))
+            }
+            lags <- which.min(critRes)
+          }
+          z.diff.lag = x[, 2:lags]
+          if (type == "none") {
+            result <- lm(z.diff ~ z.lag.1 - 1 + z.diff.lag)
+            tau <- coef(summary(result))[1, 3]
+            teststat <- as.matrix(tau)
+            colnames(teststat) <- "tau1"
+          }
+          if (type == "drift") {
+            result <- lm(z.diff ~ z.lag.1 + 1 + z.diff.lag)
+            tau <- coef(summary(result))[2, 3]
+            phi1.reg <- lm(z.diff ~ -1 + z.diff.lag)
+            phi1 <- anova(phi1.reg, result)$F[2]
+            teststat <- as.matrix(t(c(tau, phi1)))
+            colnames(teststat) <- c("tau2", "phi1")
+          }
+          if (type == "trend") {
+            result <- lm(z.diff ~ z.lag.1 + 1 + tt + z.diff.lag)
+            tau <- coef(summary(result))[2, 3]
+            phi2.reg <- lm(z.diff ~ -1 + z.diff.lag)
+            phi3.reg <- lm(z.diff ~ z.diff.lag)
+            phi2 <- anova(phi2.reg, result)$F[2]
+            phi3 <- anova(phi3.reg, result)$F[2]
+            teststat <- as.matrix(t(c(tau, phi2, phi3)))
+            colnames(teststat) <- c("tau3", "phi2", "phi3")
+          }
+        }
+          else {
+            if (type == "none") {
+              result <- lm(z.diff ~ z.lag.1 - 1)
+              tau <- coef(summary(result))[1, 3]
+              teststat <- as.matrix(tau)
+              colnames(teststat) <- "tau1"
+            }
+            if (type == "drift") {
+              result <- lm(z.diff ~ z.lag.1 + 1)
+              phi1.reg <- lm(z.diff ~ -1)
+              phi1 <- anova(phi1.reg, result)$F[2]
+              tau <- coef(summary(result))[2, 3]
+              teststat <- as.matrix(t(c(tau, phi1)))
+              colnames(teststat) <- c("tau2", "phi1")
+            }
+            if (type == "trend") {
+              result <- lm(z.diff ~ z.lag.1 + 1 + tt)
+              phi2.reg <- lm(z.diff ~ -1)
+              phi3.reg <- lm(z.diff ~ 1)
+              phi2 <- anova(phi2.reg, result)$F[2]
+              phi3 <- anova(phi3.reg, result)$F[2]
+              tau <- coef(summary(result))[2, 3]
+              teststat <- as.matrix(t(c(tau, phi2, phi3)))
+              colnames(teststat) <- c("tau3", "phi2", "phi3")
+            }
+          }
+          rownames(teststat) <- "statistic"
+          testreg <- summary(result)
+            res <- residuals(testreg)
+            if (n < 25)
+              rowselec <- 1
+            if (25 <= n & n < 50)
+              rowselec <- 2
+            if (50 <= n & n < 100)
+              rowselec <- 3
+            if (100 <= n & n < 250)
+              rowselec <- 4
+            if (250 <= n & n < 500)
+              rowselec <- 5
+            if (n >= 500)
+              rowselec <- 6
+            if (type == "none") {
+              cval.tau1 <- rbind(c(-2.66, -1.95, -1.6), c(-2.62, -1.95,
+                                   -1.61), c(-2.6, -1.95, -1.61), c(-2.58, -1.95, -1.62),
+                                   c(-2.58, -1.95, -1.62), c(-2.58, -1.95, -1.62))
+              cvals <- t(cval.tau1[rowselec, ])
+              testnames <- "tau1"
+            }
+            if (type == "drift") {
+              cval.tau2 <- rbind(c(-3.75, -3, -2.63), c(-3.58, -2.93,
+                                   -2.6), c(-3.51, -2.89, -2.58), c(-3.46, -2.88, -2.57),
+                                   c(-3.44, -2.87, -2.57), c(-3.43, -2.86, -2.57))
+              cval.phi1 <- rbind(c(7.88, 5.18, 4.12), c(7.06, 4.86,
+                                   3.94), c(6.7, 4.71, 3.86), c(6.52, 4.63, 3.81), c(6.47,
+                                   4.61, 3.79), c(6.43, 4.59, 3.78))
+              cvals <- rbind(cval.tau2[rowselec, ], cval.phi1[rowselec,
+              ])
+              testnames <- c("tau2", "phi1")
+            }
+            if (type == "trend") {
+              cval.tau3 <- rbind(c(-4.38, -3.6, -3.24), c(-4.15, -3.5,
+                                   -3.18), c(-4.04, -3.45, -3.15), c(-3.99, -3.43, -3.13),
+                                   c(-3.98, -3.42, -3.13), c(-3.96, -3.41, -3.12))
+              cval.phi2 <- rbind(c(8.21, 5.68, 4.67), c(7.02, 5.13,
+                                   4.31), c(6.5, 4.88, 4.16), c(6.22, 4.75, 4.07), c(6.15,
+                                   4.71, 4.05), c(6.09, 4.68, 4.03))
+              cval.phi3 <- rbind(c(10.61, 7.24, 5.91), c(9.31, 6.73,
+                                   5.61), c(8.73, 6.49, 5.47), c(8.43, 6.49, 5.47),
+                                   c(8.34, 6.3, 5.36), c(8.27, 6.25, 5.34))
+              cvals <- rbind(cval.tau3[rowselec, ], cval.phi2[rowselec,
+              ], cval.phi3[rowselec, ])
+              testnames <- c("tau3", "phi2", "phi3")
+            }
+            colnames(cvals) <- c("1pct", "5pct", "10pct")
+              rownames(cvals) <- testnames
+              new("ur.df", y = y, model = type, cval = cvals, lags = lag,
+                  teststat = teststat, testreg = testreg, res = res, test.name = "Augmented Dickey-Fuller Test")
+  }
 
 // ur.pp
 //   function (x, type = c("Z-alpha", "Z-tau"), model = c("constant",
@@ -413,6 +414,149 @@ enum select_lag {
 //         cval = cval, teststat = as.numeric(teststat), testreg = test.reg,
 //         auxstat = aux.stat, res = res, test.name = "Phillips-Perron")
 //   }
+
+// ndiffs = function (x, alpha = 0.05, test = c("kpss", "adf", "pp"), type = c("level", 
+//                                     "trend"), max.d = 2, ...) 
+// {
+//   test <- match.arg(test)
+//   type <- match(match.arg(type), c("level", "trend"))
+//   x <- c(na.omit(c(x)))
+//   d <- 0
+//   if (alpha < 0.01) {
+//     warning("Specified alpha value is less than the minimum, setting alpha=0.01")
+//     alpha <- 0.01
+//   }
+//   else if (alpha > 0.1) {
+//     warning("Specified alpha value is larger than the maximum, setting alpha=0.1")
+//     alpha <- 0.1
+//   }
+//   if (is.constant(x)) {
+//     return(d)
+//   }
+//   urca_pval <- function(urca_test) {
+//     approx(urca_test@cval[1, ], as.numeric(sub("pct", "", 
+//                                                colnames(urca_test@cval)))/100, xout = urca_test@teststat[1], 
+//                                                                                                         rule = 2)$y
+//   }
+//   kpss_wrap <- function(..., use.lag = trunc(3 * sqrt(length(x))/13)) {
+//     ur.kpss(..., use.lag = use.lag)
+//   }
+//   runTests <- function(x, test, alpha) {
+//     tryCatch({
+//       suppressWarnings(diff <- switch(test, kpss = urca_pval(kpss_wrap(x, 
+//                                                                        type = c("mu", "tau")[type], ...)) < alpha, adf = urca_pval(ur.df(x, 
+//                                                                                                           type = c("drift", "trend")[type], ...)) > alpha, 
+//                                                                                                           pp = urca_pval(ur.pp(x, type = "Z-tau", model = c("constant", 
+//                                                                                                                                                        "trend")[type], ...)) > alpha, stop("This shouldn't happen")))
+//       diff
+//     }, error = function(e) {
+//       warning(call. = FALSE, sprintf("The chosen unit root test encountered an error when testing for the %s difference.\nFrom %s(): %s\n%i differences will be used. Consider using a different unit root test.", 
+//                                      switch(as.character(d), `0` = "first", `1` = "second", 
+//                                             `2` = "third", paste0(d + 1, "th")), deparse(e$call[[1]]), 
+//                                             e$message, d))
+//       FALSE
+//     })
+//   }
+//   dodiff <- runTests(x, test, alpha)
+//     if (is.na(dodiff)) {
+//       return(d)
+//     }
+//     while (dodiff && d < max.d) {
+//       d <- d + 1
+//       x <- diff(x)
+//       if (is.constant(x)) {
+//         return(d)
+//       }
+//       dodiff <- runTests(x, test, alpha)
+//         if (is.na(dodiff)) {
+//           return(d - 1)
+//         }
+//     }
+//     return(d)
+// }
+
+// nsdiffs
+//   function (x, alpha = 0.05, m = frequency(x), test = c("seas", 
+//                                            "ocsb", "hegy", "ch"), max.D = 1, ...) 
+//   {
+//     test <- match.arg(test)
+//     D <- 0
+//     if (alpha < 0.01) {
+//       warning("Specified alpha value is less than the minimum, setting alpha=0.01")
+//       alpha <- 0.01
+//     }
+//     else if (alpha > 0.1) {
+//       warning("Specified alpha value is larger than the maximum, setting alpha=0.1")
+//       alpha <- 0.1
+//     }
+//     if (test == "ocsb" && alpha != 0.05) {
+//       warning("Significance levels other than 5% are not currently supported by test='ocsb', defaulting to alpha = 0.05.")
+//       alpha <- 0.05
+//     }
+//     if (test %in% c("hegy", "ch")) {
+//       if (!requireNamespace("uroot", quietly = TRUE)) {
+//         stop(paste0("Using a ", test, " test requires the uroot package. Please install it using `install.packages(\"uroot\")`"))
+//       }
+//     }
+//     if (is.constant(x)) {
+//       return(D)
+//     }
+//     if (!missing(m)) {
+//       warning("argument m is deprecated; please set the frequency in the ts object.", 
+//               call. = FALSE)
+//       x <- ts(x, frequency = m)
+//     }
+//     if (frequency(x) == 1) {
+//       stop("Non seasonal data")
+//     }
+//     else if (frequency(x) < 1) {
+//       warning("I can't handle data with frequency less than 1. Seasonality will be ignored.")
+//       return(0)
+//     }
+//     if (frequency(x) >= length(x)) {
+//       return(0)
+//     }
+//     runTests <- function(x, test, alpha) {
+//       tryCatch({
+//         suppressWarnings(diff <- switch(test, seas = seas.heuristic(x, 
+//                                                          ...) > 0.64, ocsb = with(ocsb.test(x, maxlag = 3, 
+//         lag.method = "AIC", ...), statistics > critical), 
+//         hegy = tail(uroot::hegy.test(x, deterministic = c(1, 
+//                                                           1, 0), maxlag = 3, lag.method = "AIC", ...)$pvalues, 
+//                                                           2)[-2] > alpha, ch = uroot::ch.test(x, type = "trig", 
+//                                                                                         ...)$pvalues["joint"] < alpha))
+//                                                           stopifnot(diff %in% c(0, 1))
+//         diff
+//       }, error = function(e) {
+//         warning(call. = FALSE, sprintf("The chosen seasonal unit root test encountered an error when testing for the %s difference.\nFrom %s(): %s\n%i seasonal differences will be used. Consider using a different unit root test.", 
+//                                        switch(as.character(D), `0` = "first", `1` = "second", 
+//                                               `2` = "third", paste0(D + 1, "th")), deparse(e$call[[1]]), 
+//                                               e$message, D))
+//         0
+//       })
+//     }
+//     dodiff <- runTests(x, test, alpha)
+//       if (dodiff && frequency(x)%%1 != 0) {
+//         warning("The time series frequency has been rounded to support seasonal differencing.", 
+//                 call. = FALSE)
+//         x <- ts(x, frequency = round(frequency(x)))
+//       }
+//       while (dodiff && D < max.D) {
+//         D <- D + 1
+//         x <- diff(x, lag = frequency(x))
+//         if (is.constant(x)) {
+//           return(D)
+//         }
+//         if (length(x) >= 2 * frequency(x) & D < max.D) {
+//           dodiff <- runTests(x, test, alpha)
+//         }
+//         else {
+//           dodiff <- FALSE
+//         }
+//       }
+//       return(D)
+//   }
+
 
 
 #endif
